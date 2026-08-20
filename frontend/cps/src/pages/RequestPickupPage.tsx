@@ -1,5 +1,5 @@
 
-export default function CreateShipmentScreen() {
+export default function RequestPickupPage() {
   return (
     <div className="page-shell light-shell">
       

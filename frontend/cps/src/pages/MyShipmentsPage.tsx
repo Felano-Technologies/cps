@@ -1,19 +1,6 @@
-import cpsLogo from '../assets/cps-logo.png';
-
-export default function OrderManagementScreen() {
+export default function MyShipmentsPage() {
   return (
     <div className="page-shell light-shell">
-      <header className="topbar">
-        <div className="brand-title"><img src={cpsLogo} alt="CPS Delivery Services" className="brand-logo" /></div>
-        <nav className="nav-links">
-          <span>Dashboard</span>
-          <span>Shipments</span>
-          <span className="active">Orders</span>
-          <span>Fleet</span>
-          <span>Billing</span>
-        </nav>
-        <button className="primary-green small">Create Shipment</button>
-      </header>
 
       <main className="container orders-screen">
         <div className="section-head-row">

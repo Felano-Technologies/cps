@@ -1,5 +1,5 @@
 
-export default function DashboardScreen() {
+export default function LiveOpsBoardPage() {
   return (
     <div className="page-shell light-shell">
       

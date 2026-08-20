@@ -1,5 +1,5 @@
 
-export default function LandingScreen() {
+export default function LandingPage() {
   return (
     <div className="page-shell light-shell">
       

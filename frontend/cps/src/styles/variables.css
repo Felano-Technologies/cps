@@ -1,0 +1,16 @@
+:root {
+  --navy: #0f172a;
+  --navy-dark: #0a1122;
+  --lime: #83d314;
+  --lime-hover: #72b810;
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #334155;
+  --muted: #64748b;
+  --green: var(--lime);
+  --green-dark: var(--navy);
+  --success-bg: #e0f3cb;
+  --danger-bg: #fee2e2;
+  --danger: #ef4444;
+}

@@ -1,70 +1,45 @@
-import { useState } from 'react';
-import './App.css';
-import cpsLogo from './assets/cps-logo.png';
-import LandingScreen from './screens/LandingScreen';
-import CreateShipmentScreen from './screens/CreateShipmentScreen';
-import DashboardScreen from './screens/DashboardScreen';
-import TrackingDetailsScreen from './screens/TrackingDetailsScreen';
-import RouteScreen from './screens/RouteScreen';
-import FleetOverviewScreen from './screens/FleetOverviewScreen';
-
-type ScreenKey =
-  | 'landing'
-  | 'dispatch'
-  | 'dashboard'
-  | 'tracking-details'
-  | 'route'
-  | 'fleet';
-
-const screens: { key: ScreenKey; label: string }[] = [
-  { key: 'landing', label: 'Home' },
-  { key: 'dispatch', label: 'Dispatch' },
-  { key: 'dashboard', label: 'Live Board' },
-  { key: 'tracking-details', label: 'Parcel Tracking' },
-  { key: 'route', label: 'Rider Route' },
-  { key: 'fleet', label: 'Fleet' },
-];
+import Topbar from './components/Topbar';
+import { Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import RequestPickupPage from './pages/RequestPickupPage';
+import LiveOpsBoardPage from './pages/LiveOpsBoardPage';
+import TrackingPage from './pages/TrackingPage';
+import RiderRoutePage from './pages/RiderRoutePage';
+import DeliveryDetailsPage from './pages/DeliveryDetailsPage';
+import CompletedJobsPage from './pages/CompletedJobsPage';
+import FleetManagementPage from './pages/FleetManagementPage';
+import MyShipmentsPage from './pages/MyShipmentsPage';
+import SettingsPage from './pages/SettingsPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
-  const [activeScreen, setActiveScreen] = useState<ScreenKey>('landing');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand-title"><img src={cpsLogo} alt="CPS Delivery Services" className="brand-logo" /></div>
+      <Topbar />
+
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
+
+        {/* Customer Flow */}
+        <Route path="/customer/pickup" element={<RequestPickupPage />} />
+        <Route path="/customer/shipments" element={<MyShipmentsPage />} />
+
+        {/* Operations Flow */}
+        <Route path="/ops/board" element={<LiveOpsBoardPage />} />
+        <Route path="/ops/fleet" element={<FleetManagementPage />} />
+        <Route path="/ops/tracking" element={<TrackingPage />} />
+
+        {/* Rider Flow */}
+        <Route path="/rider/route" element={<RiderRoutePage />} />
+        <Route path="/rider/job/:id" element={<DeliveryDetailsPage />} />
+        <Route path="/rider/history" element={<CompletedJobsPage />} />
+
+        {/* Settings */}
+        <Route path="/settings/*" element={<SettingsPage />} />
         
-        <button 
-          className="mobile-menu-btn" 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          ☰
-        </button>
-
-        <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`} aria-label="Screen switcher">
-          {screens.map((screen) => (
-            <span
-              key={screen.key}
-              className={activeScreen === screen.key ? 'active' : ''}
-              onClick={() => {
-                setActiveScreen(screen.key);
-                setMobileMenuOpen(false);
-              }}
-            >
-              {screen.label}
-            </span>
-          ))}
-        </nav>
-        <button className="primary-green small new-job-btn">New Job</button>
-      </header>
-
-      {activeScreen === 'landing' && <LandingScreen />}
-      {activeScreen === 'dispatch' && <CreateShipmentScreen />}
-      {activeScreen === 'dashboard' && <DashboardScreen />}
-      {activeScreen === 'tracking-details' && <TrackingDetailsScreen />}
-      {activeScreen === 'route' && <RouteScreen />}
-      {activeScreen === 'fleet' && <FleetOverviewScreen />}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </div>
   );
 }

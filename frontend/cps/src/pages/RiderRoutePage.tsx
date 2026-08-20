@@ -1,4 +1,4 @@
-export default function RouteScreen() {
+export default function RiderRoutePage() {
   return (
     <div className="page-shell route-shell">
       <div className="route-card">

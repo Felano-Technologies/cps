@@ -1,4 +1,4 @@
-export default function TrackingDetailsScreen() {
+export default function TrackingPage() {
   return (
     <div className="page-shell admin-shell">
       <aside className="sidebar">
