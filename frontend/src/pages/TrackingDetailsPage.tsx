@@ -1,45 +1,33 @@
-export default function TrackingPage() {
+import { useParams, Link } from 'react-router-dom';
+
+export default function TrackingDetailsPage() {
+  const { parcelId } = useParams();
+
   return (
-    <div className="page-shell admin-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">Dispatch Console</div>
-        <div className="sidebar-subtitle">Motorbike courier control</div>
-        <button className="primary-green sidebar-create">+ New Job</button>
-
-        <nav className="sidebar-nav">
-          <span>Jobs</span>
-          <span>Riders</span>
-          <span className="active-menu">Tracking</span>
-          <span>Fleet</span>
-          <span>Settings</span>
-        </nav>
-
-        <div className="sidebar-footer">
-          <span>Settings</span>
-          <span>Support</span>
-          <div className="user-box">Dispatch Lead</div>
+    <div className="page-shell light-shell">
+      <main className="container" style={{ paddingTop: '32px' }}>
+        <div style={{ marginBottom: '24px', fontSize: '0.9rem' }}>
+          <Link to="/ops-board" style={{ color: '#64748b', textDecoration: 'none' }}>Live Ops Board</Link>
+          <span style={{ margin: '0 8px', color: '#cbd5e1' }}>&gt;</span>
+          <span style={{ color: 'var(--navy)', fontWeight: 600 }}>Parcel Tracking</span>
         </div>
-      </aside>
 
-      <main className="admin-main">
-        <div className="back-link">← Back to Tracking List</div>
-
-        <div className="tracking-header-row">
+        <div className="tracking-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1>Parcel Tracking</h1>
           <div className="header-actions">
-            <div className="shipment-badge">CPS-9982-441-A</div>
+            <div className="shipment-badge">{parcelId || 'CPS-9982-441-A'}</div>
             <span className="status-green small-tag">In Transit</span>
             <button className="dark-btn small">Print Label</button>
             <button className="neutral-btn small">Share</button>
           </div>
         </div>
 
-        <div className="tracking-content">
+        <div className="tracking-content" style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>
           <div className="map-card large-map">
-            <div className="mini-map" />
+            <div className="mini-map" style={{ minHeight: '400px' }} />
           </div>
 
-          <aside className="history-panel">
+          <aside className="history-panel card-style">
             <div className="history-title">Tracking History</div>
             <div className="history-item green-item">
               <div className="history-icon">◉</div>
@@ -75,9 +63,9 @@ export default function TrackingPage() {
           </aside>
         </div>
 
-        <div className="details-grid">
-          <div className="info-block">
-            <div className="card-title">Route Details</div>
+        <div className="details-grid" style={{ display: 'grid', gap: '24px', marginTop: '24px', marginBottom: '48px' }}>
+          <div className="info-block card-style">
+            <div className="card-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px' }}>Route Details</div>
             <div className="route-detail-row">
               <span className="dot-black" />
               <div>
@@ -95,8 +83,8 @@ export default function TrackingPage() {
             </div>
           </div>
 
-          <div className="info-block">
-            <div className="card-title">Delivery Details</div>
+          <div className="info-block card-style">
+            <div className="card-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px' }}>Delivery Details</div>
             <div className="spec-row"><span>Item</span><strong>Small Parcel</strong></div>
             <div className="spec-row"><span>Priority</span><strong>Express</strong></div>
             <div className="spec-row"><span>Rider</span><strong>J. Doe</strong></div>

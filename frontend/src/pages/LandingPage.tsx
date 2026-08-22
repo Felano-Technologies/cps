@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
   return (
@@ -7,17 +8,17 @@ export default function LandingPage() {
         <div className="hero-copy">
           <h1>Fast. Reliable. Local.</h1>
           <p>
-            Professional motorbike courier operations for same-day pickups, urgent drops, and
+            Professional motorbike and van courier operations for same-day pickups, urgent drops, and
             time-sensitive deliveries across the city.
           </p>
 
           <div className="search-box-row">
             <div className="input-shell tracking-input">
               <span className="circle-icon" />
-              <input value="Enter tracking ID or pickup code" readOnly />
+              <input placeholder="Enter tracking ID or pickup code" />
             </div>
-            <button className="primary-green track-btn">Track</button>
-            <button className="dark-btn">Request Pickup</button>
+            <Link to="/shipments" className="primary-green track-btn" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Track</Link>
+            <Link to="/request-pickup" className="dark-btn" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Request Pickup</Link>
           </div>
         </div>
 
@@ -45,7 +46,7 @@ export default function LandingPage() {
             <div className="mini-photo van-photo" />
             <div className="service-text">
               <h3>Same-Day Delivery</h3>
-              <p>Fast point-to-point courier runs for urgent parcels, documents, and small goods.</p>
+              <p>Fast point-to-point courier runs for urgent parcels, documents, and small goods. Vans and motorbikes available.</p>
             </div>
           </article>
 
@@ -54,7 +55,7 @@ export default function LandingPage() {
             <div className="service-text">
               <h3>Rider Dispatch</h3>
               <p>Assign the nearest rider, track progress, and manage exceptions in real time.</p>
-              <button className="text-link">View Dispatch Board →</button>
+              <Link to="/ops-board" className="text-link">View Dispatch Board →</Link>
             </div>
           </article>
         </div>
@@ -70,17 +71,6 @@ export default function LandingPage() {
           </div>
         </article>
       </section>
-
-      <footer className="footer-bar">
-        <div className="brand-title small-brand">CPS Delivery Services</div>
-        <div className="footer-links">
-          <span>Service Terms</span>
-          <span>Support</span>
-          <span>Coverage</span>
-          <span>Contact</span>
-        </div>
-        <span>© 2026 CPS Delivery Services. All rights reserved.</span>
-      </footer>
     </div>
   );
 }

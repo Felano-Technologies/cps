@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export default function Map({ className = '' }: { className?: string }) {
   // Placeholder for real Mapbox/Leaflet integration

@@ -1,45 +1,149 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+
+
+// Contexts
+import { useAuth } from './contexts/AuthContext';
+
+// Components
 import Topbar from './components/Topbar';
-import { Routes, Route } from 'react-router-dom';
+import Footer from './components/Footer';
+
+// Pages
 import LandingPage from './pages/LandingPage';
+import SignInPage from './pages/SignInPage';
+import SignUpPage from './pages/SignUpPage';
+
+// Customer Pages
 import RequestPickupPage from './pages/RequestPickupPage';
+import MyshipmentsPage from './pages/MyShipmentsPage';
+
+// Operations Pages
 import LiveOpsBoardPage from './pages/LiveOpsBoardPage';
-import TrackingPage from './pages/TrackingPage';
-import RiderRoutePage from './pages/RiderRoutePage';
-import DeliveryDetailsPage from './pages/DeliveryDetailsPage';
-import CompletedJobsPage from './pages/CompletedJobsPage';
 import FleetManagementPage from './pages/FleetManagementPage';
-import MyShipmentsPage from './pages/MyShipmentsPage';
+import AdminPanelPage from './pages/AdminPanelPage';
+
+// Shared Pages
+import TrackingDetailsPage from './pages/TrackingDetailsPage';
 import SettingsPage from './pages/SettingsPage';
+
+// Rider Pages
+import RiderRoutePage from './pages/RiderRoutePage';
+
+// 404
 import NotFoundPage from './pages/NotFoundPage';
 
+/**
+ * Route Protection Component
+ * Only allows authenticated users to access protected routes
+ */
+function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <div>Loading...</div>;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * Main App Component
+ * - Topbar is rendered once, outside Routes for global availability
+ */
 function App() {
   return (
     <div className="app-shell">
       <Topbar />
+      <main className="app-main">
+        <Routes>
+          {/* PUBLIC ROUTES */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/signin" element={<SignInPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
 
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<LandingPage />} />
+          {/* CUSTOMER ROUTES */}
+          <Route
+            path="/request-pickup"
+            element={
+              <ProtectedRoute requiredRole="customer">
+                <RequestPickupPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/shipments"
+            element={
+              <ProtectedRoute requiredRole="customer">
+                <MyshipmentsPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Customer Flow */}
-        <Route path="/customer/pickup" element={<RequestPickupPage />} />
-        <Route path="/customer/shipments" element={<MyShipmentsPage />} />
+          {/* OPERATIONS ROUTES */}
+          <Route
+            path="/ops-board"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <LiveOpsBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fleet"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <FleetManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPanelPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Operations Flow */}
-        <Route path="/ops/board" element={<LiveOpsBoardPage />} />
-        <Route path="/ops/fleet" element={<FleetManagementPage />} />
-        <Route path="/ops/tracking" element={<TrackingPage />} />
+          {/* RIDER ROUTES */}
+          <Route
+            path="/route"
+            element={
+              <ProtectedRoute requiredRole="rider">
+                <RiderRoutePage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Rider Flow */}
-        <Route path="/rider/route" element={<RiderRoutePage />} />
-        <Route path="/rider/job/:id" element={<DeliveryDetailsPage />} />
-        <Route path="/rider/history" element={<CompletedJobsPage />} />
+          {/* SHARED ROUTES */}
+          <Route
+            path="/tracking/:parcelId"
+            element={
+              <ProtectedRoute>
+                <TrackingDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/*"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Settings */}
-        <Route path="/settings/*" element={<SettingsPage />} />
-        
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+      <Footer />
     </div>
   );
 }

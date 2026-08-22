@@ -1,81 +1,118 @@
-export default function MyShipmentsPage() {
+import { useNavigate } from 'react-router-dom';
+import '../styles/MyShipmentsPage.css';
+
+export default function MyshipmentsPage() {
+  const navigate = useNavigate();
+
   return (
     <div className="page-shell light-shell">
+      <main className="page-container">
+        <div className="page-header">
+          <h1>My Shipments</h1>
+          <p className="page-subtitle">Track and manage your requested pickups and deliveries.</p>
+        </div>
 
-      <main className="container orders-screen">
-        <div className="section-head-row">
-          <div>
-            <h2>Order Management</h2>
-            <p>Monitor incoming orders and assign them to the fleet.</p>
+        <div className="search-filter-section">
+          <div className="search-box">
+            <input className="search-input" placeholder="Search by Job ID or Destination..." />
           </div>
-          <div className="toolbar-actions">
-            <button className="dark-btn small">Filter</button>
-            <button className="primary-green small">+ Create Order</button>
+          <div className="filter-buttons">
+            <button className="filter-btn active">All Shipments</button>
+            <button className="filter-btn">In Transit</button>
+            <button className="filter-btn">Delivered</button>
+            <button className="filter-btn">Delayed</button>
           </div>
         </div>
 
-        <div className="summary-row-cards">
-          <div className="stat-card">
-            <div className="stat-head">Pending Orders</div>
-            <div className="stat-big">24</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-head">Active Drivers</div>
-            <div className="stat-big">18</div>
-          </div>
-          <div className="stat-card dark-card">
-            <div className="stat-head">Efficiency Rate</div>
-            <div className="stat-big">94% <span>+2%</span></div>
-          </div>
-        </div>
+        <div className="shipments-container">
+          <div className="shipments-list">
+            {/* Active Shipment */}
+            <div className="shipment-card status-active" onClick={() => navigate('/tracking/JOB-9021')}>
+              <div className="card-header">
+                <div className="shipment-info">
+                  <h3 className="job-id">JOB-9021</h3>
+                  <p className="destination">124 Industrial Pkwy, Sector 7</p>
+                </div>
+                <div className="status-badge">
+                  <span className="badge status-active">In Transit</span>
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="detail-row">
+                  <span className="detail-label">Service</span>
+                  <span className="detail-value">Motorbike Express</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">ETA</span>
+                  <span className="detail-value" style={{ color: '#22863a' }}>Today, 14:30</span>
+                </div>
+              </div>
+              <div className="card-footer">
+                <button className="btn-track">
+                  Track Parcel <span className="arrow">→</span>
+                </button>
+              </div>
+            </div>
 
-        <div className="table-panel">
-          <div className="search-header">
-            <span className="search-icon" />
-            <input value="Search Order ID or Customer..." readOnly />
-          </div>
+            {/* Delivered Shipment */}
+            <div className="shipment-card status-delivered" onClick={() => navigate('/tracking/JOB-8820')}>
+              <div className="card-header">
+                <div className="shipment-info">
+                  <h3 className="job-id">JOB-8820</h3>
+                  <p className="destination">890 Innovation Dr, Suite 400</p>
+                </div>
+                <div className="status-badge">
+                  <span className="badge status-delivered">Delivered</span>
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="detail-row">
+                  <span className="detail-label">Service</span>
+                  <span className="detail-value">Van Delivery</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Delivered At</span>
+                  <span className="detail-value">Yesterday, 16:45</span>
+                </div>
+              </div>
+              <div className="card-footer">
+                <button className="btn-track">
+                  View Details <span className="arrow">→</span>
+                </button>
+              </div>
+            </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Destination</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>#ORD-9021</td>
-                <td><div className="customer-pip">AC</div>Acme Corp</td>
-                <td>124 Industrial Pkwy, Sector 7</td>
-                <td><span className="tag danger">● Unassigned</span></td>
-                <td><button className="primary-green table-btn">Assign ▼</button></td>
-              </tr>
-              <tr>
-                <td>#ORD-9020</td>
-                <td><div className="customer-pip">TS</div>Tech Solutions</td>
-                <td>890 Innovation Dr, Suite 400</td>
-                <td><span className="tag success">● In Transit</span></td>
-                <td><button className="mini-action">✎</button></td>
-              </tr>
-            </tbody>
-          </table>
+            {/* Delayed Shipment */}
+            <div className="shipment-card status-delayed" onClick={() => navigate('/tracking/JOB-9104')}>
+              <div className="card-header">
+                <div className="shipment-info">
+                  <h3 className="job-id">JOB-9104</h3>
+                  <p className="destination">45 Downtown Ave, Floor 3</p>
+                </div>
+                <div className="status-badge">
+                  <span className="badge status-delayed">Delayed</span>
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="detail-row">
+                  <span className="detail-label">Service</span>
+                  <span className="detail-value">Motorbike Courier</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Status</span>
+                  <span className="detail-value" style={{ color: '#ef4444' }}>Traffic delay in Sector 4</span>
+                </div>
+              </div>
+              <div className="card-footer">
+                <button className="btn-track">
+                  Track Parcel <span className="arrow">→</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       </main>
-
-      <footer className="footer-bar black-footer">
-        <div className="brand-title small-brand">CPS Delivery Services</div>
-        <div className="footer-links">
-          <span>Privacy Policy</span>
-          <span>Terms of Service</span>
-          <span>Carrier Terms</span>
-          <span>Contact Support</span>
-          <span>Corporate</span>
-        </div>
-        <span>© 2024 CPS Delivery Services Infrastructure. All rights reserved.</span>
-      </footer>
     </div>
   );
 }

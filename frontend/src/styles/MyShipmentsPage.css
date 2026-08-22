@@ -1,0 +1,365 @@
+/* PAGE CONTAINER */
+.page-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* PAGE HEADER */
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.05em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: #64748b;
+}
+
+/* SEARCH & FILTER SECTION */
+.search-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 500px;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #83d314;
+  box-shadow: 0 0 0 3px rgba(131, 211, 20, 0.1);
+}
+
+.search-input::placeholder {
+  color: #cbd5e1;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.filter-btn.active {
+  background: #83d314;
+  color: #0f172a;
+  border-color: #83d314;
+  font-weight: 600;
+}
+
+/* SHIPMENTS LIST */
+.shipments-container {
+  margin-bottom: 32px;
+}
+
+.shipments-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+/* SHIPMENT CARD */
+.shipment-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shipment-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Card Status Styling */
+.shipment-card.status-delivered {
+  border-left: 4px solid #078c35;
+}
+
+.shipment-card.status-active {
+  border-left: 4px solid #83d314;
+}
+
+.shipment-card.status-delayed {
+  border-left: 4px solid #ef4444;
+}
+
+.shipment-card.status-pending {
+  border-left: 4px solid #64748b;
+}
+
+/* CARD HEADER */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.shipment-info {
+  flex: 1;
+}
+
+.job-id {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.destination {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.status-badge {
+  margin-left: 16px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-transform: capitalize;
+}
+
+.badge.status-delivered {
+  background: #e0f3cb;
+  color: #078c35;
+}
+
+.badge.status-active {
+  background: #e0ffe0;
+  color: #22863a;
+}
+
+.badge.status-delayed {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.badge.status-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* CARD BODY */
+.card-body {
+  padding: 16px 20px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.detail-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.detail-row:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* CARD FOOTER */
+.card-footer {
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-track {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #83d314;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.2s;
+}
+
+.btn-track:hover {
+  color: #72b810;
+}
+
+.arrow {
+  font-size: 16px;
+}
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.empty-state p {
+  color: #64748b;
+  margin: 0;
+}
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 24px 16px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+  }
+
+  .search-filter-section {
+    gap: 12px;
+  }
+
+  .search-input {
+    max-width: 100%;
+  }
+
+  .filter-buttons {
+    gap: 6px;
+  }
+
+  .filter-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .status-badge {
+    margin-left: 0;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .detail-label {
+    margin-bottom: 2px;
+  }
+
+  .job-id {
+    font-size: 14px;
+  }
+
+  .destination {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: 16px 12px;
+  }
+
+  .page-header h1 {
+    font-size: 20px;
+  }
+
+  .shipment-card {
+    border-left-width: 3px;
+  }
+
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: 12px 16px;
+  }
+
+  .btn-track {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .badge {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+}

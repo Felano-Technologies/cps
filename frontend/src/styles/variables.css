@@ -4,7 +4,7 @@
   --lime: #83d314;
   --lime-hover: #72b810;
   --bg: #f6f8fa;
-  --panel: #ffffff;
+  --panel: #F6F8FF;
   --border: #e2e8f0;
   --text: #334155;
   --muted: #64748b;
@@ -13,4 +13,11 @@
   --success-bg: #e0f3cb;
   --danger-bg: #fee2e2;
   --danger: #ef4444;
+  --warning: #f59e0b;
+  --warning-bg: #fef3c7;
+  --amber: #f59e0b;
+  --surface: #F6F8FF;
+  --overlay: rgba(15, 23, 42, 0.4);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
