@@ -1,75 +1,85 @@
-# React + TypeScript + Vite
+# CPS Delivery App — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the frontend application for the CPS Delivery Service, providing role-based web interfaces for customers, dispatch operators, and delivery riders. 
 
-Currently, two official plugins are available:
+Built with React, TypeScript, and Vite.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Features
 
-## React Compiler
+- **Role-Based Access Control**: Different dashboards tailored to the user's role:
+  - **Customers**: Request pickups (motorbike or van), view shipments, and track parcels.
+  - **Operations/Dispatch**: Live operations board, fleet management (status, locations, vehicle filtering), and active job assignments.
+  - **Riders/Couriers**: Mobile-first interface for viewing today's route, stops, and marking jobs as completed.
+- **Modern UI Architecture**: 
+  - Glassmorphism design system.
+  - Smooth micro-animations.
+  - Fully responsive, mobile-first pages tailored for on-the-go usage.
+- **Client-Side Routing**: Powered by React Router v7 with protected routes.
+- **Extensible CSS System**: Modular vanilla CSS using custom properties (`variables.css`), removing the need for heavy utility frameworks.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠 Tech Stack
 
-## Expanding the ESLint configuration
+- **Framework**: React 19 + TypeScript
+- **Bundler**: Vite
+- **Routing**: React Router DOM v7
+- **Styling**: Vanilla CSS (Modular architecture)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📦 Integration & Setup Guide
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+To set up the development environment, follow these steps:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 1. Prerequisites
+- Node.js (v18+ recommended)
+- npm (v9+)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2. Installation
+Clone the repository and navigate to the frontend directory:
 
+```bash
+cd frontend
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 3. Local Development
+Start the Vite development server:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The application will start at `http://localhost:5173`. 
+
+### 4. Build for Production
+To create a production build:
+
+```bash
+npm run build
+```
+The compiled assets will be placed in the `dist` directory, ready to be served.
+
+## 📁 Folder Structure
 
 ```
+frontend/
+├── src/
+│   ├── assets/          # Static assets (images, icons)
+│   ├── components/      # Shared React components (Topbar, Footer, etc.)
+│   ├── contexts/        # React Contexts (e.g., AuthContext)
+│   ├── pages/           # Route-level components (Landing, LiveOpsBoard, etc.)
+│   ├── styles/          # Modular CSS files (variables.css, layout.css, etc.)
+│   ├── App.tsx          # Root router & route definitions
+│   └── main.tsx         # Application entry point
+├── package.json
+└── vite.config.ts
+```
+
+## 🔐 Authentication (Current State)
+
+The application currently uses a mocked `AuthContext` backed by `localStorage` for demonstration purposes. This enables you to test all role-based dashboards without a backend.
+
+**To test different roles:**
+1. Navigate to the **Sign Up** page.
+2. Select your desired role (Customer, Operations, or Rider).
+3. Complete the form to log in and view the customized dashboard.
+
+*Note: In the next phase of integration, `AuthContext.tsx` should be updated to replace the mocked `localStorage` logic with actual API calls to your backend auth service.*
