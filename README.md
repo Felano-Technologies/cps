@@ -1,6 +1,6 @@
-# CPS Delivery App — Frontend
+# CPS Delivery App 
 
-This is the frontend application for the CPS Delivery Service, providing role-based web interfaces for customers, dispatch operators, and delivery riders. 
+This is the frontend application readme for the CPS Delivery Service, providing role-based web interfaces for customers, dispatch operators, and delivery riders. 
 
 Built with React, TypeScript, and Vite.
 
