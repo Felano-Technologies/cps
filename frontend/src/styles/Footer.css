@@ -1,0 +1,141 @@
+.app-footer {
+  background-color: #082b1d;
+  color: #ffffff;
+  padding: 40px 24px 24px;
+  font-family: "Inter", sans-serif;
+  width: 100%;
+}
+
+.footer-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.footer-card {
+  background-color: #123d2b;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.footer-logo {
+  height: 60px;
+  width: auto;
+}
+
+.footer-brand-name {
+  font-family: "Montserrat", sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.text-green {
+  color: var(--lime);
+}
+
+.footer-description {
+  color: #d1d5db;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.footer-cols {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.footer-section h4 {
+  color: var(--lime);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 16px;
+}
+
+.footer-links-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footer-links-col a, .footer-links-col span {
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 15px;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+
+.footer-links-col a:hover, .footer-links-col span:hover {
+  color: var(--lime);
+}
+
+.support-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.support-pill {
+  background-color: #1a573d;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: #f1f5f9;
+  text-decoration: none;
+  display: block;
+  transition: background-color 0.2s;
+}
+
+a.support-pill:hover {
+  background-color: #216f4e;
+}
+
+.footer-address {
+  color: #e2e8f0;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 8px;
+}
+
+.footer-bottom {
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1px solid #1a573d;
+  text-align: center;
+}
+
+.footer-bottom p {
+  color: #94a3b8;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+@media (min-width: 768px) {
+  .footer-cols {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1.2fr;
+    align-items: start;
+    gap: 48px;
+  }
+}

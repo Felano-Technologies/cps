@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import samedayImg from '../assets/sameday.png';
+import coverageImg from '../assets/coverage.jpg';
 
 export default function LandingPage() {
   return (
@@ -43,7 +45,7 @@ export default function LandingPage() {
 
         <div className="service-feature-grid">
           <article className="service-card wide-card">
-            <div className="mini-photo van-photo" />
+            <div className="mini-photo van-photo" style={{ backgroundImage: `url(${samedayImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
             <div className="service-text">
               <h3>Same-Day Delivery</h3>
               <p>Fast point-to-point courier runs for urgent parcels, documents, and small goods. Vans and motorbikes available.</p>
@@ -51,7 +53,7 @@ export default function LandingPage() {
           </article>
 
           <article className="service-card dark-green-card">
-            <div className="mini-icon globe-mini" />
+            <div className="mini-photo cargo-photo" />
             <div className="service-text">
               <h3>Rider Dispatch</h3>
               <p>Assign the nearest rider, track progress, and manage exceptions in real time.</p>
@@ -61,7 +63,9 @@ export default function LandingPage() {
         </div>
 
         <article className="service-card ship-card">
-          <div className="mini-photo cargo-photo" />
+          <div style={{ width: '100%', maxWidth: '360px', borderRadius: '2rem', overflow: 'hidden', flexShrink: 0 }}>
+            <img src={coverageImg} alt="Coverage Areas" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          </div>
           <div className="service-text">
             <h3>Coverage by Area</h3>
             <p>

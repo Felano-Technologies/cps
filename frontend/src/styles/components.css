@@ -23,8 +23,8 @@
 .dark-green-card p, .dark-green-card h3, .dark-green-card .text-link { color: #0d2012; }
 .service-text h3 { margin: 0 0 8px; color: var(--green-dark); font-size: clamp(1.6rem, 2vw, 2.2rem); }
 .service-text p { color: #4d5850; margin: 0; }
-.mini-photo { width: 360px; height: 170px; border-radius: 2rem; background: linear-gradient(135deg, #edf2ea, #c9d7c8); }
-.cargo-photo { width: 320px; background: url('../assets/hero.png') center/cover no-repeat; }
+.mini-photo { width: 100%; max-width: 360px; height: 170px; border-radius: 2rem; background: linear-gradient(135deg, #edf2ea, #c9d7c8); }
+.cargo-photo { width: 100%; max-width: 320px; background: url('../assets/hero.png') center/cover no-repeat; }
 .van-photo { position: relative; overflow: hidden; }
 .van-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.65), rgba(255,255,255,0.1)); }
 .mini-icon { width: 54px; height: 54px; border-radius: 50%; background: #10d45b; opacity: .9; }
@@ -175,7 +175,7 @@ th { color: #4f5457; font-size: .82rem; }
 }
 
 @media (max-width: 768px) {
-  .section-head-row, .fleet-head-row, .tracking-header-row, .billing-header-row, .route-header-row, .route-title-row, .stops-header-row {
+  .section-head-row, .fleet-head-row, .tracking-header-row, .billing-header-row, .route-header-row, .route-title-row, .stops-header-row, .service-card {
     flex-direction: column;
     align-items: flex-start;
   }
