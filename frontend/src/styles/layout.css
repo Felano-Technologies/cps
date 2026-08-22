@@ -11,11 +11,14 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
 }
 
 .page-shell,
-.admin-shell,
 .route-shell {
   width: 100%;
   min-height: 100vh;
   background: var(--bg);
+}
+
+.page-content {
+  padding: 32px 0;
 }
 
 .container {
@@ -34,13 +37,24 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 16px 32px;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 12px 28px;
+  margin: 16px auto;
+  width: min(1240px, calc(100% - 32px));
+  border-radius: 24px;
+  background: rgba(246, 248, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.9);
   position: sticky;
-  top: 0;
+  top: 16px;
   z-index: 100;
+  transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+}
+
+.topbar:hover {
+  box-shadow: 0 12px 48px rgba(15, 23, 42, 0.1), inset 0 1px 1px rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
 }
 
 .brand-title {
@@ -69,21 +83,39 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   font-weight: 500;
 }
 .nav-links span, .nav-links a {
+  position: relative;
   color: #64748b;
   text-decoration: none;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 1.5rem;
-  transition: all 0.2s ease;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: color 0.3s var(--ease-out), background-color 0.3s var(--ease-out);
+  overflow: hidden;
+}
+.nav-links span::before, .nav-links a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--lime);
+  opacity: 0;
+  transform: translateY(100%);
+  transition: transform 0.3s var(--ease-out), opacity 0.3s;
+  z-index: -1;
+  border-radius: 20px;
 }
 .nav-links span:hover, .nav-links a:hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
+  color: var(--navy);
+}
+.nav-links span:hover::before, .nav-links a:hover::before {
+  opacity: 0.1;
+  transform: translateY(0);
 }
 .nav-links span.active, .nav-links a.active {
-  color: var(--green-dark);
-  background-color: var(--success-bg);
+  color: var(--navy);
+  background: linear-gradient(135deg, rgba(131, 211, 20, 0.25) 0%, rgba(131, 211, 20, 0.05) 100%);
   font-weight: 600;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.8);
+  border: 1px solid rgba(131, 211, 20, 0.2);
 }
 
 .mobile-menu-btn { display: none; background: none; border: none; font-size: 1.8rem; color: var(--navy); cursor: pointer; padding: 4px; border-radius: 8px; }
@@ -103,25 +135,7 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
 .black-footer { background: #111; color: #fff; border-top-color: #111; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
 
-.admin-shell { display: grid; grid-template-columns: 260px 1fr; }
-.sidebar {
-  background: #fff; border-right: 1px solid var(--border); padding: 18px 16px;
-  display: flex; flex-direction: column;
-}
-.sidebar-brand { font-size: 2rem; line-height: 1; color: var(--green-dark); }
-.sidebar-subtitle { margin-top: 8px; color: #626660; }
-.sidebar-create { margin-top: 22px; width: 100%; min-height: 44px; }
-.sidebar-nav { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
-.sidebar-nav span { padding: 0.8rem 0.9rem; color: #4c5150; border-radius: 1.5rem; }
-.active-menu { background: var(--green); color: #0b1210 !important; font-weight: 700; }
-.sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding-top: 18px; border-top: 1px solid var(--border); }
-.user-box { min-height: 42px; border-radius: 999px; background: #f4f4f4; display: grid; place-items: center; }
-.admin-main { padding: 24px 24px 18px; }
 
-@media (max-width: 1100px) {
-  .admin-shell { grid-template-columns: 1fr; }
-  .nav-links { gap: 18px; }
-}
 
 @media (max-width: 768px) {
   .mobile-menu-btn { display: block; }
@@ -149,7 +163,7 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   
   .new-job-btn { margin-left: auto; }
 
-  .container, .page-shell, .admin-shell {
+  .container, .page-shell {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
