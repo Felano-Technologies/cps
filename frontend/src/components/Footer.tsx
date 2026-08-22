@@ -1,15 +1,83 @@
+import { Link } from 'react-router-dom';
+import cpsLogo from '../assets/logo2.png';
+
 export default function Footer() {
   return (
-    <footer className="footer-bar black-footer">
-      <div className="brand-title small-brand">CPS Delivery Services</div>
-      <div className="footer-links">
-        <span>Privacy Policy</span>
-        <span>Terms of Service</span>
-        <span>Carrier Terms</span>
-        <span>Contact Support</span>
-        <span>Corporate</span>
+    <footer className="app-footer">
+      <div className="footer-container">
+        
+        <div className="footer-cols">
+          
+          {/* Column 1: Brand & Office */}
+          <div className="footer-col">
+            <div className="footer-card">
+              <div className="footer-brand">
+                <img src={cpsLogo} alt="CPS Delivery Services" className="footer-logo" />
+                <div className="footer-brand-name">
+                  <span className="text-green">CPS</span> Delivery <span className="text-green">Services</span>
+                </div>
+              </div>
+              <p className="footer-description">
+                CPS Delivery Services is building a local commerce marketplace and logistics network for buyers and sellers across Ghana.
+              </p>
+            </div>
+
+            <div className="footer-section" style={{ padding: '0 8px' }}>
+              <h4>Office</h4>
+              <p className="footer-address">
+                Ayeduase Gate, near KNUST, Kumasi.
+              </p>
+            </div>
+          </div>
+
+          {/* Column 2: Quick Links */}
+          <div className="footer-col" style={{ padding: '0 8px' }}>
+            <div className="footer-section">
+              <h4>Quick Links</h4>
+              <div className="footer-links-col">
+                <Link to="/">Home</Link>
+                <Link to="/about">About Us</Link>
+                <Link to="/services">Services</Link>
+                <Link to="/contact">Contact Us</Link>
+                <Link to="/faq">FAQ</Link>
+              </div>
+            </div>
+
+            <div className="footer-section">
+              <h4>Our Services</h4>
+              <div className="footer-links-col">
+                <Link to="/services/same-day">Same Day Delivery</Link>
+                <Link to="/services/express">Express Delivery</Link>
+                <Link to="/services/standard">Standard Delivery</Link>
+                <Link to="/services/bulk">Bulk Delivery</Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 3: Support */}
+          <div className="footer-col">
+            <div className="footer-card">
+              <div className="footer-section">
+                <h4>Support</h4>
+                <div className="support-list">
+                  <a href="tel:+233506514687" className="support-pill">Call: +233 50 651 4687</a>
+                  <a href="https://wa.me/233534583364" target="_blank" rel="noopener noreferrer" className="support-pill">WhatsApp: +233 53 458 3364</a>
+                  <a href="mailto:cpsdeliverygh@gmail.com" className="support-pill">cpsdeliverygh@gmail.com</a>
+                  <div className="support-pill">Mon - Fri: 8am - 5pm</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Bottom Copyright */}
+        <div className="footer-bottom">
+          <p>© 2026 CPS Delivery Services. All rights reserved.</p>
+          <p>Kumasi, Ashanti Region, Ghana</p>
+        </div>
+
       </div>
-      <span>© 2026 CPS Delivery Services Infrastructure. All rights reserved.</span>
-    </footer>
+    </footer >
   );
 }
