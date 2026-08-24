@@ -22,8 +22,7 @@ html, body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #08111e;
-  overflow-x: hidden;
+  background: var(--bg, #ffffff);
   width: 100%;
 }
 
