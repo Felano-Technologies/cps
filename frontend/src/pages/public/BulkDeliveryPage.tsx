@@ -19,7 +19,7 @@ export default function BulkDeliveryPage() {
 
       <section className="services-wrapper container" style={{ marginTop: '32px', marginBottom: '80px' }}>
         <h2>Built for Volume</h2>
-        <div className="service-feature-grid" style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+        <div className="service-feature-grid" style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <article className="service-card dark-green-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '16px', color: 'var(--lime)' }}>🚛 Van & Truck Fleet</h3>
             <p style={{ color: '#e2e8f0' }}>Access our specialized fleet of cargo vans and box trucks for heavy or high-volume shipments.</p>

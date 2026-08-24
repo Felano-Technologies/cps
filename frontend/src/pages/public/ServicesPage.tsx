@@ -13,7 +13,7 @@ export default function ServicesPage() {
       </main>
 
       <section className="services-wrapper container" style={{ marginTop: '32px', marginBottom: '80px' }}>
-        <div className="service-feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '32px' }}>
+        <div className="service-feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
           
           <article className="service-card wide-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '1.8rem', color: 'var(--navy)' }}>Same Day Delivery</h3>

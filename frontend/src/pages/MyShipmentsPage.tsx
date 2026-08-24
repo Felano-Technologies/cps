@@ -31,7 +31,7 @@ export default function MyshipmentsPage() {
               <div className="card-header">
                 <div className="shipment-info">
                   <h3 className="job-id">JOB-9021</h3>
-                  <p className="destination">124 Industrial Pkwy, Sector 7</p>
+                  <p className="destination">124 Spintex Road, Accra</p>
                 </div>
                 <div className="status-badge">
                   <span className="badge status-active">In Transit</span>
@@ -59,7 +59,7 @@ export default function MyshipmentsPage() {
               <div className="card-header">
                 <div className="shipment-info">
                   <h3 className="job-id">JOB-8820</h3>
-                  <p className="destination">890 Innovation Dr, Suite 400</p>
+                  <p className="destination">Tech Hub, KNUST Campus</p>
                 </div>
                 <div className="status-badge">
                   <span className="badge status-delivered">Delivered</span>
@@ -87,7 +87,7 @@ export default function MyshipmentsPage() {
               <div className="card-header">
                 <div className="shipment-info">
                   <h3 className="job-id">JOB-9104</h3>
-                  <p className="destination">45 Downtown Ave, Floor 3</p>
+                  <p className="destination">Adum, Kumasi</p>
                 </div>
                 <div className="status-badge">
                   <span className="badge status-delayed">Delayed</span>
@@ -100,7 +100,7 @@ export default function MyshipmentsPage() {
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Status</span>
-                  <span className="detail-value" style={{ color: '#ef4444' }}>Traffic delay in Sector 4</span>
+                  <span className="detail-value" style={{ color: '#ef4444' }}>Traffic delay at Kejetia</span>
                 </div>
               </div>
               <div className="card-footer">

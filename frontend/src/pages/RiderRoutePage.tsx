@@ -42,7 +42,7 @@ export default function RiderRoutePage() {
         <div className="next-stop-row" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '24px', padding: '16px', background: '#fff', border: '2px solid var(--green)', borderRadius: '12px', boxShadow: '0 4px 12px rgba(131, 211, 20, 0.15)' }}>
           <div style={{ flex: 1 }}>
             <div className="next-label" style={{ color: 'var(--green-dark)', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>NEXT STOP (0.8 mi)</div>
-            <div className="next-address" style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--navy)' }}>1400 1st Ave, Seattle, WA</div>
+            <div className="next-address" style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--navy)' }}>Harper Road, Adum, Kumasi</div>
           </div>
           <div className="next-button" style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--green)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer' }}>
             ➜

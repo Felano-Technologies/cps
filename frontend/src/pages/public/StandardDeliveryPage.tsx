@@ -19,7 +19,7 @@ export default function StandardDeliveryPage() {
 
       <section className="services-wrapper container" style={{ marginTop: '32px', marginBottom: '80px' }}>
         <h2>Standard Excellence</h2>
-        <div className="service-feature-grid" style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+        <div className="service-feature-grid" style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <article className="service-card dark-green-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '16px', color: 'var(--lime)' }}>💰 Cost-Effective</h3>
             <p style={{ color: '#e2e8f0' }}>Optimized zone-based routing allows us to keep delivery costs low without sacrificing reliability.</p>
