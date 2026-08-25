@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import samedayImg from '../assets/sameday.png';
-import coverageImg from '../assets/coverage.jpg';
+import samedayImg from '../../assets/sameday.png';
+import coverageImg from '../../assets/coverage.jpg';
 
 export default function LandingPage() {
   return (

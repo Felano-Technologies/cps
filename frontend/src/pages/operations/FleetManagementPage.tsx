@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../../components/EmptyState';
 
 type VehicleType = 'Motorbike' | 'Van' | 'Truck';
 type FleetStatus = 'Available' | 'En Route' | 'Loading' | 'Maintenance' | 'Offline';

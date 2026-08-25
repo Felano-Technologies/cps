@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
-import type { UserRole } from '../contexts/AuthContext';
+import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
+import type { UserRole } from '../../contexts/AuthContext';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');

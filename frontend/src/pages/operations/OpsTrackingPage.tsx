@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import OrderPrintModal from '../components/OrderPrintModal';
+import OrderPrintModal from '../../components/OrderPrintModal';
 
 interface TrackingEvent {
   title: string;

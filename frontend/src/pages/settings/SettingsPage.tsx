@@ -1,11 +1,11 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Import role-specific settings components
-import CustomerSettings from './settings/CustomerSettings';
-import OpsSettings from './settings/OpsSettings';
-import RiderSettings from './settings/RiderSettings';
-import AdminSettings from './settings/AdminSettings';
+import CustomerSettings from './CustomerSettings';
+import OpsSettings from './OpsSettings';
+import RiderSettings from './RiderSettings';
+import AdminSettings from './AdminSettings';
 
 export default function SettingsPage() {
   const { user, isAuthenticated, isLoading } = useAuth();

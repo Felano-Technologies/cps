@@ -4,15 +4,15 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 // Contexts
 import { useAuth } from './contexts/AuthContext';
 
-// Components
 import Topbar from './components/Topbar';
 import Footer from './components/Footer';
+import MobileNavigationBar from './components/MobileNavigationBar';
 import ScrollToTop from './components/ScrollToTop';
 
 // Pages
-import LandingPage from './pages/LandingPage';
-import SignInPage from './pages/SignInPage';
-import SignUpPage from './pages/SignUpPage';
+import LandingPage from './pages/public/LandingPage';
+import SignInPage from './pages/auth/SignInPage';
+import SignUpPage from './pages/auth/SignUpPage';
 
 // Public Static Pages
 import AboutPage from './pages/public/AboutPage';
@@ -25,26 +25,27 @@ import StandardDeliveryPage from './pages/public/StandardDeliveryPage';
 import BulkDeliveryPage from './pages/public/BulkDeliveryPage';
 
 // Customer Pages
-import RequestPickupPage from './pages/RequestPickupPage';
-import MyshipmentsPage from './pages/MyShipmentsPage';
+import RequestPickupPage from './pages/customer/RequestPickupPage';
+import MyshipmentsPage from './pages/customer/MyShipmentsPage';
 
 // Operations Pages
-import LiveOpsBoardPage from './pages/LiveOpsBoardPage';
-import FleetManagementPage from './pages/FleetManagementPage';
-import OpsAlertsPage from './pages/OpsAlertsPage';
-import OpsAnalyticsPage from './pages/OpsAnalyticsPage';
-import AdminPanelPage from './pages/AdminPanelPage';
+import LiveOpsBoardPage from './pages/operations/LiveOpsBoardPage';
+import FleetManagementPage from './pages/operations/FleetManagementPage';
+import OpsAlertsPage from './pages/operations/OpsAlertsPage';
+import OpsAnalyticsPage from './pages/operations/OpsAnalyticsPage';
+import AdminPanelPage from './pages/admin/AdminPanelPage';
 
 // Shared Pages
-import CustomerTrackingPage from './pages/CustomerTrackingPage';
-import OpsTrackingPage from './pages/OpsTrackingPage';
-import SettingsPage from './pages/SettingsPage';
+import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
+import OpsTrackingPage from './pages/operations/OpsTrackingPage';
+import SettingsPage from './pages/settings/SettingsPage';
 
 // Rider Pages
-import RiderRoutePage from './pages/RiderRoutePage';
+import RiderDashboardPage from './pages/rider/RiderDashboardPage';
+import RiderRoutePage from './pages/rider/RiderRoutePage';
 
 // 404
-import NotFoundPage from './pages/NotFoundPage';
+import NotFoundPage from './pages/public/NotFoundPage';
 
 /**
  * Route Protection Component
@@ -71,6 +72,9 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
  * - Topbar is rendered once, outside Routes for global availability
  */
 function App() {
+  const { user } = useAuth();
+  const isStaff = user && ['rider', 'operations', 'admin'].includes(user.role);
+
   return (
     <div className="app-shell">
       <ScrollToTop />
@@ -152,6 +156,14 @@ function App() {
 
           {/* RIDER ROUTES */}
           <Route
+            path="/rider-board"
+            element={
+              <ProtectedRoute requiredRole="rider">
+                <RiderDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/route"
             element={
               <ProtectedRoute requiredRole="rider">
@@ -190,7 +202,21 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      <Footer />
+      
+      {/* Dynamic Bottom Navigation / Footer */}
+      {isStaff ? (
+        <>
+          <MobileNavigationBar />
+          {/* Hide standard footer spacing on mobile when staff */}
+          <style>{`
+            @media (max-width: 768px) {
+              .app-shell { padding-bottom: 80px; }
+            }
+          `}</style>
+        </>
+      ) : (
+        <Footer />
+      )}
     </div>
   );
 }
