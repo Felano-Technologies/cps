@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EmptyState from '../components/EmptyState';
 import '../styles/MyShipmentsPage.css';
 
 interface Shipment {
@@ -108,8 +109,14 @@ export default function MyShipmentsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center' }}>
-                    <div style={{ color: '#94a3b8', fontSize: '16px', fontWeight: 500 }}>No shipments found.</div>
+                  <td colSpan={6} style={{ padding: 0 }}>
+                    <EmptyState 
+                      icon="📦"
+                      title="No Shipments Found"
+                      message="You don't have any orders matching your current filter."
+                      actionLabel="Clear Filter"
+                      onAction={() => setActiveFilter('All')}
+                    />
                   </td>
                 </tr>
               )}

@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
+export const getRoleDashboard = (role?: UserRole): string => {
+  switch (role) {
+    case 'operations': return '/ops-board';
+    case 'rider': return '/route';
+    case 'admin': return '/admin';
+    case 'customer': return '/request-pickup';
+    default: return '/';
+  }
+};
+
 export interface User {
   id: string;
   name: string;
@@ -16,8 +26,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (name: string, email: string, password: string, role: UserRole) => Promise<User>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -64,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(mockUser);
       localStorage.setItem('cps_user', JSON.stringify(mockUser));
+      return mockUser;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
@@ -87,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(mockUser);
       localStorage.setItem('cps_user', JSON.stringify(mockUser));
+      return mockUser;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Signup failed';
       setError(message);

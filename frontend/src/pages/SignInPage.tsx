@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 
 export default function SignInPage() {
@@ -13,8 +13,8 @@ export default function SignInPage() {
   const handleQuickLogin = async (role: UserRole) => {
     setLocalError('');
     try {
-      await signup(`Demo ${role}`, `demo@${role}.com`, 'password', role);
-      navigate('/');
+      const user = await signup(`Demo ${role}`, `demo@${role}.com`, 'password', role);
+      navigate(getRoleDashboard(user.role));
     } catch (err) {
       setLocalError('Quick login failed');
     }
@@ -24,8 +24,8 @@ export default function SignInPage() {
     e.preventDefault();
     setLocalError('');
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password);
+      navigate(getRoleDashboard(user.role));
     } catch (err) {
       setLocalError('Invalid email or password');
     }
