@@ -4,10 +4,10 @@ export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
 export const getRoleDashboard = (role?: UserRole): string => {
   switch (role) {
+    case 'customer': return '/shipments';
     case 'operations': return '/ops-board';
-    case 'rider': return '/route';
     case 'admin': return '/admin';
-    case 'customer': return '/request-pickup';
+    case 'rider': return '/rider-board';
     default: return '/';
   }
 };

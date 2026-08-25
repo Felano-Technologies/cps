@@ -4,9 +4,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 // Contexts
 import { useAuth } from './contexts/AuthContext';
 
-// Components
 import Topbar from './components/Topbar';
 import Footer from './components/Footer';
+import MobileNavigationBar from './components/MobileNavigationBar';
 import ScrollToTop from './components/ScrollToTop';
 
 // Pages
@@ -41,6 +41,7 @@ import OpsTrackingPage from './pages/operations/OpsTrackingPage';
 import SettingsPage from './pages/settings/SettingsPage';
 
 // Rider Pages
+import RiderDashboardPage from './pages/rider/RiderDashboardPage';
 import RiderRoutePage from './pages/rider/RiderRoutePage';
 
 // 404
@@ -71,6 +72,9 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
  * - Topbar is rendered once, outside Routes for global availability
  */
 function App() {
+  const { user } = useAuth();
+  const isStaff = user && ['rider', 'operations', 'admin'].includes(user.role);
+
   return (
     <div className="app-shell">
       <ScrollToTop />
@@ -152,6 +156,14 @@ function App() {
 
           {/* RIDER ROUTES */}
           <Route
+            path="/rider-board"
+            element={
+              <ProtectedRoute requiredRole="rider">
+                <RiderDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/route"
             element={
               <ProtectedRoute requiredRole="rider">
@@ -190,7 +202,21 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      <Footer />
+      
+      {/* Dynamic Bottom Navigation / Footer */}
+      {isStaff ? (
+        <>
+          <MobileNavigationBar />
+          {/* Hide standard footer spacing on mobile when staff */}
+          <style>{`
+            @media (max-width: 768px) {
+              .app-shell { padding-bottom: 80px; }
+            }
+          `}</style>
+        </>
+      ) : (
+        <Footer />
+      )}
     </div>
   );
 }

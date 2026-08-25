@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import cpsLogo from '../assets/logo2.png';
 import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 
-const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
+export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   customer: [
     { path: '/request-pickup', label: 'Request Pickup' },
     { path: '/shipments', label: 'My Shipments' },
@@ -21,7 +21,8 @@ const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
     { path: '/settings', label: 'Settings' },
   ],
   rider: [
-    { path: '/route', label: 'Today\'s Route' },
+    { path: '/rider-board', label: 'Dashboard' },
+    { path: '/route', label: 'Active Route' },
     { path: '/settings', label: 'Settings' },
   ],
 };
