@@ -7,8 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8787',
+        target: 'https://cps-production-6d97.up.railway.app',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

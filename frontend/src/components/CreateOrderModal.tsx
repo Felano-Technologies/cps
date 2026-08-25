@@ -1,12 +1,79 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
+import api from '../services/api';
+import { useToast } from '../contexts/ToastContext';
+import type { CreateShipmentInput, PackageType, Shipment, ShipmentPriority, ShipmentSpeed, VehicleType } from '../types/models';
 
 interface CreateOrderModalProps {
   onClose: () => void;
-  onCreate: () => void;
+  onCreate: (shipment: Shipment) => void;
+}
+
+const REGIONS = ['Kumasi', 'Accra', 'Takoradi', 'Sunyani', 'Tamale'];
+
+const PACKAGE_TYPE_OPTIONS: { value: PackageType; label: string }[] = [
+  { value: 'document', label: 'Document' },
+  { value: 'parcel', label: 'Parcel' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'fragile', label: 'Fragile' },
+  { value: 'food', label: 'Food' },
+  { value: 'other', label: 'Other' },
+];
+
+const SPEED_OPTIONS: { value: ShipmentSpeed; label: string }[] = [
+  { value: 'same_day', label: 'Same Day' },
+  { value: 'next_day', label: 'Next Day' },
+  { value: 'express', label: 'Express' },
+];
+
+const VEHICLE_OPTIONS: { value: VehicleType; label: string }[] = [
+  { value: 'motorbike', label: 'Motorbike' },
+  { value: 'van', label: 'Van' },
+  { value: 'truck', label: 'Truck' },
+];
+
+interface FormState {
+  senderName: string;
+  senderNumber: string;
+  pickupRegion: string;
+  pickupLocation: string;
+  receiverName: string;
+  receiverNumber: string;
+  dropoffRegion: string;
+  dropoffLocation: string;
+  packageType: PackageType;
+  speed: ShipmentSpeed;
+  priority: ShipmentPriority;
+  vehicleType: VehicleType;
+}
+
+const initialFormState: FormState = {
+  senderName: '',
+  senderNumber: '',
+  pickupRegion: 'Kumasi',
+  pickupLocation: '',
+  receiverName: '',
+  receiverNumber: '',
+  dropoffRegion: 'Kumasi',
+  dropoffLocation: '',
+  packageType: 'parcel',
+  speed: 'same_day',
+  priority: 'standard',
+  vehicleType: 'motorbike',
+};
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return fallback;
 }
 
 export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
+  const toast = useToast();
+  const [formData, setFormData] = useState<FormState>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Close on Escape key
   useEffect(() => {
@@ -17,19 +84,46 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsSubmitting(true);
-    // Simulate network request
-    setTimeout(() => {
+
+    const payload: CreateShipmentInput = {
+      vehicleType: formData.vehicleType,
+      priority: formData.priority,
+      speed: formData.speed,
+      packageType: formData.packageType,
+      senderName: formData.senderName,
+      senderNumber: formData.senderNumber,
+      pickupRegion: formData.pickupRegion,
+      pickupLocation: formData.pickupLocation,
+      receiverName: formData.receiverName,
+      receiverNumber: formData.receiverNumber,
+      dropoffRegion: formData.dropoffRegion,
+      dropoffLocation: formData.dropoffLocation,
+    };
+
+    try {
+      const response = await api.post<Shipment>('/shipments', payload);
+      onCreate(response.data);
+      onClose();
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to create order. Please try again.');
+      setError(message);
+      toast.error(message);
+    } finally {
       setIsSubmitting(false);
-      onCreate();
-    }, 800);
+    }
   };
 
   return (
-    <div 
-      className="modal-overlay" 
+    <div
+      className="modal-overlay"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)',
@@ -37,8 +131,8 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
         zIndex: 1000, padding: '16px'
       }}
     >
-      <div 
-        className="modal-content" 
+      <div
+        className="modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '600px',
@@ -51,8 +145,8 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Create New Order</h2>
             <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Manually dispatch a package for delivery.</div>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             style={{ background: 'none', border: 'none', fontSize: '24px', color: '#94a3b8', cursor: 'pointer' }}
           >
             &times;
@@ -61,7 +155,13 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
 
         <div style={{ padding: '24px', overflowY: 'auto' }}>
           <form id="create-order-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
+
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '8px', padding: '12px 16px', fontWeight: 600, fontSize: '14px' }}>
+                {error}
+              </div>
+            )}
+
             {/* Sender & Receiver Section */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -71,11 +171,43 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                 </h4>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Sender Name</label>
-                  <input type="text" required placeholder="John Doe" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }} />
+                  <input
+                    type="text" required placeholder="John Doe"
+                    value={formData.senderName}
+                    onChange={(e) => updateField('senderName', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Sender Number</label>
+                  <input
+                    type="tel" required placeholder="0241234567"
+                    value={formData.senderNumber}
+                    onChange={(e) => updateField('senderNumber', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Pickup Region</label>
+                  <select
+                    required
+                    value={formData.pickupRegion}
+                    onChange={(e) => updateField('pickupRegion', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                  >
+                    {REGIONS.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Pickup Address</label>
-                  <input type="text" required placeholder="124 Spintex Road" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }} />
+                  <input
+                    type="text" required placeholder="124 Spintex Road"
+                    value={formData.pickupLocation}
+                    onChange={(e) => updateField('pickupLocation', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  />
                 </div>
               </div>
 
@@ -86,11 +218,43 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                 </h4>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Recipient Name</label>
-                  <input type="text" required placeholder="Jane Smith" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px' }} />
+                  <input
+                    type="text" required placeholder="Jane Smith"
+                    value={formData.receiverName}
+                    onChange={(e) => updateField('receiverName', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Recipient Number</label>
+                  <input
+                    type="tel" required placeholder="0559876543"
+                    value={formData.receiverNumber}
+                    onChange={(e) => updateField('receiverNumber', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Dropoff Region</label>
+                  <select
+                    required
+                    value={formData.dropoffRegion}
+                    onChange={(e) => updateField('dropoffRegion', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px', background: '#fff' }}
+                  >
+                    {REGIONS.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Delivery Address</label>
-                  <input type="text" required placeholder="KNUST Campus" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px' }} />
+                  <input
+                    type="text" required placeholder="KNUST Campus"
+                    value={formData.dropoffLocation}
+                    onChange={(e) => updateField('dropoffLocation', e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px' }}
+                  />
                 </div>
               </div>
             </div>
@@ -98,23 +262,56 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
             {/* Specs Section */}
             <div>
               <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', color: '#0f172a' }}>Package Specs</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Item Type</label>
-                  <select required style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}>
-                    <option value="" disabled selected>Select type...</option>
-                    <option value="document">Document</option>
-                    <option value="small-parcel">Small Parcel</option>
-                    <option value="large-box">Large Box</option>
-                    <option value="fragile">Fragile</option>
+                  <select
+                    required
+                    value={formData.packageType}
+                    onChange={(e) => updateField('packageType', e.target.value as PackageType)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                  >
+                    {PACKAGE_TYPE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Vehicle Type</label>
+                  <select
+                    required
+                    value={formData.vehicleType}
+                    onChange={(e) => updateField('vehicleType', e.target.value as VehicleType)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                  >
+                    {VEHICLE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Delivery Speed</label>
+                  <select
+                    required
+                    value={formData.speed}
+                    onChange={(e) => updateField('speed', e.target.value as ShipmentSpeed)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                  >
+                    {SPEED_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Priority</label>
-                  <select required style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}>
+                  <select
+                    required
+                    value={formData.priority}
+                    onChange={(e) => updateField('priority', e.target.value as ShipmentPriority)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                  >
                     <option value="standard">Standard</option>
-                    <option value="same-day">Same Day</option>
-                    <option value="express">Express</option>
+                    <option value="high">High</option>
                   </select>
                 </div>
               </div>
@@ -127,10 +324,10 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
           <button type="button" onClick={onClose} className="neutral-btn" style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
             Cancel
           </button>
-          <button 
-            type="submit" 
-            form="create-order-form" 
-            className="primary-green" 
+          <button
+            type="submit"
+            form="create-order-form"
+            className="primary-green"
             disabled={isSubmitting}
             style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', opacity: isSubmitting ? 0.7 : 1 }}
           >

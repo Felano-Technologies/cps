@@ -43,8 +43,6 @@ router.post('/register', async (req, res) => {
     },
   });
 
-  const token = signToken({ userId: user.id, role: user.role });
-  setSessionCookie(res, token);
   res.status(201).json(toPublicUser(user));
 });
 

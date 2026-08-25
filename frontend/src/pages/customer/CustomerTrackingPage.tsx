@@ -1,17 +1,149 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import api from '../../services/api';
+import EmptyState from '../../components/EmptyState';
+import { useToast } from '../../contexts/ToastContext';
+import type { Shipment, ShipmentStatus, ShipmentSpeed, VehicleType } from '../../types/models';
+
+const VEHICLE_LABELS: Record<VehicleType, string> = {
+  motorbike: 'Motorbike',
+  van: 'Van',
+  truck: 'Truck',
+};
+
+const SPEED_LABELS: Record<ShipmentSpeed, string> = {
+  same_day: 'Same Day',
+  next_day: 'Next Day',
+  express: 'Express',
+};
+
+const STATUS_EVENT_LABELS: Record<ShipmentStatus, string> = {
+  pending: 'Order Placed',
+  picked_up: 'Package Picked Up',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  delayed: 'Delayed',
+  failed: 'Delivery Failed',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_EVENT_DESCRIPTIONS: Record<ShipmentStatus, string> = {
+  pending: 'Your order has been placed and is awaiting pickup.',
+  picked_up: 'Item collected from the sender.',
+  in_transit: 'Your package is on its way.',
+  out_for_delivery: 'Package has been dispatched from the hub.',
+  delivered: 'Package delivered successfully.',
+  delayed: 'This delivery has been delayed.',
+  failed: 'The delivery attempt was unsuccessful.',
+  cancelled: 'This shipment was cancelled.',
+};
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function mapCaption(status: ShipmentStatus): string {
+  switch (status) {
+    case 'delivered': return 'Package delivered';
+    case 'cancelled': return 'Shipment cancelled';
+    case 'failed': return 'Delivery attempt failed';
+    case 'pending': return 'Awaiting pickup';
+    default: return 'In transit';
+  }
+}
 
 export default function CustomerTrackingPage() {
   const { parcelId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!parcelId) {
+      setIsLoading(false);
+      setError('No shipment ID was provided.');
+      return;
+    }
+
+    async function fetchShipment() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.get<Shipment>(`/shipments/${parcelId}`);
+        if (isMounted) {
+          setShipment(response.data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setShipment(null);
+          if (axios.isAxiosError(err) && err.response?.status === 404) {
+            setError("We couldn't find a shipment with that tracking code.");
+          } else {
+            setError(extractErrorMessage(err, 'Failed to load tracking details. Please try again later.'));
+            toast.error('Failed to load tracking information.');
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchShipment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [parcelId]);
+
+  if (isLoading) {
+    return (
+      <div className="page-shell light-shell">
+        <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
+          <p style={{ color: '#64748b', fontSize: '15px', fontWeight: 500 }}>Loading tracking details...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (error || !shipment) {
+    return (
+      <div className="page-shell light-shell">
+        <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
+          <EmptyState
+            icon="🔍"
+            title="Shipment Not Found"
+            message={error || "We couldn't find that shipment."}
+            actionLabel="Back to Shipments"
+            onAction={() => navigate('/shipments')}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  const statusEvents = shipment.statusEvents ?? [];
 
   return (
     <div className="page-shell light-shell">
-      {/* 
-        Fix spacing with footer by applying generous bottom padding to the main container 
-        (e.g., 120px padding bottom).
-      */}
       <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
-        
+
         {/* Header Section */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
@@ -20,15 +152,15 @@ export default function CustomerTrackingPage() {
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 500 }}>Shipment ID:</span>
-              <span style={{ 
-                background: '#e2e8f0', color: '#0f172a', padding: '4px 10px', 
-                borderRadius: '6px', fontWeight: 700, fontSize: '14px', letterSpacing: '0.05em' 
+              <span style={{
+                background: '#e2e8f0', color: '#0f172a', padding: '4px 10px',
+                borderRadius: '6px', fontWeight: 700, fontSize: '14px', letterSpacing: '0.05em'
               }}>
-                {parcelId || 'CPS-9982-441-A'}
+                {shipment.trackingCode}
               </span>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => navigate('/shipments')}
             className="neutral-btn"
             style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '10px' }}
@@ -38,29 +170,29 @@ export default function CustomerTrackingPage() {
         </div>
 
         {/* Two-Column Grid */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', 
-          gap: '32px', 
-          alignItems: 'start' 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+          gap: '32px',
+          alignItems: 'start'
         }}>
-          
+
           {/* LEFT COLUMN: Map & Shipment Details */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
+
             {/* Live Map Placeholder */}
             <div className="card-style" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative', background: '#e2e8f0' }}>
               {/* Map grid pattern for premium aesthetic */}
-              <div style={{ 
-                position: 'absolute', inset: 0, 
-                backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', 
-                backgroundSize: '20px 20px', opacity: 0.5 
+              <div style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)',
+                backgroundSize: '20px 20px', opacity: 0.5
               }} />
-              <div style={{ 
-                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' 
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
               }}>
-                <div style={{ 
-                  width: '48px', height: '48px', background: '#078c35', borderRadius: '50%', 
+                <div style={{
+                  width: '48px', height: '48px', background: '#078c35', borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: '0 0 0 8px rgba(7, 140, 53, 0.2), 0 10px 20px rgba(0,0,0,0.1)',
                   animation: 'pulse 2s infinite'
@@ -71,7 +203,7 @@ export default function CustomerTrackingPage() {
                   </svg>
                 </div>
                 <div style={{ marginTop: '16px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                  Rider is 5 mins away
+                  {mapCaption(shipment.status)}
                 </div>
               </div>
               <style>{`
@@ -86,29 +218,31 @@ export default function CustomerTrackingPage() {
             {/* Shipment Details Card */}
             <div className="card-style" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '20px' }}>Delivery Details</h3>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '20px', marginBottom: '24px' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Origin</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>Accra North Hub</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>Spintex, GH</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.pickupLocation}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>{shipment.pickupRegion}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Destination</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>Tech Campus HQ</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>KNUST, Kumasi, GH</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.dropoffLocation}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>{shipment.dropoffRegion}</div>
                 </div>
               </div>
-              
+
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Service Type</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>Motorbike Express</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{VEHICLE_LABELS[shipment.vehicleType]} · {SPEED_LABELS[shipment.speed]}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Weight</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>2.4 kg</div>
-                </div>
+                {shipment.weightKg != null && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Weight</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.weightKg} kg</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -116,80 +250,48 @@ export default function CustomerTrackingPage() {
           {/* RIGHT COLUMN: Vertical Timeline */}
           <div className="card-style" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '32px' }}>Tracking History</h3>
-            
-            <div style={{ position: 'relative' }}>
-              {/* Vertical connecting line */}
-              <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: '#e2e8f0', zIndex: 0 }} />
 
-              {/* Step 1: Delivered (Pending) */}
-              <div style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: '32px', opacity: 0.5 }}>
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '50%', background: '#f1f5f9', border: '2px solid #cbd5e1',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="#94a3b8" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Package Delivered</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Pending delivery confirmation</div>
-                </div>
-              </div>
+            {statusEvents.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '14px' }}>No tracking history yet.</p>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                {/* Vertical connecting line */}
+                <div style={{ position: 'absolute', left: '15px', top: '24px', bottom: '24px', width: '2px', background: '#e2e8f0', zIndex: 0 }} />
 
-              {/* Step 2: En Route (Active) */}
-              <div style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: '32px' }}>
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '50%', background: '#078c35', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  boxShadow: '0 0 0 4px rgba(7, 140, 53, 0.15)'
-                }}>
-                  <div style={{ width: '10px', height: '10px', background: '#ffffff', borderRadius: '50%' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#078c35' }}>Rider En Route</div>
-                  <div style={{ fontSize: '14px', color: '#475569', marginTop: '4px' }}>Your package is currently with the rider and expected within the hour.</div>
-                  <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', fontWeight: 500 }}>Today, 14:15</div>
-                </div>
-              </div>
+                {statusEvents.map((event, idx) => {
+                  const isLatest = idx === statusEvents.length - 1;
+                  const label = STATUS_EVENT_LABELS[event.status] ?? event.status;
+                  const description = event.note || STATUS_EVENT_DESCRIPTIONS[event.status] || '';
 
-              {/* Step 3: Out for Delivery (Completed) */}
-              <div style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: '32px' }}>
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '50%', background: '#078c35', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Out for Delivery</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Package has been dispatched from the hub.</div>
-                  <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', fontWeight: 500 }}>Today, 10:42</div>
-                </div>
+                  return (
+                    <div key={event.id} style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: isLatest ? 0 : '32px' }}>
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%', background: '#078c35',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        boxShadow: isLatest ? '0 0 0 4px rgba(7, 140, 53, 0.15)' : undefined
+                      }}>
+                        {isLatest ? (
+                          <div style={{ width: '10px', height: '10px', background: '#ffffff', borderRadius: '50%' }} />
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="16" height="16" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: isLatest ? '#078c35' : '#0f172a' }}>{label}</div>
+                        {description && (
+                          <div style={{ fontSize: '14px', color: isLatest ? '#475569' : '#64748b', marginTop: '4px' }}>{description}</div>
+                        )}
+                        <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', fontWeight: 500 }}>{formatEventTime(event.createdAt)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Step 4: Picked Up (Completed) */}
-              <div style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1 }}>
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '50%', background: '#078c35', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Package Picked Up</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Item collected from the sender.</div>
-                  <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', fontWeight: 500 }}>Yesterday, 15:30</div>
-                </div>
-              </div>
-              
-            </div>
+            )}
           </div>
-          
+
         </div>
 
       </main>

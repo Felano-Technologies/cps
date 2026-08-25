@@ -13,12 +13,19 @@ import {
   UtensilsCrossed,
   FileText,
 } from 'lucide-react';
+import { useReveal } from '../../hooks/useReveal';
 import heroImg from '../../assets/hero.png';
 import samedayImg from '../../assets/sameday.png';
 import coverageImg from '../../assets/coverage.jpg';
 import '../../styles/landing.css';
 
 export default function LandingPage() {
+  const trustReveal = useReveal<HTMLDivElement>();
+  const headingReveal = useReveal<HTMLDivElement>();
+  const samedayReveal = useReveal<HTMLElement>();
+  const dispatchReveal = useReveal<HTMLElement>();
+  const coverageReveal = useReveal<HTMLElement>();
+
   return (
     <div className="page-shell light-shell">
 

@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Zap, MapPinned, Clock3 } from 'lucide-react';
-import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+import CustomSelect from '../../components/Form/CustomSelect';
 import cpsLogo from '../../assets/logo2.png';
+import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: 'customer', label: 'Customer' },
+  { value: 'operations', label: 'Operations / Dispatch' },
+  { value: 'rider', label: 'Rider / Courier' },
+  { value: 'admin', label: 'Administrator' },
+];
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -15,34 +25,36 @@ export default function SignUpPage() {
   const [localError, setLocalError] = useState('');
 
   const { signup, isLoading, error } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
     try {
-      const user = await signup(name, email, password, role);
-      navigate(getRoleDashboard(user.role));
+      await signup(name, email, password, role);
+      toast.success('Account created — sign in to continue.');
+      navigate('/signin');
     } catch (err) {
       setLocalError('Failed to create account');
+      toast.error('Failed to create account');
     }
   };
 
   return (
-    <div className="page-shell light-shell">
-      <div className="auth-shell container">
-        <aside className="auth-panel">
-          <div className="auth-panel-top">
-            <img src={cpsLogo} alt="" />
-          </div>
-          <div className="auth-panel-copy">
+    <div className="page-shell light-shell auth-page">
+      <div className="auth-topbar">
+        <Link to="/">
+          <img src={cpsLogo} alt="CPS Delivery Services" />
+        </Link>
+      </div>
+
+      <div className="auth-shell">
+        <aside className="auth-visual">
+          <img src={heroImg} alt="CPS rider preparing a delivery" />
+          <div className="auth-visual-caption">
             <h2>Create your account and start shipping.</h2>
             <p>Whether you're sending parcels or running the fleet, CPS gives you the tools to move faster.</p>
-            <ul className="auth-panel-points">
-              <li><span className="icon-chip"><Zap size={16} /></span> Same-day pickups &amp; drops</li>
-              <li><span className="icon-chip"><MapPinned size={16} /></span> City-wide rider coverage</li>
-              <li><span className="icon-chip"><Clock3 size={16} /></span> Real-time delivery updates</li>
-            </ul>
           </div>
         </aside>
 
@@ -101,15 +113,12 @@ export default function SignUpPage() {
 
               <label className="auth-field">
                 <span>Account Type</span>
-                <div className="auth-input-wrap">
-                  <User size={17} className="leading-icon" />
-                  <select value={role} onChange={e => setRole(e.target.value as UserRole)}>
-                    <option value="customer">Customer</option>
-                    <option value="operations">Operations / Dispatch</option>
-                    <option value="rider">Rider / Courier</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </div>
+                <CustomSelect
+                  value={role}
+                  onChange={v => setRole(v as UserRole)}
+                  options={ROLE_OPTIONS}
+                  icon={<User size={17} />}
+                />
               </label>
 
               <button type="submit" disabled={isLoading} className="primary-green auth-submit">

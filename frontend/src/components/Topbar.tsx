@@ -2,7 +2,15 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, LogOut, Settings } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
-import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+
+const PUBLIC_LINKS: { path: string; label: string }[] = [
+  { path: '/', label: 'Home' },
+  { path: '/about', label: 'About Us' },
+  { path: '/services', label: 'Services' },
+  { path: '/contact', label: 'Contact Us' },
+  { path: '/faq', label: 'FAQ' },
+];
 
 export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   customer: [
@@ -46,16 +54,17 @@ export default function Topbar() {
     navigate('/');
   };
 
-  const links = isAuthenticated && user ? ROLE_LINKS[user.role] || [] : [];
+  const links = isAuthenticated && user ? ROLE_LINKS[user.role] || [] : PUBLIC_LINKS;
 
   return (
     <header className="topbar">
+      <div className="topbar-inner">
       <div className="brand-title">
-          <NavLink to={isAuthenticated && user ? getRoleDashboard(user.role) : "/"}>
+          <NavLink to="/">
             <img src={cpsLogo} alt="CPS Delivery Services" className="brand-logo" />
           </NavLink>
         </div>
-        
+
         <button
           className="mobile-menu-btn"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -78,9 +87,14 @@ export default function Topbar() {
           
           <div className="mobile-auth-links">
             {!isAuthenticated ? (
-              <NavLink to="/signin" className="mobile-signin" onClick={() => setMobileMenuOpen(false)}>
-                Sign In
-              </NavLink>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <NavLink to="/signup" className="primary-green" style={{ textDecoration: 'none', textAlign: 'center' }} onClick={() => setMobileMenuOpen(false)}>
+                  Sign Up
+                </NavLink>
+                <NavLink to="/signin" className="neutral-btn" style={{ textDecoration: 'none', textAlign: 'center' }} onClick={() => setMobileMenuOpen(false)}>
+                  Sign In
+                </NavLink>
+              </div>
             ) : (
               <div className="mobile-profile-section">
                 <div className="mobile-user-info">
@@ -89,7 +103,7 @@ export default function Topbar() {
                   <div className="m-role">{user?.role}</div>
                 </div>
                 <NavLink to="/settings" className="mobile-menu-item" onClick={() => setMobileMenuOpen(false)}>
-                  Settings
+                  View Account
                 </NavLink>
                 <button onClick={handleLogout} className="mobile-menu-danger">
                   Sign Out
@@ -99,19 +113,24 @@ export default function Topbar() {
           </div>
         </nav>
         
-        <div className="auth-area desktop-auth" style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+        <div className="auth-area desktop-auth" style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'relative' }}>
           {!isAuthenticated ? (
-            <NavLink to="/signin" className="dark-btn" style={{ textDecoration: 'none', padding: '8px 20px' }}>
-              Sign In
-            </NavLink>
+            <>
+              <NavLink to="/signin" className="neutral-btn" style={{ textDecoration: 'none', padding: '8px 20px' }}>
+                Sign In
+              </NavLink>
+              <NavLink to="/signup" className="primary-green" style={{ textDecoration: 'none', padding: '8px 20px' }}>
+                Sign Up
+              </NavLink>
+            </>
           ) : (
             <div style={{ position: 'relative' }}>
               <button
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: 0 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', padding: 0 }}
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
                 <div className="user-box" style={{
-                  width: '40px', height: '40px', cursor: 'pointer',
+                  width: '40px', height: '40px', cursor: 'pointer', flexShrink: 0,
                   background: 'linear-gradient(135deg, var(--lime) 0%, #34d399 100%)',
                   color: '#0f172a', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: '50%', boxShadow: '0 4px 10px rgba(131, 211, 20, 0.3)',
@@ -119,7 +138,13 @@ export default function Topbar() {
                 }}>
                   {user?.name.charAt(0)}
                 </div>
-                <ChevronDown size={16} style={{ color: 'var(--muted)', transition: 'transform 0.2s var(--ease-out)', transform: userMenuOpen ? 'rotate(180deg)' : 'none' }} />
+                <span style={{
+                  fontWeight: 600, color: '#fff', fontSize: '0.88rem',
+                  maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}>
+                  {user?.name}
+                </span>
+                <ChevronDown size={16} style={{ color: 'rgba(255,255,255,0.7)', flexShrink: 0, transition: 'transform 0.2s var(--ease-out)', transform: userMenuOpen ? 'rotate(180deg)' : 'none' }} />
               </button>
 
               {userMenuOpen && (
@@ -156,7 +181,7 @@ export default function Topbar() {
                     </div>
                   </div>
                   <NavLink to="/settings" className="menu-item" onClick={() => setUserMenuOpen(false)}>
-                    <Settings size={16} /> Settings
+                    <Settings size={16} /> View Account
                   </NavLink>
                   <button onClick={handleLogout} className="menu-danger" style={{ marginTop: '4px' }}>
                     <LogOut size={16} /> Sign Out
@@ -166,6 +191,7 @@ export default function Topbar() {
             </div>
           )}
         </div>
+      </div>
     </header>
   );
 }

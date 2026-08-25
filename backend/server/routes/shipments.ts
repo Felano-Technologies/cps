@@ -227,7 +227,7 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
 
-  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id } });
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
   if (!shipment) {
     return res.status(404).json({ error: 'Shipment not found' });
   }
@@ -261,7 +261,7 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
 
-  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id } });
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
   if (!shipment) {
     return res.status(404).json({ error: 'Shipment not found' });
   }
@@ -298,7 +298,7 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
   }
 
   const shipment = await prisma.shipment.update({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     data: { assignedRiderId: rider.id },
   });
 

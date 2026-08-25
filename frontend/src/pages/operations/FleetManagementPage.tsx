@@ -1,62 +1,95 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import EmptyState from '../../components/EmptyState';
+import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
+import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
 
-type VehicleType = 'Motorbike' | 'Van' | 'Truck';
-type FleetStatus = 'Available' | 'En Route' | 'Loading' | 'Maintenance' | 'Offline';
+const STATUS_OPTIONS: RiderStatus[] = ['available', 'en_route', 'loading', 'maintenance', 'offline'];
 
-interface FleetMember {
-  id: string;
-  name: string;
-  initials: string;
-  vehicleId: string;
-  vehicleType: VehicleType;
-  location: string;
-  status: FleetStatus;
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 }
 
-const mockFleetData: FleetMember[] = [
-  { id: 'RDR-001', name: 'John Doe', initials: 'JD', vehicleId: 'BK-1042', vehicleType: 'Motorbike', location: 'East Legon, Accra', status: 'En Route' },
-  { id: 'RDR-002', name: 'Sarah Jenkins', initials: 'SJ', vehicleId: 'VN-2199', vehicleType: 'Van', location: 'Spintex Road, Accra', status: 'Loading' },
-  { id: 'RDR-003', name: 'Michael Ross', initials: 'MR', vehicleId: 'BK-0883', vehicleType: 'Motorbike', location: 'Osu, Accra', status: 'Maintenance' },
-  { id: 'RDR-004', name: 'Amanda Lee', initials: 'AL', vehicleId: 'VN-3321', vehicleType: 'Van', location: 'Airport Residential', status: 'Available' },
-  { id: 'RDR-005', name: 'David Mensah', initials: 'DM', vehicleId: 'BK-9912', vehicleType: 'Motorbike', location: 'Cantonments, Accra', status: 'En Route' },
-  { id: 'RDR-006', name: 'Kwame Osei', initials: 'KO', vehicleId: 'TK-5501', vehicleType: 'Truck', location: 'Tema Port', status: 'Offline' },
-];
+function formatStatusLabel(status: string): string {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 export default function FleetManagementPage() {
+  const toast = useToast();
+  const [riders, setRiders] = useState<RiderProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('All Vehicles');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  useEffect(() => {
+    const fetchRiders = async () => {
+      try {
+        const { data } = await api.get<RiderProfile[]>('/riders');
+        setRiders(data);
+      } catch {
+        setError('Failed to load fleet data.');
+        toast.error('Failed to load fleet data.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRiders();
+  }, []);
+
+  const handleStatusChange = async (riderId: string, newStatus: RiderStatus) => {
+    setActionError(null);
+    setUpdatingId(riderId);
+    try {
+      const { data } = await api.patch<RiderProfile>(`/riders/${riderId}`, { currentStatus: newStatus });
+      setRiders(prev => prev.map(r => (r.id === riderId ? data : r)));
+      toast.success('Rider status updated.');
+    } catch {
+      setActionError('Failed to update rider status.');
+      toast.error('Failed to update rider status.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const filteredFleet = useMemo(() => {
-    return mockFleetData.filter(member => {
+    return riders.filter(member => {
       let matchesTab = true;
-      if (activeTab === 'Motorbikes') matchesTab = member.vehicleType === 'Motorbike';
-      if (activeTab === 'Vans') matchesTab = member.vehicleType === 'Van';
-      if (activeTab === 'Maintenance') matchesTab = member.status === 'Maintenance';
-      
-      const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            member.vehicleId.toLowerCase().includes(searchQuery.toLowerCase());
-      
+      if (activeTab === 'Motorbikes') matchesTab = member.vehicleType === 'motorbike';
+      if (activeTab === 'Vans') matchesTab = member.vehicleType === 'van';
+      if (activeTab === 'Maintenance') matchesTab = member.currentStatus === 'maintenance';
+
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        member.user.name.toLowerCase().includes(query) ||
+        (member.vehicleId ?? '').toLowerCase().includes(query);
+
       return matchesTab && matchesSearch;
     });
-  }, [activeTab, searchQuery]);
+  }, [riders, activeTab, searchQuery]);
 
-  const getStatusColor = (status: FleetStatus) => {
+  const getStatusColor = (status: RiderStatus) => {
     switch (status) {
-      case 'Available': return { bg: '#e0ffe0', text: '#22863a', border: '#22863a' };
-      case 'En Route': return { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' };
-      case 'Loading': return { bg: '#fef3c7', text: '#b45309', border: '#f59e0b' };
-      case 'Maintenance': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' };
-      case 'Offline': return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
+      case 'available': return { bg: '#e0ffe0', text: '#22863a', border: '#22863a' };
+      case 'en_route': return { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' };
+      case 'loading': return { bg: '#fef3c7', text: '#b45309', border: '#f59e0b' };
+      case 'maintenance': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' };
+      case 'offline': return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
       default: return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
     }
   };
 
-  const getVehicleIcon = (type: VehicleType) => {
+  const getVehicleIcon = (type: VehicleType | null) => {
     switch (type) {
-      case 'Motorbike': return '🏍️';
-      case 'Van': return '🚐';
-      case 'Truck': return '🚚';
+      case 'motorbike': return '🏍️';
+      case 'van': return '🚐';
+      case 'truck': return '🚚';
       default: return '🚗';
     }
   };

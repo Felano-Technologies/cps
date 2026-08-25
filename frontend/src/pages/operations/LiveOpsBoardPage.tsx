@@ -1,53 +1,160 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
 import EmptyState from '../../components/EmptyState';
+import { useToast } from '../../contexts/ToastContext';
+import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
 
-type OpsOrderStatus = 'In Transit' | 'Out for Delivery' | 'Delivered' | 'Delayed' | 'Urgent';
+const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  pending: 'Pending',
+  picked_up: 'Picked Up',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  delayed: 'Delayed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+};
 
-interface OpsOrder {
-  id: string;
-  type: string;
-  vehicle: '🏍️' | '🚐' | '🚚';
-  eta: string;
-  status: OpsOrderStatus;
-}
+const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
+  pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
+  picked_up: { bg: '#e0e7ff', text: '#3730a3', dot: '#6366f1' },
+  in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
+  out_for_delivery: { bg: '#dbeafe', text: '#1e40af', dot: '#3b82f6' },
+  delivered: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
+  delayed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
+  failed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
+  cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
+};
 
-const mockLiveOrders: OpsOrder[] = [
-  { id: 'ORD-8924', type: 'Pharmacy pickup', vehicle: '🏍️', eta: 'Today, 14:30', status: 'In Transit' },
-  { id: 'ORD-9011', type: 'Electronics delivery', vehicle: '🚐', eta: 'Today, 11:15', status: 'Out for Delivery' },
-  { id: 'ORD-7742', type: 'Restaurant drop-off', vehicle: '🏍️', eta: 'Delivered: Yesterday', status: 'Delivered' },
-  { id: 'ORD-4321', type: 'Retail replenishment', vehicle: '🚐', eta: 'Action Required', status: 'Delayed' },
-  { id: 'ORD-9982', type: 'Medical supplies', vehicle: '🏍️', eta: 'Immediate Dispatch', status: 'Urgent' },
-  { id: 'ORD-8100', type: 'Groceries', vehicle: '🏍️', eta: 'Today, 16:00', status: 'In Transit' },
+const VEHICLE_EMOJI: Record<VehicleType, string> = {
+  motorbike: '🏍️',
+  van: '🚐',
+  truck: '🚚',
+};
+
+const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
+  document: 'Document delivery',
+  parcel: 'Parcel delivery',
+  electronics: 'Electronics delivery',
+  fragile: 'Fragile delivery',
+  food: 'Food delivery',
+  other: 'Package delivery',
+};
+
+const STATUS_FILTERS: Array<'All' | ShipmentStatus> = [
+  'All',
+  'pending',
+  'picked_up',
+  'in_transit',
+  'out_for_delivery',
+  'delayed',
+  'delivered',
+  'failed',
+  'cancelled',
 ];
 
+function formatCreatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
 export default function LiveOpsBoardPage() {
+  const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string>('All');
+  const [activeFilter, setActiveFilter] = useState<'All' | ShipmentStatus>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const [orders, setOrders] = useState<Shipment[]>([]);
+  const [riders, setRiders] = useState<RiderProfile[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchOrders() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.get<Shipment[]>('/shipments');
+        if (isMounted) {
+          setOrders(response.data);
+        }
+      } catch {
+        if (isMounted) {
+          setError('Failed to load orders. Please try again later.');
+          toast.error('Failed to load orders.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchOrders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchRiders() {
+      try {
+        const response = await api.get<RiderProfile[]>('/riders');
+        if (isMounted) {
+          setRiders(response.data);
+        }
+      } catch {
+        // Non-fatal: assign-rider dropdowns will just be empty.
+        if (isMounted) {
+          toast.error('Failed to load orders.');
+        }
+      }
+    }
+
+    fetchRiders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filteredOrders = useMemo(() => {
-    return mockLiveOrders.filter(order => {
+    const query = searchQuery.toLowerCase();
+    return orders.filter(order => {
       const matchesFilter = activeFilter === 'All' || order.status === activeFilter;
-      const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            order.type.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch =
+        order.trackingCode.toLowerCase().includes(query) ||
+        order.packageType.toLowerCase().includes(query);
       return matchesFilter && matchesSearch;
     });
-  }, [activeFilter, searchQuery]);
+  }, [orders, activeFilter, searchQuery]);
 
-  const getStatusColor = (status: OpsOrderStatus) => {
-    switch (status) {
-      case 'In Transit': return { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' };
-      case 'Out for Delivery': return { bg: '#dbeafe', text: '#1e40af', dot: '#3b82f6' };
-      case 'Delivered': return { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' };
-      case 'Delayed': return { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' };
-      case 'Urgent': return { bg: '#fef9c3', text: '#854d0e', dot: '#eab308' };
-      default: return { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' };
+  async function handleAssignRider(shipmentId: string, riderId: string) {
+    if (!riderId) return;
+    setAssigningId(shipmentId);
+    setError(null);
+    try {
+      const response = await api.patch<Shipment>(`/shipments/${shipmentId}/assign`, { riderId });
+      setOrders(prev => prev.map(order => (order.id === shipmentId ? response.data : order)));
+      toast.success('Rider assigned.');
+    } catch {
+      setError('Failed to assign rider. Please try again.');
+      toast.error('Failed to assign rider.');
+    } finally {
+      setAssigningId(null);
     }
-  };
+  }
 
   return (
     <div className="page-shell light-shell">
@@ -60,7 +167,7 @@ export default function LiveOpsBoardPage() {
           box-shadow: 0 8px 32px rgba(15, 23, 42, 0.05);
           border-radius: 16px;
         }
-        
+
         .radar-map {
           background: #0f172a;
           border-radius: 16px;
@@ -71,7 +178,7 @@ export default function LiveOpsBoardPage() {
         .radar-grid {
           position: absolute;
           inset: 0;
-          background-image: 
+          background-image:
             linear-gradient(rgba(131, 211, 20, 0.1) 1px, transparent 1px),
             linear-gradient(90deg, rgba(131, 211, 20, 0.1) 1px, transparent 1px);
           background-size: 30px 30px;
@@ -92,7 +199,7 @@ export default function LiveOpsBoardPage() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        
+
         .map-node {
           position: absolute;
           width: 12px;
@@ -168,9 +275,9 @@ export default function LiveOpsBoardPage() {
           }
         }
       `}</style>
-      
+
       <main className="container" style={{ padding: '32px 0', maxWidth: '1400px' }}>
-        
+
         {/* Header Section */}
         <div className="header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px', padding: '0 24px' }}>
           <div>
@@ -178,15 +285,15 @@ export default function LiveOpsBoardPage() {
             <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>Live overview of riders, active orders, and delivery progress.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              className="neutral-btn" 
+            <button
+              className="neutral-btn"
               style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsPrintModalOpen(true)}
             >
               🖨️ Print Receipt
             </button>
-            <button 
-              className="primary-green" 
+            <button
+              className="primary-green"
               style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsCreateModalOpen(true)}
             >
@@ -194,6 +301,12 @@ export default function LiveOpsBoardPage() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div style={{ margin: '0 24px 24px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '12px', padding: '12px 16px', fontWeight: 600, fontSize: '14px' }}>
+            {error}
+          </div>
+        )}
 
         {/* KPI Row */}
         <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
@@ -225,12 +338,12 @@ export default function LiveOpsBoardPage() {
 
         {/* Main Dashboard Grid */}
         <div className="dashboard-main-grid">
-          
+
           {/* Live Radar Map */}
           <div className="radar-map" style={{ height: '600px', width: '100%' }}>
             <div className="radar-grid" />
             <div className="radar-sweep" />
-            
+
             {/* Map Header Overlay */}
             <div style={{ position: 'absolute', top: '24px', left: '24px', right: '24px', display: 'flex', justifyContent: 'space-between', zIndex: 10 }}>
               <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', color: '#fff', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -267,11 +380,11 @@ export default function LiveOpsBoardPage() {
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '600px', overflow: 'hidden' }}>
             <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>Dispatch Queue</h3>
-              
+
               <div style={{ position: 'relative', marginBottom: '16px' }}>
-                <input 
-                  type="text" 
-                  placeholder="Search by Order ID or Type..." 
+                <input
+                  type="text"
+                  placeholder="Search by Tracking Code or Type..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ width: '100%', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
@@ -279,52 +392,86 @@ export default function LiveOpsBoardPage() {
               </div>
 
               <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
-                {['All', 'In Transit', 'Delayed', 'Urgent'].map(filter => (
-                  <button 
-                    key={filter} 
+                {STATUS_FILTERS.map(filter => (
+                  <button
+                    key={filter}
                     className={`filter-pill ${activeFilter === filter ? 'active' : ''}`}
                     onClick={() => setActiveFilter(filter)}
                   >
-                    {filter}
+                    {filter === 'All' ? 'All' : STATUS_LABELS[filter]}
                   </button>
                 ))}
               </div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f8fafc' }}>
-              {filteredOrders.length > 0 ? (
+              {isLoading ? (
+                <div style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b', fontSize: '15px', fontWeight: 500 }}>
+                  Loading orders...
+                </div>
+              ) : filteredOrders.length > 0 ? (
                 filteredOrders.map(order => {
-                  const colors = getStatusColor(order.status);
+                  const colors = STATUS_COLORS[order.status];
+                  const isUrgent = order.priority === 'high';
+                  const currentRiderId = order.assignedRiderId ?? '';
                   return (
-                    <div key={order.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '12px', transition: 'box-shadow 0.2s' }} className="hover-shadow">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '18px' }}>{order.vehicle}</span>
-                          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.id}</span>
+                    <div
+                      key={order.id}
+                      style={{
+                        background: isUrgent ? '#fffbeb' : '#ffffff',
+                        border: isUrgent ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                        borderLeft: isUrgent ? '4px solid #eab308' : '1px solid #e2e8f0',
+                        borderRadius: '12px', padding: '16px', marginBottom: '12px', transition: 'box-shadow 0.2s'
+                      }}
+                      className="hover-shadow"
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '18px' }}>{VEHICLE_EMOJI[order.vehicleType]}</span>
+                          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.trackingCode}</span>
+                          {isUrgent && (
+                            <span style={{ background: '#fef9c3', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em' }}>
+                              ⚡ URGENT
+                            </span>
+                          )}
                         </div>
-                        <span style={{ 
-                          background: colors.bg, color: colors.text, 
+                        <span style={{
+                          background: colors.bg, color: colors.text,
                           padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                          display: 'flex', alignItems: 'center', gap: '6px'
+                          display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
                         }}>
                           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.dot }}></span>
-                          {order.status}
+                          {STATUS_LABELS[order.status]}
                         </span>
                       </div>
                       <div style={{ fontSize: '14px', color: '#475569', fontWeight: 500, marginBottom: '4px' }}>
-                        {order.type}
+                        {PACKAGE_TYPE_LABELS[order.packageType]}
                       </div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>ETA: {order.eta}</span>
-                        <Link to={`/ops/tracking/${order.id}`} style={{ color: '#078c35', fontWeight: 600, textDecoration: 'none' }}>
+                      <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span>Created: {formatCreatedAt(order.createdAt)}</span>
+                        <Link to={`/ops/tracking/${order.trackingCode}`} style={{ color: '#078c35', fontWeight: 600, textDecoration: 'none' }}>
                           Track →
                         </Link>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Rider:</label>
+                        <select
+                          value={currentRiderId}
+                          disabled={assigningId === order.id}
+                          onChange={(e) => handleAssignRider(order.id, e.target.value)}
+                          style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+                        >
+                          <option value="">Unassigned</option>
+                          {riders.map(rider => (
+                            <option key={rider.id} value={rider.id}>{rider.user.name}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <EmptyState 
+                <EmptyState
                   icon="📋"
                   title="No Orders Found"
                   message="There are no orders matching your current dispatch filter. Try clearing your search or switching tabs."
@@ -338,17 +485,18 @@ export default function LiveOpsBoardPage() {
               .hover-shadow:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
             `}</style>
           </div>
-          
+
         </div>
-        
+
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
         {isCreateModalOpen && (
-          <CreateOrderModal 
-            onClose={() => setIsCreateModalOpen(false)} 
-            onCreate={() => {
+          <CreateOrderModal
+            onClose={() => setIsCreateModalOpen(false)}
+            onCreate={(shipment) => {
+              setOrders(prev => [shipment, ...prev]);
               setIsCreateModalOpen(false);
-              alert('New order dispatched successfully!');
-            }} 
+              toast.success('Order created.');
+            }}
           />
         )}
       </main>

@@ -6,7 +6,7 @@ export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
 export const getRoleDashboard = (role?: UserRole): string => {
   switch (role) {
-    case 'customer': return '/shipments';
+    case 'customer': return '/request-pickup';
     case 'operations': return '/ops-board';
     case 'admin': return '/admin';
     case 'rider': return '/rider-board';
@@ -90,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { data } = await api.post<User>('/auth/register', { name, email, password, role });
-      setUser(data);
       return data;
     } catch (err) {
       const message = extractErrorMessage(err, 'Signup failed');

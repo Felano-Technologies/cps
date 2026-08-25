@@ -4,16 +4,32 @@
   padding: 0.72rem 1rem;
   min-height: 44px;
   font-weight: 600;
-  transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+  transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+    transform 0.15s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 .primary-green { background: var(--green); color: #0b1210; }
-.primary-green:hover:not(:disabled) { background: var(--lime-hover); }
+.primary-green:hover:not(:disabled) { background: var(--lime-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(131, 211, 20, 0.28); }
 .dark-btn { background: var(--navy); color: #fff; }
-.dark-btn:hover:not(:disabled) { background: var(--navy-dark); }
+.dark-btn:hover:not(:disabled) { background: var(--navy-dark); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .neutral-btn { background: transparent; border-color: var(--border); color: #474b4f; }
-.neutral-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--border-strong, var(--border)); }
+.neutral-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--border-strong, var(--border)); transform: translateY(-1px); }
 .track-btn, .table-btn, .route-action { background: var(--green); color: #0b1210; }
+.primary-green:active:not(:disabled), .dark-btn:active:not(:disabled), .neutral-btn:active:not(:disabled),
+.track-btn:active:not(:disabled), .table-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
+}
 .primary-green:disabled, .dark-btn:disabled, .neutral-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-green, .dark-btn, .neutral-btn, .track-btn, .table-btn, .mini-action, .route-action {
+    transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+  }
+  .primary-green:hover:not(:disabled), .dark-btn:hover:not(:disabled), .neutral-btn:hover:not(:disabled),
+  .primary-green:active:not(:disabled), .dark-btn:active:not(:disabled), .neutral-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
 
 .service-card, .form-card, .summary-card, .info-card, .card-style, .table-panel, .stat-card,
 .map-card, .shipment-list-card, .route-card, .info-block, .table-card, .map-mini-card,

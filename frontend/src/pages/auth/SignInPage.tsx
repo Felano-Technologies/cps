@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, Radar, Truck, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
+import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
 
 export default function SignInPage() {
@@ -11,6 +13,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
   const { login, isLoading, error } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,27 +21,28 @@ export default function SignInPage() {
     setLocalError('');
     try {
       const user = await login(email, password);
+      toast.success(`Welcome back, ${user.name}.`);
       navigate(getRoleDashboard(user.role));
     } catch (err) {
       setLocalError('Invalid email or password');
+      toast.error('Invalid email or password');
     }
   };
 
   return (
-    <div className="page-shell light-shell">
-      <div className="auth-shell container">
-        <aside className="auth-panel">
-          <div className="auth-panel-top">
-            <img src={cpsLogo} alt="" />
-          </div>
-          <div className="auth-panel-copy">
-            <h2>Dispatch, track, and deliver — all in one place.</h2>
+    <div className="page-shell light-shell auth-page">
+      <div className="auth-topbar">
+        <Link to="/">
+          <img src={cpsLogo} alt="CPS Delivery Services" />
+        </Link>
+      </div>
+
+      <div className="auth-shell">
+        <aside className="auth-visual">
+          <img src={heroImg} alt="CPS rider preparing a delivery" />
+          <div className="auth-visual-caption">
+            <h2>Dispatch, track, and deliver.</h2>
             <p>Sign in to manage pickups, monitor riders, and keep every delivery on schedule.</p>
-            <ul className="auth-panel-points">
-              <li><span className="icon-chip"><Radar size={16} /></span> Live rider tracking</li>
-              <li><span className="icon-chip"><Truck size={16} /></span> Motorbike &amp; van dispatch</li>
-              <li><span className="icon-chip"><ShieldCheck size={16} /></span> Verified proof of delivery</li>
-            </ul>
           </div>
         </aside>
 

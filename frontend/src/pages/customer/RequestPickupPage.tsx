@@ -1,10 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import api from '../../services/api';
 import { calculateDeliveryCost } from '../../utils/pricing';
+import { useToast } from '../../contexts/ToastContext';
+import type { CreateShipmentInput, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
+function mapPriority(value: string): ShipmentPriority {
+  return value.toLowerCase() === 'high' ? 'high' : 'standard';
+}
+
+function mapSpeed(value: string): ShipmentSpeed {
+  switch (value) {
+    case 'Same day': return 'same_day';
+    case 'Express': return 'express';
+    case 'Next day':
+    default:
+      return 'next_day';
+  }
+}
 
 export default function RequestPickupPage() {
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const navigate = useNavigate();
+  const toast = useToast();
 
   // Shared Sender State
   const [pickupDate, setPickupDate] = useState('');
@@ -36,6 +62,11 @@ export default function RequestPickupPage() {
 
   // Calculated Cost (Single Delivery)
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
+
+  // Submission State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'single') {
@@ -96,6 +127,117 @@ export default function RequestPickupPage() {
     }
   };
 
+  const handleSubmitSingle = async () => {
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    setIsSubmitting(true);
+    try {
+      const payload: CreateShipmentInput = {
+        vehicleType: pickupMode as VehicleType,
+        priority: mapPriority(deliveryPriority),
+        speed: mapSpeed(deliverySpeed),
+        packageType: packageType as PackageType,
+        senderName,
+        senderNumber,
+        pickupRegion,
+        pickupLocation,
+        receiverName,
+        receiverNumber,
+        dropoffRegion,
+        dropoffLocation,
+      };
+      if (senderContact.trim()) payload.senderContact = senderContact;
+      if (pickupDate.trim()) payload.pickupDate = pickupDate;
+      if (dropoffRegion === 'Kumasi') payload.dropoffKumasiSubArea = dropoffKumasiSubArea;
+      if (productFee.trim() !== '') payload.productFee = Number(productFee);
+      if (additionalInstructions.trim()) payload.additionalInstructions = additionalInstructions;
+
+      await api.post('/shipments', payload);
+      setSubmitSuccess(true);
+      toast.success('Pickup request submitted.');
+      setTimeout(() => navigate('/shipments'), 600);
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to create shipment. Please try again.');
+      setSubmitError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitBulk = async () => {
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    if (bulkReceiverMode !== 'manual') {
+      const message = 'Photo-based bulk entry isn\'t supported yet. Please switch to "Enter Manually" to submit this order.';
+      setSubmitError(message);
+      toast.error(message);
+      return;
+    }
+    if (bulkReceivers.length === 0) {
+      const message = 'Please enter the number of packages and fill in receiver details.';
+      setSubmitError(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const pickup: {
+        vehicleType: VehicleType;
+        packageType: PackageType;
+        senderName: string;
+        senderNumber: string;
+        senderContact?: string;
+        pickupRegion: string;
+        pickupLocation: string;
+        pickupDate?: string;
+        productFee?: number;
+        additionalInstructions?: string;
+      } = {
+        vehicleType: pickupMode as VehicleType,
+        packageType: packageType as PackageType,
+        senderName,
+        senderNumber,
+        pickupRegion,
+        pickupLocation,
+      };
+      if (senderContact.trim()) pickup.senderContact = senderContact;
+      if (pickupDate.trim()) pickup.pickupDate = pickupDate;
+      if (productFee.trim() !== '') pickup.productFee = Number(productFee);
+      if (additionalInstructions.trim()) pickup.additionalInstructions = additionalInstructions;
+
+      const receivers = bulkReceivers.map(rec => ({
+        receiverName: rec.name,
+        receiverNumber: rec.number,
+        dropoffRegion: rec.region,
+        dropoffLocation: rec.dropoffLocation,
+        speed: mapSpeed(rec.speed),
+        priority: mapPriority(rec.priority),
+      }));
+
+      await api.post('/shipments/bulk', { pickup, receivers });
+      setSubmitSuccess(true);
+      toast.success('Bulk pickup request submitted.');
+      setTimeout(() => navigate('/shipments'), 600);
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to create bulk shipment. Please try again.');
+      setSubmitError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateOrder = () => {
+    if (activeTab === 'single') {
+      handleSubmitSingle();
+    } else {
+      handleSubmitBulk();
+    }
+  };
+
   return (
     <div className="page-shell light-shell">
       <main className="create-shell container">
@@ -153,7 +295,8 @@ export default function RequestPickupPage() {
                     try { if ('showPicker' in HTMLInputElement.prototype) e.target.showPicker(); } catch (err) { }
                   }}
                   onClick={(e) => {
-                    try { if ('showPicker' in HTMLInputElement.prototype && e.target.type === 'date') (e.target as HTMLInputElement).showPicker(); } catch (err) { }
+                    const target = e.target as HTMLInputElement;
+                    try { if ('showPicker' in HTMLInputElement.prototype && target.type === 'date') target.showPicker(); } catch (err) { }
                   }}
                   onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
                   placeholder="Select Preferred Date"
@@ -561,9 +704,15 @@ export default function RequestPickupPage() {
                 </div>
               )}
 
-              <button className="primary-green wide-btn" onClick={() => navigate('/shipments')} style={{ marginTop: '24px' }}>
-                Create Order →
+              <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px' }}>
+                {isSubmitting ? 'Submitting…' : 'Create Order →'}
               </button>
+              {submitError && (
+                <p style={{ color: '#991b1b', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem' }}>{submitError}</p>
+              )}
+              {submitSuccess && (
+                <p style={{ color: 'var(--green)', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem' }}>Order created successfully! Redirecting…</p>
+              )}
             </div>
           </aside>
         </div>

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 
 // Contexts
@@ -6,6 +6,7 @@ import { useAuth } from './contexts/AuthContext';
 
 import Topbar from './components/Topbar';
 import Footer from './components/Footer';
+import FloatingActions from './components/FloatingActions';
 import MobileNavigationBar from './components/MobileNavigationBar';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -73,12 +74,14 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
  */
 function App() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
   const isStaff = !isLoading && user && ['rider', 'operations', 'admin'].includes(user.role);
+  const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup';
 
   return (
     <div className="app-shell">
       <ScrollToTop />
-      <Topbar />
+      {!isAuthPage && <Topbar />}
       <main className="app-main">
         <Routes>
           {/* PUBLIC ROUTES */}
@@ -214,8 +217,11 @@ function App() {
             }
           `}</style>
         </>
-      ) : (
-        <Footer />
+      ) : isAuthPage ? null : (
+        <>
+          <Footer />
+          <FloatingActions />
+        </>
       )}
     </div>
   );

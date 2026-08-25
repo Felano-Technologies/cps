@@ -1,13 +1,24 @@
 import { useState, useRef } from 'react';
 import cpsLogo from '../assets/logo2.png';
+import api from '../services/api';
+import { useToast } from '../contexts/ToastContext';
+import type { Shipment } from '../types/models';
 
 interface OrderPrintModalProps {
   onClose: () => void;
 }
 
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
+  const toast = useToast();
   const [mode, setMode] = useState<'fetch' | 'manual'>('fetch');
   const [orderId, setOrderId] = useState('');
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchedCreatedAt, setFetchedCreatedAt] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     senderName: '',
     senderNumber: '',
@@ -28,20 +39,35 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
     }
   };
 
-  const handleFetch = () => {
-    // Mock fetch for demonstration
-    if (orderId.trim()) {
+  const handleFetch = async () => {
+    const trackingCode = orderId.trim();
+    if (!trackingCode) return;
+
+    setIsFetching(true);
+    setFetchError(null);
+    try {
+      const response = await api.get<Shipment>(`/shipments/${encodeURIComponent(trackingCode)}`);
+      const shipment = response.data;
+      setOrderId(shipment.trackingCode);
+      setFetchedCreatedAt(shipment.createdAt);
       setFormData({
-        senderName: 'John Doe',
-        senderNumber: '0241234567',
-        receiverName: 'Jane Smith',
-        receiverNumber: '0559876543',
-        pickupLocation: 'KNUST, Ayeduase Gate',
-        dropoffLocation: 'Adum, Kumasi',
-        packageType: 'Electronics',
-        priority: 'Express',
-        cost: '35',
+        senderName: shipment.senderName,
+        senderNumber: shipment.senderNumber,
+        receiverName: shipment.receiverName,
+        receiverNumber: shipment.receiverNumber,
+        pickupLocation: shipment.pickupLocation,
+        dropoffLocation: shipment.dropoffLocation,
+        packageType: capitalize(shipment.packageType),
+        priority: shipment.priority === 'high' ? 'High' : 'Standard',
+        cost: shipment.deliveryFee,
       });
+    } catch {
+      const message = 'Order not found. Check the tracking code and try again.';
+      setFetchError(message);
+      setFetchedCreatedAt(null);
+      toast.error(message);
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -101,14 +127,14 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-              <button 
+              <button
                 onClick={() => setMode('fetch')}
                 style={{ flex: 1, padding: '8px', border: mode === 'fetch' ? '2px solid var(--green)' : '1px solid var(--border)', borderRadius: '8px', background: mode === 'fetch' ? 'var(--success-bg)' : '#fff' }}
               >
                 Fetch Order ID
               </button>
-              <button 
-                onClick={() => setMode('manual')}
+              <button
+                onClick={() => { setMode('manual'); setFetchedCreatedAt(null); setFetchError(null); }}
                 style={{ flex: 1, padding: '8px', border: mode === 'manual' ? '2px solid var(--green)' : '1px solid var(--border)', borderRadius: '8px', background: mode === 'manual' ? 'var(--success-bg)' : '#fff' }}
               >
                 Manual Entry
@@ -119,14 +145,19 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Order ID</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
-                    value={orderId} 
-                    onChange={e => setOrderId(e.target.value)} 
-                    placeholder="e.g. ORD-8924" 
+                  <input
+                    value={orderId}
+                    onChange={e => setOrderId(e.target.value)}
+                    placeholder="e.g. CPS-2024-001"
                     style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}
                   />
-                  <button onClick={handleFetch} className="primary-green" style={{ padding: '0 16px' }}>Fetch</button>
+                  <button onClick={handleFetch} disabled={isFetching} className="primary-green" style={{ padding: '0 16px', opacity: isFetching ? 0.7 : 1 }}>
+                    {isFetching ? 'Fetching...' : 'Fetch'}
+                  </button>
                 </div>
+                {fetchError && (
+                  <div style={{ marginTop: '8px', color: '#991b1b', fontWeight: 600, fontSize: '13px' }}>{fetchError}</div>
+                )}
               </div>
             )}
 
@@ -139,14 +170,13 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
                 <input placeholder="Receiver Number" value={formData.receiverNumber} onChange={e => setFormData({...formData, receiverNumber: e.target.value})} />
                 <input placeholder="Dropoff Location" value={formData.dropoffLocation} onChange={e => setFormData({...formData, dropoffLocation: e.target.value})} />
                 <input placeholder="Package Type" value={formData.packageType} onChange={e => setFormData({...formData, packageType: e.target.value})} />
-                <select 
-                  value={formData.priority} 
+                <select
+                  value={formData.priority}
                   onChange={e => setFormData({...formData, priority: e.target.value})}
                   style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border)' }}
                 >
                   <option value="Standard">Standard</option>
-                  <option value="Same Day">Same Day</option>
-                  <option value="Express">Express</option>
+                  <option value="High">High</option>
                 </select>
                 <input placeholder="Cost (GHS)" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
               </div>
@@ -176,7 +206,7 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
                 <img src={cpsLogo} alt="CPS Delivery Services" style={{ width: '120px', height: 'auto', marginBottom: '2px' }} />
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>CPS Delivery Services</h3>
                 <div style={{ fontWeight: 600 }}>Order Receipt</div>
-                <div style={{ fontSize: '10px', marginTop: '4px' }}>{new Date().toLocaleString()}</div>
+                <div style={{ fontSize: '10px', marginTop: '4px' }}>{fetchedCreatedAt ? new Date(fetchedCreatedAt).toLocaleString() : new Date().toLocaleString()}</div>
               </div>
 
               <div style={{ marginBottom: '12px' }}>

@@ -1,5 +1,5 @@
 .app-footer {
-  background-color: #082b1d;
+  background-color: var(--navy);
   color: #ffffff;
   padding: 40px 24px 24px;
   font-family: "Inter", sans-serif;
@@ -15,7 +15,7 @@
 }
 
 .footer-card {
-  background-color: #123d2b;
+  background-color: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-lg);
   padding: 24px;
 }
@@ -96,7 +96,7 @@
 }
 
 .support-pill {
-  background-color: #1a573d;
+  background-color: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
   font-size: 15px;
@@ -110,7 +110,7 @@
 .support-pill svg { flex-shrink: 0; color: var(--lime); }
 
 a.support-pill:hover {
-  background-color: #216f4e;
+  background-color: rgba(255, 255, 255, 0.14);
 }
 
 .footer-address {
@@ -124,7 +124,7 @@ a.support-pill:hover {
 .footer-bottom {
   margin-top: 16px;
   padding-top: 24px;
-  border-top: 1px solid #1a573d;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   text-align: center;
 }
 

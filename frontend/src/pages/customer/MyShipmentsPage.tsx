@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import EmptyState from '../../components/EmptyState';
 import type { Shipment, ShipmentStatus, VehicleType, ShipmentSpeed } from '../../types/models';
 import '../../styles/MyShipmentsPage.css';
@@ -52,6 +53,7 @@ function formatTime(value: string): string {
 
 export default function MyShipmentsPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function MyShipmentsPage() {
       } catch {
         if (isMounted) {
           setError('Failed to load your shipments. Please try again later.');
+          toast.error('Failed to load your shipments.');
         }
       } finally {
         if (isMounted) {

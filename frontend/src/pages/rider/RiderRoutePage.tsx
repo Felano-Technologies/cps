@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
+import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
 import type { PodMethod, Shipment } from '../../types/models';
 
@@ -53,6 +54,7 @@ export default function RiderRoutePage() {
   const [issueOpen, setIssueOpen] = useState(false);
 
   const navigate = useNavigate();
+  const toast = useToast();
 
   useEffect(() => {
     let isMounted = true;
@@ -68,6 +70,7 @@ export default function RiderRoutePage() {
       } catch {
         if (isMounted) {
           setError('Failed to load your route. Please try again later.');
+          toast.error('Failed to load your route.');
         }
       } finally {
         if (isMounted) {
@@ -96,8 +99,10 @@ export default function RiderRoutePage() {
       });
       setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
       setPodOpen(false);
+      toast.success('Delivery confirmed.');
     } catch {
       setError('Failed to submit proof of delivery. Please try again.');
+      toast.error('Failed to confirm delivery.');
     }
   };
 
@@ -110,8 +115,10 @@ export default function RiderRoutePage() {
       });
       setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
       setIssueOpen(false);
+      toast.success('Issue reported.');
     } catch {
       setError('Failed to report issue. Please try again.');
+      toast.error('Failed to report issue.');
     }
   };
 
