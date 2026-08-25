@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import EmptyState from '../components/EmptyState';
-import '../styles/MyShipmentsPage.css';
+import EmptyState from '../../components/EmptyState';
+import '../../styles/MyShipmentsPage.css';
 
 interface Shipment {
   id: string;

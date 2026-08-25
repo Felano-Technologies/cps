@@ -10,9 +10,9 @@ import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 
 // Pages
-import LandingPage from './pages/LandingPage';
-import SignInPage from './pages/SignInPage';
-import SignUpPage from './pages/SignUpPage';
+import LandingPage from './pages/public/LandingPage';
+import SignInPage from './pages/auth/SignInPage';
+import SignUpPage from './pages/auth/SignUpPage';
 
 // Public Static Pages
 import AboutPage from './pages/public/AboutPage';
@@ -25,26 +25,26 @@ import StandardDeliveryPage from './pages/public/StandardDeliveryPage';
 import BulkDeliveryPage from './pages/public/BulkDeliveryPage';
 
 // Customer Pages
-import RequestPickupPage from './pages/RequestPickupPage';
-import MyshipmentsPage from './pages/MyShipmentsPage';
+import RequestPickupPage from './pages/customer/RequestPickupPage';
+import MyshipmentsPage from './pages/customer/MyShipmentsPage';
 
 // Operations Pages
-import LiveOpsBoardPage from './pages/LiveOpsBoardPage';
-import FleetManagementPage from './pages/FleetManagementPage';
-import OpsAlertsPage from './pages/OpsAlertsPage';
-import OpsAnalyticsPage from './pages/OpsAnalyticsPage';
-import AdminPanelPage from './pages/AdminPanelPage';
+import LiveOpsBoardPage from './pages/operations/LiveOpsBoardPage';
+import FleetManagementPage from './pages/operations/FleetManagementPage';
+import OpsAlertsPage from './pages/operations/OpsAlertsPage';
+import OpsAnalyticsPage from './pages/operations/OpsAnalyticsPage';
+import AdminPanelPage from './pages/admin/AdminPanelPage';
 
 // Shared Pages
-import CustomerTrackingPage from './pages/CustomerTrackingPage';
-import OpsTrackingPage from './pages/OpsTrackingPage';
-import SettingsPage from './pages/SettingsPage';
+import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
+import OpsTrackingPage from './pages/operations/OpsTrackingPage';
+import SettingsPage from './pages/settings/SettingsPage';
 
 // Rider Pages
-import RiderRoutePage from './pages/RiderRoutePage';
+import RiderRoutePage from './pages/rider/RiderRoutePage';
 
 // 404
-import NotFoundPage from './pages/NotFoundPage';
+import NotFoundPage from './pages/public/NotFoundPage';
 
 /**
  * Route Protection Component

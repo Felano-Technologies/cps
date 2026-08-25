@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { calculateDeliveryCost } from '../utils/pricing';
+import { calculateDeliveryCost } from '../../utils/pricing';
 
 export default function RequestPickupPage() {
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
