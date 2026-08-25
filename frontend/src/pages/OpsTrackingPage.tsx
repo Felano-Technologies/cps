@@ -55,6 +55,50 @@ export default function OpsTrackingPage() {
     setData(mockDb[fetchId] || mockDb['default']);
   }, [parcelId]);
 
+  const handleStatusChange = (newStatus: string) => {
+    if (!data) return;
+    
+    const newEvent: TrackingEvent = {
+      title: `Status Updated: ${newStatus}`,
+      desc: `Operations marked this package as ${newStatus}.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      completed: false,
+      active: true
+    };
+
+    const updatedHistory = data.history.map(evt => 
+      evt.active ? { ...evt, active: false, completed: true } : evt
+    );
+
+    setData({
+      ...data,
+      status: newStatus,
+      history: [newEvent, ...updatedHistory]
+    });
+  };
+
+  const handleAssignRider = (newRider: string) => {
+    if (!data) return;
+    
+    const newEvent: TrackingEvent = {
+      title: `Rider Assigned: ${newRider}`,
+      desc: `Operations re-routed package to ${newRider}.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      completed: false,
+      active: true
+    };
+
+    const updatedHistory = data.history.map(evt => 
+      evt.active ? { ...evt, active: false, completed: true } : evt
+    );
+
+    setData({
+      ...data,
+      rider: newRider,
+      history: [newEvent, ...updatedHistory]
+    });
+  };
+
   if (!data) return <div className="page-shell light-shell"><main className="container" style={{ padding: '48px' }}>Loading tracking data...</main></div>;
 
   return (
@@ -228,6 +272,33 @@ export default function OpsTrackingPage() {
           </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
+            <select 
+              value="" 
+              onChange={(e) => { if(e.target.value) handleAssignRider(e.target.value) }}
+              className="neutral-btn" 
+              style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: 600, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', appearance: 'none', color: '#0f172a' }}
+            >
+              <option value="" disabled>👤 Assign Rider...</option>
+              <option value="Kwame D.">Kwame D.</option>
+              <option value="Samuel O.">Samuel O.</option>
+              <option value="Isaac A.">Isaac A.</option>
+              <option value="Michael T.">Michael T.</option>
+            </select>
+
+            <select 
+              value="" 
+              onChange={(e) => { if(e.target.value) handleStatusChange(e.target.value) }}
+              className="neutral-btn" 
+              style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: 600, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', appearance: 'none' }}
+            >
+              <option value="" disabled>Update Status...</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Out for Delivery">Out for Delivery</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Delayed">Delayed</option>
+              <option value="Exception">Exception</option>
+            </select>
+
             <button className="neutral-btn" style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
               Share Link

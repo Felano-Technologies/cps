@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import OrderPrintModal from '../components/OrderPrintModal';
+import CreateOrderModal from '../components/CreateOrderModal';
 import EmptyState from '../components/EmptyState';
 
 type OpsOrderStatus = 'In Transit' | 'Out for Delivery' | 'Delivered' | 'Delayed' | 'Urgent';
@@ -24,6 +25,7 @@ const mockLiveOrders: OpsOrder[] = [
 
 export default function LiveOpsBoardPage() {
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -175,13 +177,22 @@ export default function LiveOpsBoardPage() {
             <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>Operations Command Center</h1>
             <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>Live overview of riders, active orders, and delivery progress.</p>
           </div>
-          <button 
-            className="primary-green" 
-            style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
-            onClick={() => setIsPrintModalOpen(true)}
-          >
-            🖨️ Print Receipt
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button 
+              className="neutral-btn" 
+              style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
+              onClick={() => setIsPrintModalOpen(true)}
+            >
+              🖨️ Print Receipt
+            </button>
+            <button 
+              className="primary-green" 
+              style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              ➕ New Order
+            </button>
+          </div>
         </div>
 
         {/* KPI Row */}
@@ -331,6 +342,15 @@ export default function LiveOpsBoardPage() {
         </div>
         
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
+        {isCreateModalOpen && (
+          <CreateOrderModal 
+            onClose={() => setIsCreateModalOpen(false)} 
+            onCreate={() => {
+              setIsCreateModalOpen(false);
+              alert('New order dispatched successfully!');
+            }} 
+          />
+        )}
       </main>
     </div>
   );
