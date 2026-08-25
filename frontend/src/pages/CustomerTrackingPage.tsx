@@ -40,7 +40,7 @@ export default function CustomerTrackingPage() {
         {/* Two-Column Grid */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', 
           gap: '32px', 
           alignItems: 'start' 
         }}>
@@ -87,7 +87,7 @@ export default function CustomerTrackingPage() {
             <div className="card-style" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '20px' }}>Delivery Details</h3>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '20px', marginBottom: '24px' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Origin</div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>Accra North Hub</div>

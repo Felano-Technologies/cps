@@ -176,8 +176,14 @@ export default function OpsTrackingPage() {
 
         .details-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
           gap: 24px;
+        }
+        
+        .header-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
         }
 
         /* Timeline styles */
@@ -245,6 +251,13 @@ export default function OpsTrackingPage() {
           .tracking-page-content {
             padding: 16px !important;
           }
+          .header-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+          .header-actions > * {
+            width: 100%;
+          }
         }
       `}</style>
 
@@ -271,7 +284,7 @@ export default function OpsTrackingPage() {
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="header-actions">
             <select 
               value="" 
               onChange={(e) => { if(e.target.value) handleAssignRider(e.target.value) }}
