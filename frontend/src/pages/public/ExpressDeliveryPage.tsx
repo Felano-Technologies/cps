@@ -26,7 +26,7 @@ export default function ExpressDeliveryPage() {
           </article>
           <article className="service-card dark-green-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '16px', color: 'var(--lime)' }}>⭐ Priority Fleet</h3>
-            <p style={{ color: '#e2e8f0' }}>Access our premium tier of elite riders and drivers dedicated specifically to express jobs.</p>
+            <p style={{ color: '#e2e8f0' }}>Access our premium tier of elite riders and drivers dedicated specifically to express orders.</p>
           </article>
           <article className="service-card dark-green-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '16px', color: 'var(--lime)' }}>⏱️ SLA Guaranteed</h3>

@@ -206,7 +206,7 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   
   .nav-links.open { display: flex; }
   
-  .new-job-btn { margin-left: auto; }
+  .new-order-btn { margin-left: auto; }
 
   .container {
     width: 100% !important;

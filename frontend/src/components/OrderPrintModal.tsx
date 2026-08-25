@@ -6,7 +6,7 @@ interface OrderPrintModalProps {
 
 export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
   const [mode, setMode] = useState<'fetch' | 'manual'>('fetch');
-  const [jobId, setJobId] = useState('');
+  const [orderId, setOrderId] = useState('');
   const [formData, setFormData] = useState({
     senderName: '',
     senderNumber: '',
@@ -30,7 +30,7 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
 
   const handleFetch = () => {
     // Mock fetch for demonstration
-    if (jobId.trim()) {
+    if (orderId.trim()) {
       setFormData({
         senderName: 'John Doe',
         senderNumber: '0241234567',
@@ -100,7 +100,7 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
                 onClick={() => setMode('fetch')}
                 style={{ flex: 1, padding: '8px', border: mode === 'fetch' ? '2px solid var(--green)' : '1px solid var(--border)', borderRadius: '8px', background: mode === 'fetch' ? 'var(--success-bg)' : '#fff' }}
               >
-                Fetch Job ID
+                Fetch Order ID
               </button>
               <button 
                 onClick={() => setMode('manual')}
@@ -112,12 +112,12 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
 
             {mode === 'fetch' && (
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Job ID</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Order ID</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input 
-                    value={jobId} 
-                    onChange={e => setJobId(e.target.value)} 
-                    placeholder="e.g. JOB-8924" 
+                    value={orderId} 
+                    onChange={e => setOrderId(e.target.value)} 
+                    placeholder="e.g. ORD-8924" 
                     style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}
                   />
                   <button onClick={handleFetch} className="primary-green" style={{ padding: '0 16px' }}>Fetch</button>
@@ -166,7 +166,7 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <strong>JOB ID:</strong> {mode === 'fetch' && jobId ? jobId : 'MANUAL-ENTRY'}
+                <strong>ORDER ID:</strong> {mode === 'fetch' && orderId ? orderId : 'MANUAL-ENTRY'}
               </div>
 
               <div style={{ borderBottom: '1px dashed #000', paddingBottom: '12px', marginBottom: '12px' }}>

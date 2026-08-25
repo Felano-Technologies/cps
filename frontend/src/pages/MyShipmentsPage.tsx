@@ -11,12 +11,12 @@ interface Shipment {
 }
 
 const mockShipments: Shipment[] = [
-  { id: 'JOB-9021', destination: '124 Spintex Road, Accra', service: 'Motorbike Express', status: 'In Transit', time: 'Today, 14:30' },
-  { id: 'JOB-8820', destination: 'Tech Hub, KNUST Campus', service: 'Van Delivery', status: 'Delivered', time: 'Yesterday, 16:45' },
-  { id: 'JOB-9104', destination: 'Adum, Kumasi', service: 'Motorbike Courier', status: 'Delayed', time: 'Traffic delay' },
-  { id: 'JOB-9112', destination: 'East Legon, Accra', service: 'Same Day Delivery', status: 'Pending', time: 'Awaiting Pickup' },
-  { id: 'JOB-8700', destination: 'Airport Residential', service: 'Express Courier', status: 'Delivered', time: 'Aug 21, 10:00' },
-  { id: 'JOB-9055', destination: 'Osu Oxford Street', service: 'Van Delivery', status: 'In Transit', time: 'Today, 18:00' },
+  { id: 'ORD-9021', destination: '124 Spintex Road, Accra', service: 'Motorbike Express', status: 'In Transit', time: 'Today, 14:30' },
+  { id: 'ORD-8820', destination: 'Tech Hub, KNUST Campus', service: 'Van Delivery', status: 'Delivered', time: 'Yesterday, 16:45' },
+  { id: 'ORD-9104', destination: 'Adum, Kumasi', service: 'Motorbike Courier', status: 'Delayed', time: 'Traffic delay' },
+  { id: 'ORD-9112', destination: 'East Legon, Accra', service: 'Same Day Delivery', status: 'Pending', time: 'Awaiting Pickup' },
+  { id: 'ORD-8700', destination: 'Airport Residential', service: 'Express Courier', status: 'Delivered', time: 'Aug 21, 10:00' },
+  { id: 'ORD-9055', destination: 'Osu Oxford Street', service: 'Van Delivery', status: 'In Transit', time: 'Today, 18:00' },
 ];
 
 export default function MyShipmentsPage() {
@@ -63,7 +63,7 @@ export default function MyShipmentsPage() {
               </svg>
               <input 
                 type="text" 
-                placeholder="Search by Job ID or Destination..." 
+                placeholder="Search by Order ID or Destination..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -73,7 +73,7 @@ export default function MyShipmentsPage() {
           <table className="responsive-table shipments-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0' }}>
             <thead>
               <tr style={{ textAlign: 'left', background: '#f8fafc' }}>
-                <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job ID</th>
+                <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Destination</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
@@ -85,7 +85,7 @@ export default function MyShipmentsPage() {
               {filteredShipments.length > 0 ? (
                 filteredShipments.map((shipment) => (
                   <tr key={shipment.id} className="shipment-row">
-                    <td data-label="Job ID" style={{ padding: '20px 24px', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #f1f5f9' }}>{shipment.id}</td>
+                    <td data-label="Order ID" style={{ padding: '20px 24px', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #f1f5f9' }}>{shipment.id}</td>
                     <td data-label="Destination" style={{ padding: '20px 24px', color: '#475569', borderBottom: '1px solid #f1f5f9', fontSize: '15px', fontWeight: 500 }}>{shipment.destination}</td>
                     <td data-label="Service" style={{ padding: '20px 24px', color: '#64748b', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>{shipment.service}</td>
                     <td data-label="Status" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>

@@ -11,7 +11,7 @@ export default function LiveOpsBoardPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1>Operations Board</h1>
-            <p className="muted-text">Live overview of riders, active jobs, and delivery progress.</p>
+            <p className="muted-text">Live overview of riders, active orders, and delivery progress.</p>
           </div>
           <button 
             className="primary-green" 
@@ -24,7 +24,7 @@ export default function LiveOpsBoardPage() {
 
         <div className="summary-row-cards" style={{ marginTop: '24px' }}>
           <div className="stat-card">
-            <div className="stat-head">Active Jobs</div>
+            <div className="stat-head">Active Orders</div>
             <div className="stat-big">342</div>
           </div>
           <div className="stat-card">
@@ -40,14 +40,14 @@ export default function LiveOpsBoardPage() {
         <div className="dashboard-grid">
           <div className="map-card">
             <div className="map-header-row">
-              <span>Live Jobs Map</span>
+              <span>Live Orders Map</span>
               <div className="map-actions">
                 <div className="mini-search">Filter by zone...</div>
               </div>
             </div>
             <div className="map-surface" style={{ position: 'relative' }}>
               <div className="map-routes" />
-              {/* Map Pins representing jobs */}
+              {/* Map Pins representing orders */}
               <div className="map-pin start" style={{ top: '30%', left: '40%' }}></div>
               <div className="map-pin end" style={{ top: '50%', left: '60%' }}></div>
               <div className="map-pin end" style={{ top: '20%', left: '70%', background: 'var(--amber)' }}></div>
@@ -60,14 +60,14 @@ export default function LiveOpsBoardPage() {
 
           <aside className="shipment-list-card">
             <div className="shipment-header">
-              <h3>Active Jobs</h3>
+              <h3>Active Orders</h3>
               <span className="pill-soft">4 Total</span>
             </div>
 
             <div className="shipment-item">
               <div className="shipment-main">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div className="tag-green">JOB-8924</div>
+                  <div className="tag-green">ORD-8924</div>
                   <span title="Motorbike">🏍️</span>
                 </div>
                 <div className="subline">Pharmacy pickup</div>
@@ -82,7 +82,7 @@ export default function LiveOpsBoardPage() {
             <div className="shipment-item">
               <div className="shipment-main">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div className="tag-green">JOB-9011</div>
+                  <div className="tag-green">ORD-9011</div>
                   <span title="Van">🚐</span>
                 </div>
                 <div className="subline">Electronics delivery</div>
@@ -97,7 +97,7 @@ export default function LiveOpsBoardPage() {
             <div className="shipment-item">
               <div className="shipment-main">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div className="tag-green">JOB-7742</div>
+                  <div className="tag-green">ORD-7742</div>
                   <span title="Motorbike">🏍️</span>
                 </div>
                 <div className="subline">Restaurant drop-off</div>
@@ -109,7 +109,7 @@ export default function LiveOpsBoardPage() {
             <div className="shipment-item">
               <div className="shipment-main">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div className="tag-green">JOB-4321</div>
+                  <div className="tag-green">ORD-4321</div>
                   <span title="Van">🚐</span>
                 </div>
                 <div className="subline">Retail replenishment</div>
@@ -118,7 +118,7 @@ export default function LiveOpsBoardPage() {
               <span className="status-red">Delayed</span>
             </div>
 
-            <Link to="/ops/tracking/JOB-8924" className="neutral-btn wide-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>View Tracking Dashboard</Link>
+            <Link to="/ops/tracking/ORD-8924" className="neutral-btn wide-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>View Tracking Dashboard</Link>
           </aside>
         </div>
         

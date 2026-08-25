@@ -62,7 +62,7 @@ export default function OpsTrackingPage() {
             <div className="history-item" style={{ display: 'flex', gap: '16px' }}>
               <div className="history-icon" style={{ color: '#cbd5e1' }}>◌</div>
               <div>
-                <strong style={{ display: 'block' }}>Job Created</strong>
+                <strong style={{ display: 'block' }}>Order Created</strong>
                 <div style={{ fontSize: '0.9rem', color: '#64748b', margin: '4px 0' }}>System generated</div>
               </div>
             </div>
