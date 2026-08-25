@@ -118,8 +118,8 @@ export default function Topbar() {
               {userMenuOpen && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 12px)', right: 0,
-                  background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(255,255,255,1)', borderRadius: '16px',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0', borderRadius: '16px',
                   boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(0,0,0,0.05)', 
                   padding: '16px', minWidth: '240px', zIndex: 50,
                   animation: 'slideDown 0.3s var(--ease-out) forwards',
