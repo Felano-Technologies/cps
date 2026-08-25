@@ -1,104 +1,344 @@
+import { useState, useMemo } from 'react';
+import EmptyState from '../components/EmptyState';
+
+type VehicleType = 'Motorbike' | 'Van' | 'Truck';
+type FleetStatus = 'Available' | 'En Route' | 'Loading' | 'Maintenance' | 'Offline';
+
+interface FleetMember {
+  id: string;
+  name: string;
+  initials: string;
+  vehicleId: string;
+  vehicleType: VehicleType;
+  location: string;
+  status: FleetStatus;
+}
+
+const mockFleetData: FleetMember[] = [
+  { id: 'RDR-001', name: 'John Doe', initials: 'JD', vehicleId: 'BK-1042', vehicleType: 'Motorbike', location: 'East Legon, Accra', status: 'En Route' },
+  { id: 'RDR-002', name: 'Sarah Jenkins', initials: 'SJ', vehicleId: 'VN-2199', vehicleType: 'Van', location: 'Spintex Road, Accra', status: 'Loading' },
+  { id: 'RDR-003', name: 'Michael Ross', initials: 'MR', vehicleId: 'BK-0883', vehicleType: 'Motorbike', location: 'Osu, Accra', status: 'Maintenance' },
+  { id: 'RDR-004', name: 'Amanda Lee', initials: 'AL', vehicleId: 'VN-3321', vehicleType: 'Van', location: 'Airport Residential', status: 'Available' },
+  { id: 'RDR-005', name: 'David Mensah', initials: 'DM', vehicleId: 'BK-9912', vehicleType: 'Motorbike', location: 'Cantonments, Accra', status: 'En Route' },
+  { id: 'RDR-006', name: 'Kwame Osei', initials: 'KO', vehicleId: 'TK-5501', vehicleType: 'Truck', location: 'Tema Port', status: 'Offline' },
+];
+
 export default function FleetManagementPage() {
+  const [activeTab, setActiveTab] = useState<string>('All Vehicles');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredFleet = useMemo(() => {
+    return mockFleetData.filter(member => {
+      let matchesTab = true;
+      if (activeTab === 'Motorbikes') matchesTab = member.vehicleType === 'Motorbike';
+      if (activeTab === 'Vans') matchesTab = member.vehicleType === 'Van';
+      if (activeTab === 'Maintenance') matchesTab = member.status === 'Maintenance';
+      
+      const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            member.vehicleId.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesTab && matchesSearch;
+    });
+  }, [activeTab, searchQuery]);
+
+  const getStatusColor = (status: FleetStatus) => {
+    switch (status) {
+      case 'Available': return { bg: '#e0ffe0', text: '#22863a', border: '#22863a' };
+      case 'En Route': return { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' };
+      case 'Loading': return { bg: '#fef3c7', text: '#b45309', border: '#f59e0b' };
+      case 'Maintenance': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' };
+      case 'Offline': return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
+      default: return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
+    }
+  };
+
+  const getVehicleIcon = (type: VehicleType) => {
+    switch (type) {
+      case 'Motorbike': return '🏍️';
+      case 'Van': return '🚐';
+      case 'Truck': return '🚚';
+      default: return '🚗';
+    }
+  };
+
   return (
     <div className="page-shell light-shell">
-      
-      <main className="container fleet-screen">
-        <div className="fleet-head-row">
+      <style>{`
+        /* Reuse glass-card from Ops Board */
+        .glass-card {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          box-shadow: 0 8px 32px rgba(15, 23, 42, 0.05);
+          border-radius: 16px;
+        }
+
+        .heatmap-container {
+          background: #0f172a;
+          border-radius: 16px;
+          position: relative;
+          overflow: hidden;
+          box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 10px 30px rgba(15, 23, 42, 0.2);
+        }
+
+        .heatmap-grid {
+          position: absolute;
+          inset: 0;
+          background-image: 
+            linear-gradient(rgba(245, 158, 11, 0.15) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(245, 158, 11, 0.15) 1px, transparent 1px);
+          background-size: 40px 40px;
+          opacity: 0.6;
+        }
+
+        .heat-zone {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(20px);
+          animation: pulseHeat 4s infinite alternate;
+        }
+        .heat-high { background: rgba(239, 68, 68, 0.6); width: 120px; height: 120px; }
+        .heat-medium { background: rgba(245, 158, 11, 0.5); width: 150px; height: 150px; }
+        .heat-low { background: rgba(131, 211, 20, 0.4); width: 200px; height: 200px; }
+
+        @keyframes pulseHeat {
+          0% { transform: scale(1); opacity: 0.7; }
+          100% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .filter-tab {
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          transition: all 0.2s;
+        }
+        .filter-tab:hover {
+          background: #f1f5f9;
+        }
+        .filter-tab.active {
+          background: #078c35;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(7, 140, 53, 0.2);
+        }
+
+        .fleet-main-grid {
+          display: grid;
+          grid-template-columns: 1fr 380px;
+          gap: 24px;
+          padding: 0 24px;
+          align-items: start;
+        }
+
+        .responsive-table-container {
+          overflow-x: auto;
+          width: 100%;
+        }
+
+        .avatar-circle {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 14px;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 1024px) {
+          .fleet-main-grid {
+            grid-template-columns: 1fr;
+          }
+          .heatmap-container {
+            height: 400px !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .fleet-main-grid, .kpi-row, .header-row {
+            padding: 0 16px !important;
+          }
+        }
+      `}</style>
+
+      <main className="container" style={{ padding: '32px 0', maxWidth: '1400px' }}>
+        
+        {/* Header Section */}
+        <div className="header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px', padding: '0 24px' }}>
           <div>
-            <h2>Fleet Overview</h2>
-            <p>Real-time status for riders, bikes, vans, and active delivery zones.</p>
+            <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>Fleet Management</h1>
+            <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>Real-time status for riders, bikes, vans, and active zones.</p>
           </div>
-          <div className="fleet-controls" style={{ display: 'flex', gap: '8px' }}>
-            <button className="neutral-btn small active-menu" style={{ background: 'var(--green)', color: '#000', fontWeight: 'bold' }}>All Vehicles</button>
-            <button className="neutral-btn small">🏍️ Motorbikes Only</button>
-            <button className="neutral-btn small">🚐 Vans Only</button>
-            <button className="neutral-btn small">More Filters</button>
-          </div>
-        </div>
-
-        <div className="stats-grid-4">
-          <div className="stat-box-lite card-style">
-            <div className="tiny-label">Active Riders/Drivers</div>
-            <div className="big-number">1,248</div>
-            <small>↑ 4.2% vs last week</small>
-          </div>
-          <div className="stat-box-lite card-style">
-            <div className="tiny-label">On-Time Rate</div>
-            <div className="big-number">98.4%</div>
-            <small>↑ 0.8%, vs last week</small>
-          </div>
-          <div className="stat-box-lite card-style">
-            <div className="tiny-label">Fleet Health</div>
-            <div className="big-number" style={{ color: 'var(--green-dark)' }}>Good</div>
-            <div className="meter" style={{ height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden', marginTop: '8px' }}>
-              <div style={{ height: '100%', width: '85%', background: 'var(--green)' }}></div>
-            </div>
-            <small>15% scheduled for maintenance</small>
-          </div>
-          <div className="stat-box-lite card-style">
-            <div className="tiny-label">Avg Utilization</div>
-            <div className="big-number">82<span>%</span></div>
-            <small>↓ 1.1% vs last week</small>
+          
+          <div style={{ display: 'flex', gap: '12px', background: '#fff', padding: '6px', borderRadius: '12px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+            {['All Vehicles', 'Motorbikes', 'Vans', 'Maintenance'].map(tab => (
+              <button 
+                key={tab} 
+                className={`filter-tab ${activeTab === tab ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="fleet-table-layout">
-          <div className="table-card">
-            <div className="table-header-row">
-              <h3>Detailed Fleet List</h3>
-              <button className="mini-options">⋮</button>
+        {/* KPI Row */}
+        <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Riders/Drivers</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>1,248</div>
+            <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, marginTop: '8px' }}>↑ 4.2% vs last week</div>
+          </div>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>On-Time Rate</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>98.4%</div>
+            <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, marginTop: '8px' }}>↑ 0.8% vs last week</div>
+          </div>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fleet Health</div>
+                <div style={{ fontSize: '36px', fontWeight: 800, color: '#078c35', marginTop: '8px' }}>Good</div>
+              </div>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Driver / Vehicle ID</th>
-                  <th>Vehicle</th>
-                  <th>Current Location</th>
-                  <th>Task Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><div className="customer-pip" style={{ background: 'var(--green)', color: '#000' }}>JD</div>John Doe<br /><small style={{ color: '#64748b' }}>BK-1042</small></td>
-                  <td style={{ fontSize: '1.2rem' }} title="Motorbike">🏍️</td>
-                  <td>Chicago, IL</td>
-                  <td><span className="tag success">En Route</span></td>
-                  <td>→</td>
-                </tr>
-                <tr>
-                  <td><div className="customer-pip" style={{ background: 'var(--green)', color: '#000' }}>SJ</div>Sarah Jenkins<br /><small style={{ color: '#64748b' }}>VN-2199</small></td>
-                  <td style={{ fontSize: '1.2rem' }} title="Van">🚐</td>
-                  <td>Atlanta, GA</td>
-                  <td><span className="tag success">Loading</span></td>
-                  <td>→</td>
-                </tr>
-                <tr>
-                  <td><div className="customer-pip" style={{ background: '#f59e0b', color: '#fff' }}>MR</div>Michael Ross<br /><small style={{ color: '#64748b' }}>BK-0883</small></td>
-                  <td style={{ fontSize: '1.2rem' }} title="Motorbike">🏍️</td>
-                  <td>Dallas, TX</td>
-                  <td><span className="tag warning" style={{ background: '#fef3c7', color: '#b45309' }}>Maintenance</span></td>
-                  <td>→</td>
-                </tr>
-                <tr>
-                  <td><div className="customer-pip" style={{ background: 'var(--green)', color: '#000' }}>AL</div>Amanda Lee<br /><small style={{ color: '#64748b' }}>VN-3321</small></td>
-                  <td style={{ fontSize: '1.2rem' }} title="Van">🚐</td>
-                  <td>Accra, GH</td>
-                  <td><span className="tag success">Available</span></td>
-                  <td>→</td>
-                </tr>
-              </tbody>
-            </table>
+            <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginTop: '12px' }}>
+              <div style={{ height: '100%', width: '85%', background: '#078c35' }}></div>
+            </div>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500, marginTop: '8px' }}>15% scheduled for maintenance</div>
+          </div>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Utilization</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>82<span style={{ fontSize: '20px', color: '#64748b' }}>%</span></div>
+            <div style={{ fontSize: '14px', color: '#ef4444', fontWeight: 600, marginTop: '8px' }}>↓ 1.1% vs last week</div>
+          </div>
+        </div>
+
+        {/* Main Dashboard Grid */}
+        <div className="fleet-main-grid">
+          
+          {/* Detailed Fleet List */}
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Detailed Fleet List</h3>
+              <input 
+                type="text" 
+                placeholder="Search Driver or Vehicle ID..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', maxWidth: '300px', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+              />
+            </div>
+            
+            <div className="responsive-table-container">
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Driver</th>
+                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Vehicle</th>
+                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Location</th>
+                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
+                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFleet.length > 0 ? (
+                    filteredFleet.map(member => {
+                      const statusColor = getStatusColor(member.status);
+                      const avatarBg = member.status === 'Maintenance' ? '#f59e0b' : '#078c35';
+                      return (
+                        <tr key={member.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div className="avatar-circle" style={{ background: avatarBg, color: '#fff' }}>
+                                {member.initials}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.name}</div>
+                                <div style={{ color: '#64748b', fontSize: '13px', marginTop: '2px', fontWeight: 600 }}>{member.vehicleId}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 24px', fontSize: '24px' }} title={member.vehicleType}>
+                            {getVehicleIcon(member.vehicleType)}
+                          </td>
+                          <td style={{ padding: '16px 24px', color: '#475569', fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap' }}>
+                            {member.location}
+                          </td>
+                          <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
+                            <span style={{ 
+                              background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}`,
+                              padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, display: 'inline-block'
+                            }}>
+                              {member.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '16px 24px' }}>
+                            <button style={{ 
+                              background: 'none', border: '1px solid #cbd5e1', padding: '6px 12px', 
+                              borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#0f172a'
+                            }}>
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0 }}>
+                        <EmptyState 
+                          icon="🚐"
+                          title="No Fleet Found"
+                          message="There are no riders or vehicles matching your current filters."
+                          actionLabel="Clear Filters"
+                          onAction={() => { setSearchQuery(''); setActiveTab('All Vehicles'); }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="map-mini-card">
-            <div className="map-caption" style={{ marginBottom: '12px' }}>Live Heatmap</div>
-            <div className="map-mini-surface" style={{ minHeight: '320px', borderRadius: '12px', border: '1px solid var(--border)' }} />
-            <div className="stats-lower">
-              <div><span>Highest Density</span><strong>Midwest Hub</strong></div>
-              <div><span>Active Units</span><strong>412</strong></div>
+          {/* Live Heatmap Mini Card */}
+          <div className="heatmap-container" style={{ height: '100%', minHeight: '600px' }}>
+            <div className="heatmap-grid" />
+            
+            {/* Heat Zones */}
+            <div className="heat-zone heat-high" style={{ top: '30%', left: '40%' }}></div>
+            <div className="heat-zone heat-medium" style={{ top: '60%', left: '20%' }}></div>
+            <div className="heat-zone heat-low" style={{ top: '20%', left: '70%' }}></div>
+            <div className="heat-zone heat-medium" style={{ top: '70%', left: '60%' }}></div>
+
+            {/* Overlay Info */}
+            <div style={{ position: 'absolute', top: '24px', left: '24px', right: '24px', zIndex: 10 }}>
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', display: 'inline-block' }}>
+                <span style={{ fontWeight: 600, fontSize: '15px' }}>Live Density Heatmap</span>
+              </div>
+            </div>
+
+            <div style={{ position: 'absolute', bottom: '24px', left: '24px', right: '24px', zIndex: 10 }}>
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Highest Density</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>East Legon Hub</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active Units</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#ef4444' }}>412</div>
+                </div>
+              </div>
             </div>
           </div>
+          
         </div>
       </main>
     </div>

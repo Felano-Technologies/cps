@@ -41,7 +41,7 @@ export default function LandingPage() {
 
       <section className="services-wrapper container">
         <h2>Built for Couriers</h2>
-        <p>Simple tools for dispatching riders, monitoring live jobs, and keeping every delivery on time.</p>
+        <p>Simple tools for dispatching riders, monitoring live orders, and keeping every delivery on time.</p>
 
         <div className="service-feature-grid">
           <article className="service-card wide-card">

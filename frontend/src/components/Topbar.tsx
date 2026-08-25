@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import cpsLogo from '../assets/logo2.png';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 
 const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   customer: [
@@ -12,6 +12,8 @@ const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   operations: [
     { path: '/ops-board', label: 'Live Ops Board' },
     { path: '/fleet', label: 'Fleet Management' },
+    { path: '/ops-alerts', label: 'Alerts' },
+    { path: '/ops-analytics', label: 'Analytics' },
     { path: '/settings', label: 'Settings' },
   ],
   admin: [
@@ -29,6 +31,12 @@ export default function Topbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -41,7 +49,7 @@ export default function Topbar() {
   return (
     <header className="topbar">
       <div className="brand-title">
-          <NavLink to="/">
+          <NavLink to={isAuthenticated && user ? getRoleDashboard(user.role) : "/"}>
             <img src={cpsLogo} alt="CPS Delivery Services" className="brand-logo" />
           </NavLink>
         </div>

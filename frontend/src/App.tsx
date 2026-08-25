@@ -31,6 +31,8 @@ import MyshipmentsPage from './pages/MyShipmentsPage';
 // Operations Pages
 import LiveOpsBoardPage from './pages/LiveOpsBoardPage';
 import FleetManagementPage from './pages/FleetManagementPage';
+import OpsAlertsPage from './pages/OpsAlertsPage';
+import OpsAnalyticsPage from './pages/OpsAnalyticsPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 
 // Shared Pages
@@ -120,6 +122,22 @@ function App() {
             element={
               <ProtectedRoute requiredRole="operations">
                 <FleetManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops-alerts"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsAlertsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops-analytics"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsAnalyticsPage />
               </ProtectedRoute>
             }
           />
