@@ -10,7 +10,7 @@ export default function ContactPage() {
         </div>
       </main>
 
-      <section className="container" style={{ marginTop: '32px', marginBottom: '80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '48px' }}>
+      <section className="container" style={{ marginTop: '32px', marginBottom: '80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '48px' }}>
         
         <div className="contact-form-card" style={{ background: '#fff', padding: '40px', borderRadius: '24px', boxShadow: '0 12px 40px rgba(15,23,42,0.06)' }}>
           <h3 style={{ marginBottom: '24px', fontSize: '1.5rem', color: 'var(--navy)' }}>Send us a message</h3>

@@ -1,12 +1,26 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import OrderPrintModal from '../components/OrderPrintModal';
 
 export default function LiveOpsBoardPage() {
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   return (
     <div className="page-shell light-shell">
       
       <main className="container dashboard-screen">
-        <h1>Operations Board</h1>
-        <p className="muted-text">Live overview of riders, active jobs, and delivery progress.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1>Operations Board</h1>
+            <p className="muted-text">Live overview of riders, active jobs, and delivery progress.</p>
+          </div>
+          <button 
+            className="primary-green" 
+            style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={() => setIsPrintModalOpen(true)}
+          >
+            🖨️ Print Label / Receipt
+          </button>
+        </div>
 
         <div className="summary-row-cards" style={{ marginTop: '24px' }}>
           <div className="stat-card">
@@ -59,7 +73,10 @@ export default function LiveOpsBoardPage() {
                 <div className="subline">Pharmacy pickup</div>
                 <div className="small-meta">ETA: Today, 14:30</div>
               </div>
-              <span className="status-green">In Transit</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                <span className="status-green">In Transit</span>
+                <button onClick={() => setIsPrintModalOpen(true)} style={{ background: 'none', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>Print</button>
+              </div>
             </div>
 
             <div className="shipment-item">
@@ -71,7 +88,10 @@ export default function LiveOpsBoardPage() {
                 <div className="subline">Electronics delivery</div>
                 <div className="small-meta">ETA: Today, 11:15</div>
               </div>
-              <span className="status-green">Out for Delivery</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                <span className="status-green">Out for Delivery</span>
+                <button onClick={() => setIsPrintModalOpen(true)} style={{ background: 'none', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>Print</button>
+              </div>
             </div>
 
             <div className="shipment-item">
@@ -98,9 +118,11 @@ export default function LiveOpsBoardPage() {
               <span className="status-red">Delayed</span>
             </div>
 
-            <Link to="/tracking/JOB-8924" className="neutral-btn wide-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>View Tracking Dashboard</Link>
+            <Link to="/ops/tracking/JOB-8924" className="neutral-btn wide-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>View Tracking Dashboard</Link>
           </aside>
         </div>
+        
+        {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
       </main>
 
     </div>

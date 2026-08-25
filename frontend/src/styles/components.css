@@ -18,6 +18,18 @@
   border-radius: 14px;
   padding: 18px;
 }
+
+.form-section-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--green-dark);
+  margin: 32px 0 20px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+.form-section-title:first-child {
+  margin-top: 0;
+}
 .service-card { display: flex; align-items: center; gap: 18px; min-height: 140px; }
 .dark-green-card { background: #078c35; color: #fff; border-color: #078c35; }
 .dark-green-card p, .dark-green-card h3, .dark-green-card .text-link { color: #0d2012; }
@@ -42,12 +54,12 @@
 .step.current .step-circle, .step.done .step-circle { border-color: var(--green); background: var(--green); color: #fff; }
 .step.current span:last-child, .step.done span:last-child { color: var(--green-dark); font-weight: 700; }
 
-.step-layout { grid-template-columns: 1.35fr 0.65fr; }
+.step-layout { display: grid; grid-template-columns: 1.35fr 0.65fr; }
 .field-grid { display: grid; gap: 16px; }
 .two-col { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .three-col { grid-template-columns: repeat(3,minmax(0,1fr)); }
 label { display: flex; flex-direction: column; gap: 8px; color: #586159; }
-label input, label select { min-height: 48px; border: 1px solid var(--border); border-radius: 1.5rem; background: #fff; padding: 0.75rem 0.9rem; color: #202124; }
+label input, label select { box-sizing: border-box; width: 100%; margin: 0; min-height: 48px; border: 1px solid var(--border); border-radius: 1.5rem; background: #fff; padding: 0.75rem 0.9rem; color: #202124; }
 .summary-row, .spec-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e4e7e2; }
 .wide-btn { width: 100%; margin-top: 16px; }
 .checkbox-wrap { flex-direction: row !important; align-items: center; }
@@ -58,6 +70,7 @@ label input, label select { min-height: 48px; border: 1px solid var(--border); b
 .shipment-header, .fleet-head-row, .table-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .toolbar-actions, .inline-buttons, .header-actions, .fleet-controls { display: flex; gap: 12px; flex-wrap: wrap; }
 .summary-row-cards, .stats-grid-4 { display: grid; gap: 18px; grid-template-columns: repeat(3,minmax(0,1fr)); margin-bottom: 26px; }
+.fleet-table-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
 .stat-card, .stat-box-lite { min-height: 150px; }
 .stat-card { display: flex; flex-direction: column; justify-content: space-between; }
 .dark-card { background: linear-gradient(135deg, #102015, #0d120f); color: #fff; }

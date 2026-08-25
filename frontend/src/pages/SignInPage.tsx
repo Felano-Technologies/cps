@@ -74,7 +74,7 @@ export default function SignInPage() {
           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', textAlign: 'center', marginBottom: '16px', fontWeight: 700 }}>
             Development Quick Login
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
             <button type="button" onClick={() => handleQuickLogin('customer')} className="neutral-btn small" style={{ fontSize: '0.85rem' }}>Customer</button>
             <button type="button" onClick={() => handleQuickLogin('operations')} className="neutral-btn small" style={{ fontSize: '0.85rem' }}>Operations</button>
             <button type="button" onClick={() => handleQuickLogin('rider')} className="neutral-btn small" style={{ fontSize: '0.85rem' }}>Rider</button>

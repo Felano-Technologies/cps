@@ -18,11 +18,12 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
+html, body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #08111e;
+  background: var(--bg, #ffffff);
+  width: 100%;
 }
 
 button,

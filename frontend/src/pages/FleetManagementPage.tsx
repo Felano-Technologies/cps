@@ -42,7 +42,7 @@ export default function FleetManagementPage() {
           </div>
         </div>
 
-        <div className="fleet-table-layout" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px' }}>
+        <div className="fleet-table-layout">
           <div className="table-card">
             <div className="table-header-row">
               <h3>Detailed Fleet List</h3>
@@ -83,7 +83,7 @@ export default function FleetManagementPage() {
                 <tr>
                   <td><div className="customer-pip" style={{ background: 'var(--green)', color: '#000' }}>AL</div>Amanda Lee<br /><small style={{ color: '#64748b' }}>VN-3321</small></td>
                   <td style={{ fontSize: '1.2rem' }} title="Van">🚐</td>
-                  <td>Seattle, WA</td>
+                  <td>Accra, GH</td>
                   <td><span className="tag success">Available</span></td>
                   <td>→</td>
                 </tr>

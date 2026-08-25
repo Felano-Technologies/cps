@@ -151,6 +151,23 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
 .mobile-signin { display: none; }
 .desktop-auth { display: flex; margin-left: auto; }
 
+.settings-layout {
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+}
+.settings-sidebar {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.settings-content {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 768px) {
   .mobile-menu-btn { display: flex; }
   
@@ -177,10 +194,8 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
     top: calc(100% + 12px);
     right: 0;
     width: calc(100vw - 32px);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.8);
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 1);
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
     border-radius: 16px;
     padding: 16px;
@@ -193,7 +208,12 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   
   .new-job-btn { margin-left: auto; }
 
-  .container, .page-shell {
+  .container {
+    width: 100% !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .page-shell {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
@@ -202,5 +222,60 @@ h1, h2, h3, h4, h5, h6 { font-family: "Plus Jakarta Sans", sans-serif; letter-sp
   
   .brand-logo { 
     height: 44px; 
+  }
+
+  .settings-layout {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .settings-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .settings-sidebar > a {
+    white-space: nowrap;
+  }
+
+  .responsive-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .responsive-table thead {
+    display: none;
+  }
+  .responsive-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  }
+  .responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    text-align: right !important;
+  }
+  .responsive-table td:last-child {
+    border-bottom: none !important;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    text-align: left;
+    margin-right: 16px;
+    font-size: 13px;
   }
 }

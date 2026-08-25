@@ -34,7 +34,8 @@ import FleetManagementPage from './pages/FleetManagementPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 
 // Shared Pages
-import TrackingDetailsPage from './pages/TrackingDetailsPage';
+import CustomerTrackingPage from './pages/CustomerTrackingPage';
+import OpsTrackingPage from './pages/OpsTrackingPage';
 import SettingsPage from './pages/SettingsPage';
 
 // Rider Pages
@@ -146,7 +147,15 @@ function App() {
             path="/tracking/:parcelId"
             element={
               <ProtectedRoute>
-                <TrackingDetailsPage />
+                <CustomerTrackingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops/tracking/:parcelId"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsTrackingPage />
               </ProtectedRoute>
             }
           />
