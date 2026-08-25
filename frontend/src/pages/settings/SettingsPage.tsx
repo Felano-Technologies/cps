@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { PageLoader } from '../../components/Spinner';
 
 // Import role-specific settings components
 import CustomerSettings from './CustomerSettings';
@@ -13,8 +14,8 @@ export default function SettingsPage() {
   if (isLoading) {
     return (
       <div className="page-shell light-shell">
-        <main className="container billing-screen" style={{ textAlign: 'center', padding: '100px 20px', color: '#64748b' }}>
-          Loading settings...
+        <main className="container billing-screen">
+          <PageLoader label="Loading settings…" />
         </main>
       </div>
     );

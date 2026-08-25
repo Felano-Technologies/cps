@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Truck } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
+import CustomSelect from '../../components/Form/CustomSelect';
+import { SkeletonTableRows } from '../../components/Skeleton';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
@@ -17,6 +20,8 @@ function formatStatusLabel(status: string): string {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
+
+const STATUS_SELECT_OPTIONS = STATUS_OPTIONS.map(status => ({ value: status, label: formatStatusLabel(status) }));
 
 export default function FleetManagementPage() {
   const toast = useToast();
@@ -288,11 +293,7 @@ export default function FleetManagementPage() {
                 </thead>
                 <tbody>
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: '14px' }}>
-                        Loading fleet data...
-                      </td>
-                    </tr>
+                    <SkeletonTableRows rows={6} cols={5} avatar />
                   ) : error ? (
                     <tr>
                       <td colSpan={5} style={{ padding: '48px 24px', textAlign: 'center', color: '#991b1b', fontWeight: 600, fontSize: '14px' }}>
@@ -338,19 +339,25 @@ export default function FleetManagementPage() {
                           </td>
                           <td style={{ padding: '16px 24px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <select
-                                value={member.currentStatus}
-                                disabled={updatingId === member.id}
-                                onChange={(e) => handleStatusChange(member.id, e.target.value as RiderStatus)}
-                                style={{
-                                  background: '#fff', border: '1px solid #cbd5e1', padding: '6px 8px',
-                                  borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#0f172a'
-                                }}
-                              >
-                                {STATUS_OPTIONS.map(status => (
-                                  <option key={status} value={status}>{formatStatusLabel(status)}</option>
-                                ))}
-                              </select>
+                              <div style={{ width: '180px' }}>
+                                {updatingId === member.id ? (
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '44px',
+                                    border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f1f5f9',
+                                    padding: '0.65rem 0.9rem', color: '#94a3b8', fontSize: '0.95rem', cursor: 'not-allowed'
+                                  }}>
+                                    <Truck size={16} />
+                                    Updating…
+                                  </div>
+                                ) : (
+                                  <CustomSelect
+                                    value={member.currentStatus}
+                                    onChange={(v) => handleStatusChange(member.id, v as RiderStatus)}
+                                    options={STATUS_SELECT_OPTIONS}
+                                    icon={<Truck size={16} />}
+                                  />
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>

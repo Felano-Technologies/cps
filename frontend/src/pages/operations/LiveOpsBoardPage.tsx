@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { UserCog } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
 import EmptyState from '../../components/EmptyState';
+import CustomSelect from '../../components/Form/CustomSelect';
+import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
 
@@ -128,6 +131,11 @@ export default function LiveOpsBoardPage() {
       isMounted = false;
     };
   }, []);
+
+  const riderOptions = useMemo(() => [
+    { value: '', label: 'Unassigned' },
+    ...riders.map(rider => ({ value: rider.id, label: rider.user.name })),
+  ], [riders]);
 
   const filteredOrders = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -406,9 +414,17 @@ export default function LiveOpsBoardPage() {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f8fafc' }}>
               {isLoading ? (
-                <div style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b', fontSize: '15px', fontWeight: 500 }}>
-                  Loading orders...
-                </div>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px' }}>
+                      <Skeleton height="1em" width="40%" />
+                      <Skeleton height="1.4em" width="70px" radius="6px" />
+                    </div>
+                    <Skeleton height="0.85em" width="55%" style={{ marginBottom: '8px' }} />
+                    <Skeleton height="0.8em" width="80%" style={{ marginBottom: '12px' }} />
+                    <Skeleton height="2.2em" width="100%" radius="10px" />
+                  </div>
+                ))
               ) : filteredOrders.length > 0 ? (
                 filteredOrders.map(order => {
                   const colors = STATUS_COLORS[order.status];
@@ -455,17 +471,25 @@ export default function LiveOpsBoardPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <label style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Rider:</label>
-                        <select
-                          value={currentRiderId}
-                          disabled={assigningId === order.id}
-                          onChange={(e) => handleAssignRider(order.id, e.target.value)}
-                          style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
-                        >
-                          <option value="">Unassigned</option>
-                          {riders.map(rider => (
-                            <option key={rider.id} value={rider.id}>{rider.user.name}</option>
-                          ))}
-                        </select>
+                        <div style={{ flex: 1 }}>
+                          {assigningId === order.id ? (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '44px',
+                              border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f1f5f9',
+                              padding: '0.65rem 0.9rem', color: '#94a3b8', fontSize: '0.95rem', cursor: 'not-allowed'
+                            }}>
+                              <UserCog size={16} />
+                              Assigning…
+                            </div>
+                          ) : (
+                            <CustomSelect
+                              value={currentRiderId}
+                              onChange={(v) => handleAssignRider(order.id, v)}
+                              options={riderOptions}
+                              icon={<UserCog size={16} />}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

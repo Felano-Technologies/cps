@@ -1,20 +1,41 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import axios from 'axios';
+import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 export default function SharedPasswordView() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const toast = useToast();
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert("New passwords do not match.");
+      toast.error('New passwords do not match.');
       return;
     }
-    alert('Password successfully changed.');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+
+    setIsSubmitting(true);
+    try {
+      await api.patch('/auth/password', { currentPassword, newPassword });
+      toast.success('Password successfully changed.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Failed to change password.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -43,6 +64,7 @@ export default function SharedPasswordView() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
+            minLength={8}
             placeholder="Enter new password"
             style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
           />
@@ -59,8 +81,13 @@ export default function SharedPasswordView() {
             style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
           />
         </div>
-        <button type="submit" className="dark-btn wide-action" style={{ marginTop: '16px', padding: '14px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}>
-          Update Password
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="dark-btn wide-action"
+          style={{ marginTop: '16px', padding: '14px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', cursor: 'pointer' }}
+        >
+          {isSubmitting ? 'Updating…' : 'Update Password'}
         </button>
       </form>
     </div>

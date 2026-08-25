@@ -1,12 +1,19 @@
 import { useState, useRef } from 'react';
+import { Flag } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import CustomSelect from './Form/CustomSelect';
 import type { Shipment } from '../types/models';
 
 interface OrderPrintModalProps {
   onClose: () => void;
 }
+
+const PRIORITY_OPTIONS = [
+  { value: 'Standard', label: 'Standard' },
+  { value: 'High', label: 'High' },
+];
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -170,14 +177,12 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
                 <input placeholder="Receiver Number" value={formData.receiverNumber} onChange={e => setFormData({...formData, receiverNumber: e.target.value})} />
                 <input placeholder="Dropoff Location" value={formData.dropoffLocation} onChange={e => setFormData({...formData, dropoffLocation: e.target.value})} />
                 <input placeholder="Package Type" value={formData.packageType} onChange={e => setFormData({...formData, packageType: e.target.value})} />
-                <select
+                <CustomSelect
                   value={formData.priority}
-                  onChange={e => setFormData({...formData, priority: e.target.value})}
-                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border)' }}
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="High">High</option>
-                </select>
+                  onChange={v => setFormData({...formData, priority: v})}
+                  options={PRIORITY_OPTIONS}
+                  icon={<Flag size={17} />}
+                />
                 <input placeholder="Cost (GHS)" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
               </div>
             )}

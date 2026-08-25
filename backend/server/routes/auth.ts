@@ -86,4 +86,32 @@ router.get('/me', requireAuth, async (req, res) => {
   res.json(toPublicUser(user));
 });
 
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
+router.patch('/password', requireAuth, async (req, res) => {
+  const parsed = passwordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+  const { currentPassword, newPassword } = parsed.data;
+
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    return res.status(400).json({ error: 'Current password is incorrect' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+  res.status(204).send();
+});
+
 export default router;

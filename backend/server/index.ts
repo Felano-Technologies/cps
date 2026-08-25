@@ -4,6 +4,7 @@ import express from 'express';
 import authRoutes from './routes/auth';
 import ridersRoutes from './routes/riders';
 import shipmentsRoutes from './routes/shipments';
+import notificationsRoutes from './routes/notifications';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/shipments', shipmentsRoutes);
 app.use('/api/riders', ridersRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

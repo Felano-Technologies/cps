@@ -1,8 +1,26 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Package,
+  Search,
+  MapPin,
+  Calendar,
+  Clock,
+  PackageCheck,
+  Truck,
+  Navigation,
+  AlertTriangle,
+  AlertCircle,
+  XCircle,
+  Ban,
+  ArrowUpRight,
+  LayoutGrid,
+  type LucideIcon,
+} from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import EmptyState from '../../components/EmptyState';
+import { SkeletonTableRows } from '../../components/Skeleton';
 import type { Shipment, ShipmentStatus, VehicleType, ShipmentSpeed } from '../../types/models';
 import '../../styles/MyShipmentsPage.css';
 
@@ -15,6 +33,22 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   delayed: 'Delayed',
   failed: 'Failed',
   cancelled: 'Cancelled',
+};
+
+const STATUS_ICONS: Record<ShipmentStatus, LucideIcon> = {
+  pending: Clock,
+  picked_up: Package,
+  in_transit: Truck,
+  out_for_delivery: Navigation,
+  delivered: PackageCheck,
+  delayed: AlertTriangle,
+  failed: XCircle,
+  cancelled: Ban,
+};
+
+const TAB_ICONS: Record<'All Shipments' | ShipmentStatus, LucideIcon> = {
+  'All Shipments': LayoutGrid,
+  ...STATUS_ICONS,
 };
 
 const VEHICLE_LABELS: Record<VehicleType, string> = {
@@ -104,34 +138,43 @@ export default function MyShipmentsPage() {
   return (
     <div className="page-shell light-shell">
       <main className="container page-content">
-        <div className="page-header" style={{ marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginBottom: '12px', letterSpacing: '-0.02em' }}>My Shipments</h1>
-          <p style={{ color: '#64748b', fontSize: '16px', fontWeight: 500, margin: 0 }}>Track and manage your requested pickups and deliveries.</p>
+        <div className="page-header shipments-header" style={{ marginBottom: '40px' }}>
+          <span className="shipments-header-icon">
+            <Package size={22} />
+          </span>
+          <div>
+            <h1 style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginBottom: '12px', letterSpacing: '-0.02em' }}>My Shipments</h1>
+            <p style={{ color: '#64748b', fontSize: '16px', fontWeight: 500, margin: 0 }}>Track and manage your requested pickups and deliveries.</p>
+          </div>
         </div>
 
         {error && (
-          <p style={{ color: '#991b1b', fontWeight: 600, marginBottom: '16px' }}>{error}</p>
+          <div className="shipments-error">
+            <AlertCircle size={16} />
+            {error}
+          </div>
         )}
 
         <div className="card-style" style={{ padding: '0', overflow: 'hidden' }}>
           <div className="shipment-controls">
             <div className="shipment-tabs">
-              {TABS.map(tab => (
-                <button
-                  key={tab.value}
-                  className={`shipment-tab ${activeTab === tab.value ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.value)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {TABS.map(tab => {
+                const TabIcon = TAB_ICONS[tab.value];
+                return (
+                  <button
+                    key={tab.value}
+                    className={`shipment-tab ${activeTab === tab.value ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab.value)}
+                  >
+                    <TabIcon size={14} />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="shipment-search">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
+              <Search size={18} className="shipment-search-icon" />
               <input
                 type="text"
                 placeholder="Search by Tracking Code or Destination..."
@@ -154,35 +197,44 @@ export default function MyShipmentsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b', fontSize: '15px', fontWeight: 500 }}>
-                    Loading shipments...
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={6} cols={6} />
               ) : filteredShipments.length > 0 ? (
-                filteredShipments.map((shipment) => (
-                  <tr key={shipment.id} className="shipment-row">
-                    <td data-label="Order ID" style={{ padding: '20px 24px', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #f1f5f9' }}>{shipment.trackingCode}</td>
-                    <td data-label="Destination" style={{ padding: '20px 24px', color: '#475569', borderBottom: '1px solid #f1f5f9', fontSize: '15px', fontWeight: 500 }}>{shipment.dropoffLocation}</td>
-                    <td data-label="Service" style={{ padding: '20px 24px', color: '#64748b', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>{formatService(shipment)}</td>
-                    <td data-label="Status" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
-                      <span className={`status-badge badge-${shipment.status.replace(/_/g, '-')}`}>
-                        {STATUS_LABELS[shipment.status]}
-                      </span>
-                    </td>
-                    <td data-label="ETA / Time" style={{ padding: '20px 24px', color: '#475569', borderBottom: '1px solid #f1f5f9', fontSize: '14px', fontWeight: 500 }}>{formatTime(shipment.createdAt)}</td>
-                    <td data-label="Action" style={{ padding: '20px 24px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                      <button
-                        onClick={() => navigate(`/tracking/${shipment.trackingCode}`)}
-                        style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e0f3cb', color: '#078c35', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'background-color 0.2s' }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ccebb1'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#e0f3cb'}
-                      >
-                        Track
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                filteredShipments.map((shipment) => {
+                  const StatusIcon = STATUS_ICONS[shipment.status];
+                  return (
+                    <tr key={shipment.id} className="shipment-row">
+                      <td data-label="Order ID" style={{ padding: '20px 24px', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #f1f5f9' }}>{shipment.trackingCode}</td>
+                      <td data-label="Destination" style={{ padding: '20px 24px', color: '#475569', borderBottom: '1px solid #f1f5f9', fontSize: '15px', fontWeight: 500 }}>
+                        <span className="cell-with-icon">
+                          <MapPin size={14} />
+                          <span className="cell-value">{shipment.dropoffLocation}</span>
+                        </span>
+                      </td>
+                      <td data-label="Service" style={{ padding: '20px 24px', color: '#64748b', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>{formatService(shipment)}</td>
+                      <td data-label="Status" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                        <span className={`status-badge badge-${shipment.status.replace(/_/g, '-')}`}>
+                          <StatusIcon size={12} />
+                          {STATUS_LABELS[shipment.status]}
+                        </span>
+                      </td>
+                      <td data-label="ETA / Time" style={{ padding: '20px 24px', color: '#475569', borderBottom: '1px solid #f1f5f9', fontSize: '14px', fontWeight: 500 }}>
+                        <span className="cell-with-icon">
+                          <Calendar size={14} />
+                          <span className="cell-value">{formatTime(shipment.createdAt)}</span>
+                        </span>
+                      </td>
+                      <td data-label="Action" style={{ padding: '20px 24px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                        <button
+                          onClick={() => navigate(`/tracking/${shipment.trackingCode}`)}
+                          className="shipment-track-btn"
+                        >
+                          Track
+                          <ArrowUpRight size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} style={{ padding: 0 }}>

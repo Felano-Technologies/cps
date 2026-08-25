@@ -1,44 +1,65 @@
 import { Link } from 'react-router-dom';
+import { Zap, Rocket, Truck, Boxes, ArrowRight } from 'lucide-react';
+import { useReveal } from '../../hooks/useReveal';
+import '../../styles/services.css';
+
+const SERVICES = [
+  {
+    icon: Zap,
+    title: 'Same Day Delivery',
+    text: 'When it absolutely has to be there today. Fast, point-to-point courier runs.',
+    to: '/services/same-day',
+  },
+  {
+    icon: Rocket,
+    title: 'Express Delivery',
+    text: 'Skip the queue. Guaranteed priority routing and zero stops between pickup and destination.',
+    to: '/services/express',
+  },
+  {
+    icon: Truck,
+    title: 'Standard Delivery',
+    text: 'Reliable, cost-effective everyday delivery. Perfect for regular e-commerce orders.',
+    to: '/services/standard',
+  },
+  {
+    icon: Boxes,
+    title: 'Bulk Delivery',
+    text: 'High-volume shipping solutions for B2B logistics, warehouse transfers, and oversized cargo.',
+    to: '/services/bulk',
+  },
+];
+
+function ServiceCard({ icon: Icon, title, text, to }: (typeof SERVICES)[number]) {
+  const reveal = useReveal<HTMLElement>();
+  return (
+    <article ref={reveal.ref} className={`service-offer-card ${reveal.className}`}>
+      <span className="service-offer-icon"><Icon size={24} /></span>
+      <h3>{title}</h3>
+      <p>{text}</p>
+      <Link to={to} className="service-offer-link">
+        Learn More <ArrowRight size={15} />
+      </Link>
+    </article>
+  );
+}
 
 export default function ServicesPage() {
   return (
     <div className="page-shell light-shell">
-      <main className="hero-section container" style={{ paddingTop: '64px', paddingBottom: '32px' }}>
-        <div className="hero-copy" style={{ maxWidth: '800px' }}>
-          <h1>Logistics solutions for every need.</h1>
-          <p style={{ fontSize: '1.2rem', color: 'var(--text)' }}>
-            From single documents to multi-ton freight, our platform and fleet are equipped to handle your delivery requirements across Ghana.
-          </p>
-        </div>
+      <main className="services-hero container">
+        <h1>Logistics solutions for every need.</h1>
+        <p className="lede">
+          From single documents to multi-ton freight, our platform and fleet are equipped to handle your
+          delivery requirements across Ghana.
+        </p>
       </main>
 
-      <section className="services-wrapper container" style={{ marginTop: '32px', marginBottom: '80px' }}>
-        <div className="service-feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
-          
-          <article className="service-card wide-card" style={{ padding: '32px' }}>
-            <h3 style={{ fontSize: '1.8rem', color: 'var(--navy)' }}>Same Day Delivery</h3>
-            <p style={{ marginTop: '12px', marginBottom: '24px', fontSize: '1.1rem' }}>When it absolutely has to be there today. Fast, point-to-point courier runs.</p>
-            <Link to="/services/same-day" className="dark-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>Learn More</Link>
-          </article>
-
-          <article className="service-card wide-card" style={{ padding: '32px' }}>
-            <h3 style={{ fontSize: '1.8rem', color: 'var(--navy)' }}>Express Delivery</h3>
-            <p style={{ marginTop: '12px', marginBottom: '24px', fontSize: '1.1rem' }}>Skip the queue. Guaranteed priority routing and zero stops between pickup and destination.</p>
-            <Link to="/services/express" className="dark-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>Learn More</Link>
-          </article>
-
-          <article className="service-card wide-card" style={{ padding: '32px' }}>
-            <h3 style={{ fontSize: '1.8rem', color: 'var(--navy)' }}>Standard Delivery</h3>
-            <p style={{ marginTop: '12px', marginBottom: '24px', fontSize: '1.1rem' }}>Reliable, cost-effective everyday delivery. Perfect for regular e-commerce orders.</p>
-            <Link to="/services/standard" className="dark-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>Learn More</Link>
-          </article>
-
-          <article className="service-card wide-card" style={{ padding: '32px' }}>
-            <h3 style={{ fontSize: '1.8rem', color: 'var(--navy)' }}>Bulk Delivery</h3>
-            <p style={{ marginTop: '12px', marginBottom: '24px', fontSize: '1.1rem' }}>High-volume shipping solutions for B2B logistics, warehouse transfers, and oversized cargo.</p>
-            <Link to="/services/bulk" className="dark-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>Learn More</Link>
-          </article>
-
+      <section className="services-grid-wrap container">
+        <div className="services-cards-grid">
+          {SERVICES.map(service => (
+            <ServiceCard key={service.title} {...service} />
+          ))}
         </div>
       </section>
     </div>

@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { calculateDeliveryCost } from '../lib/pricing';
 import { generateTrackingCode } from '../lib/trackingCode';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { notify, notifyRoles } from '../lib/notifications';
 
 const router = Router();
 router.use(requireAuth);
@@ -102,6 +103,15 @@ router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res
     const shipment = await prisma.shipment.create({
       data: buildShipmentCreateData(parsed.data, customerId, null),
     });
+    if (customerId) {
+      notify(
+        customerId,
+        'shipment_created',
+        'Pickup request received',
+        `Your pickup request ${shipment.trackingCode} has been received and is being processed.`,
+        shipment.id
+      ).catch(() => {});
+    }
     res.status(201).json(shipment);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipment' });
@@ -157,6 +167,14 @@ router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req,
         })
       )
     );
+    if (customerId) {
+      notify(
+        customerId,
+        'shipment_created',
+        'Bulk pickup request received',
+        `Your bulk pickup request with ${created.length} package(s) has been received and is being processed.`
+      ).catch(() => {});
+    }
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipments' });
@@ -247,6 +265,26 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     },
   });
 
+  if (updated.customerId) {
+    notify(
+      updated.customerId,
+      'shipment_status',
+      `Shipment ${updated.trackingCode} update`,
+      `Your shipment is now: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  if (parsed.data.status === 'delayed') {
+    notifyRoles(
+      ['operations', 'admin'],
+      'shipment_delayed',
+      `Shipment ${updated.trackingCode} delayed`,
+      `Rider reported a delay for ${updated.dropoffLocation}: ${parsed.data.note ?? 'no reason given'}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
   res.json(updated);
 });
 
@@ -281,6 +319,16 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     },
   });
 
+  if (updated.customerId) {
+    notify(
+      updated.customerId,
+      'shipment_delivered',
+      `Shipment ${updated.trackingCode} delivered`,
+      `Your package was delivered to ${updated.podRecipientName ?? 'the recipient'}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
   res.json(updated);
 });
 
@@ -301,6 +349,23 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
     where: { id: req.params.id as string },
     data: { assignedRiderId: rider.id },
   });
+
+  if (shipment.customerId) {
+    notify(
+      shipment.customerId,
+      'shipment_assigned',
+      `Shipment ${shipment.trackingCode} assigned`,
+      `A rider has been assigned to your delivery.`,
+      shipment.id
+    ).catch(() => {});
+  }
+  notify(
+    rider.userId,
+    'shipment_assigned',
+    'New delivery assigned',
+    `You've been assigned a delivery to ${shipment.dropoffLocation}.`,
+    shipment.id
+  ).catch(() => {});
 
   res.json(shipment);
 });

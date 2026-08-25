@@ -68,6 +68,17 @@ export interface Shipment {
   statusEvents?: ShipmentStatusEvent[];
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  shipmentId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export interface CreateShipmentInput {
   vehicleType: VehicleType;
   priority: ShipmentPriority;

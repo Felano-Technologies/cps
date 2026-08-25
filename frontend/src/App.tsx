@@ -1,14 +1,17 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 
 // Contexts
 import { useAuth } from './contexts/AuthContext';
+import { useToast } from './contexts/ToastContext';
 
 import Topbar from './components/Topbar';
 import Footer from './components/Footer';
 import FloatingActions from './components/FloatingActions';
 import MobileNavigationBar from './components/MobileNavigationBar';
 import ScrollToTop from './components/ScrollToTop';
+import { PageLoader } from './components/Spinner';
 
 // Pages
 import LandingPage from './pages/public/LandingPage';
@@ -54,14 +57,23 @@ import NotFoundPage from './pages/public/NotFoundPage';
  */
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const toast = useToast();
+  const wrongRole = !isLoading && isAuthenticated && !!requiredRole && user?.role !== requiredRole;
 
-  if (isLoading) return <div>Loading...</div>;
+  useEffect(() => {
+    if (wrongRole) {
+      toast.info(`This page is only available to ${requiredRole} accounts.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wrongRole, requiredRole]);
+
+  if (isLoading) return <PageLoader />;
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace />;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
+  if (wrongRole) {
     return <Navigate to="/" replace />;
   }
 

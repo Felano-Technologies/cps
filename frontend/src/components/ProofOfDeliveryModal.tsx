@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X, PenLine, Camera, CheckCircle2 } from 'lucide-react';
 
 interface ProofOfDeliveryModalProps {
   onClose: () => void;
@@ -28,7 +29,7 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Proof of Delivery</h2>
           <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer', transition: 'background 0.2s' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <X size={20} />
           </button>
         </div>
         
@@ -46,7 +47,7 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
               boxShadow: method === 'signature' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none' 
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <PenLine size={18} />
             Signature
           </button>
           <button 
@@ -58,7 +59,7 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
               boxShadow: method === 'photo' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none' 
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            <Camera size={18} />
             Photo ID
           </button>
         </div>
@@ -80,14 +81,14 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
             <div>
               <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '8px', display: 'block' }}>Digital Signature</label>
               <div className="sig-pad" style={{ width: '100%', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <PenLine size={40} strokeWidth={1.5} />
               </div>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="photo-pad" style={{ width: '100%', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', color: '#64748b', cursor: 'pointer' }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>
+              <Camera size={48} strokeWidth={1.5} />
               <span style={{ fontWeight: 600, letterSpacing: '0.02em', color: '#475569' }}>Initialize Camera</span>
             </div>
           </div>
@@ -101,8 +102,8 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
             boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
           }}
         >
-          Verify & Complete
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          Verify &amp; Complete
+          <CheckCircle2 size={20} />
         </button>
 
       </div>

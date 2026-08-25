@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { MapPin, Package, Truck, Zap, Flag } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import CustomSelect from './Form/CustomSelect';
 import type { CreateShipmentInput, PackageType, Shipment, ShipmentPriority, ShipmentSpeed, VehicleType } from '../types/models';
 
 interface CreateOrderModalProps {
@@ -10,6 +12,8 @@ interface CreateOrderModalProps {
 }
 
 const REGIONS = ['Kumasi', 'Accra', 'Takoradi', 'Sunyani', 'Tamale'];
+
+const REGION_OPTIONS: { value: string; label: string }[] = REGIONS.map(region => ({ value: region, label: region }));
 
 const PACKAGE_TYPE_OPTIONS: { value: PackageType; label: string }[] = [
   { value: 'document', label: 'Document' },
@@ -30,6 +34,11 @@ const VEHICLE_OPTIONS: { value: VehicleType; label: string }[] = [
   { value: 'motorbike', label: 'Motorbike' },
   { value: 'van', label: 'Van' },
   { value: 'truck', label: 'Truck' },
+];
+
+const PRIORITY_OPTIONS: { value: ShipmentPriority; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'high', label: 'High' },
 ];
 
 interface FormState {
@@ -189,16 +198,12 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Pickup Region</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.pickupRegion}
-                    onChange={(e) => updateField('pickupRegion', e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                  >
-                    {REGIONS.map(region => (
-                      <option key={region} value={region}>{region}</option>
-                    ))}
-                  </select>
+                    onChange={v => updateField('pickupRegion', v)}
+                    options={REGION_OPTIONS}
+                    icon={<MapPin size={17} />}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Pickup Address</label>
@@ -236,16 +241,12 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Dropoff Region</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.dropoffRegion}
-                    onChange={(e) => updateField('dropoffRegion', e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '14px', background: '#fff' }}
-                  >
-                    {REGIONS.map(region => (
-                      <option key={region} value={region}>{region}</option>
-                    ))}
-                  </select>
+                    onChange={v => updateField('dropoffRegion', v)}
+                    options={REGION_OPTIONS}
+                    icon={<MapPin size={17} />}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '6px' }}>Delivery Address</label>
@@ -265,54 +266,39 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Item Type</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.packageType}
-                    onChange={(e) => updateField('packageType', e.target.value as PackageType)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                  >
-                    {PACKAGE_TYPE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    onChange={v => updateField('packageType', v as PackageType)}
+                    options={PACKAGE_TYPE_OPTIONS}
+                    icon={<Package size={17} />}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Vehicle Type</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.vehicleType}
-                    onChange={(e) => updateField('vehicleType', e.target.value as VehicleType)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                  >
-                    {VEHICLE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    onChange={v => updateField('vehicleType', v as VehicleType)}
+                    options={VEHICLE_OPTIONS}
+                    icon={<Truck size={17} />}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Delivery Speed</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.speed}
-                    onChange={(e) => updateField('speed', e.target.value as ShipmentSpeed)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                  >
-                    {SPEED_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    onChange={v => updateField('speed', v as ShipmentSpeed)}
+                    options={SPEED_OPTIONS}
+                    icon={<Zap size={17} />}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Priority</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.priority}
-                    onChange={(e) => updateField('priority', e.target.value as ShipmentPriority)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="high">High</option>
-                  </select>
+                    onChange={v => updateField('priority', v as ShipmentPriority)}
+                    options={PRIORITY_OPTIONS}
+                    icon={<Flag size={17} />}
+                  />
                 </div>
               </div>
             </div>

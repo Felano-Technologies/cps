@@ -1,0 +1,71 @@
+/* Services overview page */
+
+.services-hero { padding: 64px 0 8px; max-width: 800px; }
+.services-hero h1 {
+  margin: 0 0 18px;
+  font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--navy);
+}
+.services-hero .lede {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1.7;
+}
+
+.services-grid-wrap { padding: 40px 0 80px; }
+.services-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.service-offer-card {
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+.service-offer-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+.service-offer-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--lime-soft);
+  color: var(--lime-hover);
+}
+
+.service-offer-card h3 { margin: 0; font-size: 1.5rem; color: var(--navy); letter-spacing: -0.02em; }
+.service-offer-card p { margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 1.6; flex: 1; }
+
+.service-offer-link {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--lime-hover);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.service-offer-link svg { transition: transform 0.2s var(--ease-out); }
+.service-offer-link:hover svg { transform: translateX(3px); }
+
+@media (max-width: 900px) {
+  .services-cards-grid { grid-template-columns: 1fr; }
+}

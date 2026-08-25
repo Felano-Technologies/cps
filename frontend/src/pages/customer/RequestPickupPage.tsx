@@ -1,10 +1,63 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import {
+  Package, Boxes, Calendar, Flag, Bike, Truck, User, UserCheck, Contact, Phone,
+  MapPin, MapPinned, Zap, Banknote, ImagePlus, StickyNote, Hash, PenLine,
+  AlertTriangle, AlertCircle, CheckCircle2, ClipboardList, Send, PackageSearch,
+} from 'lucide-react';
 import api from '../../services/api';
 import { calculateDeliveryCost } from '../../utils/pricing';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { CreateShipmentInput, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
+import CustomSelect from '../../components/Form/CustomSelect';
+import FileUpload from '../../components/Form/FileUpload';
+import DatePicker from '../../components/Form/DatePicker';
+
+const PRIORITY_OPTIONS = [
+  { value: 'Standard', label: 'Standard' },
+  { value: 'High', label: 'High' },
+];
+
+const PICKUP_REGION_OPTIONS = [
+  { value: 'Kumasi', label: 'Kumasi' },
+];
+
+const REGION_OPTIONS = [
+  { value: 'Kumasi', label: 'Kumasi' },
+  { value: 'Accra', label: 'Accra' },
+  { value: 'Takoradi', label: 'Takoradi' },
+  { value: 'Sunyani', label: 'Sunyani' },
+  { value: 'Tamale', label: 'Tamale' },
+];
+
+const KUMASI_SUB_AREA_OPTIONS = [
+  { value: 'CampusAndEnvirons', label: 'KNUST Campus, Ayeduase, Ayigya, Bomso, Kotei' },
+  { value: 'Other', label: 'Other Kumasi Areas' },
+];
+
+const SPEED_OPTIONS = [
+  { value: 'Same day', label: 'Same day' },
+  { value: 'Next day', label: 'Next day' },
+  { value: 'Express', label: 'Express' },
+];
+
+const PACKAGE_TYPE_OPTIONS = [
+  { value: 'food', label: 'Food' },
+  { value: 'parcel', label: 'Parcel' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'fragile', label: 'Fragile items (cake, glass, ice, etc.)' },
+  { value: 'other', label: 'Other' },
+];
+
+const PACKAGE_TYPE_OPTIONS_BULK = [
+  { value: 'food', label: 'Food' },
+  { value: 'parcel', label: 'Parcel' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'fragile', label: 'Fragile items' },
+  { value: 'other', label: 'Other' },
+];
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
@@ -31,14 +84,15 @@ export default function RequestPickupPage() {
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
 
   // Shared Sender State
   const [pickupDate, setPickupDate] = useState('');
   const [pickupMode, setPickupMode] = useState('motorbike');
   const [deliveryPriority, setDeliveryPriority] = useState('Standard');
   const [senderContact, setSenderContact] = useState('');
-  const [senderName, setSenderName] = useState('');
-  const [senderNumber, setSenderNumber] = useState('');
+  const [senderName, setSenderName] = useState(user?.name ?? '');
+  const [senderNumber, setSenderNumber] = useState(user?.phone ?? '');
   const [pickupRegion, setPickupRegion] = useState('Kumasi');
   const [pickupLocation, setPickupLocation] = useState('');
 
@@ -77,21 +131,6 @@ export default function RequestPickupPage() {
       setEstimatedCost(cost);
     }
   }, [dropoffRegion, dropoffKumasiSubArea, activeTab]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isBulk: boolean = false) => {
-    if (isBulk) {
-      if (e.target.files) {
-        const filesArray = Array.from(e.target.files);
-        const newUrls = filesArray.map(file => URL.createObjectURL(file));
-        setBulkImagePreviews(prev => [...prev, ...newUrls]);
-      }
-    } else {
-      const file = e.target.files?.[0];
-      if (file) {
-        setImagePreview(URL.createObjectURL(file));
-      }
-    }
-  };
 
   const handleBulkReceiverChange = (index: number, field: string, value: string) => {
     const newReceivers = [...bulkReceivers];
@@ -240,43 +279,114 @@ export default function RequestPickupPage() {
 
   return (
     <div className="page-shell light-shell">
+      <style>{`
+        .rp-header-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: var(--green);
+          color: #0b1210;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+        }
+        .rp-tabs-row {
+          display: flex;
+          gap: 8px;
+          background: var(--success-bg);
+          padding: 8px;
+          border-radius: 100px;
+          width: fit-content;
+          max-width: 100%;
+          overflow-x: auto;
+        }
+        .rp-tab-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 28px;
+          min-height: 44px;
+          border: none;
+          border-radius: 100px;
+          cursor: pointer;
+          font-size: 1.05rem;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+        .rp-tab-btn-sm { padding: 10px 20px; min-height: 40px; font-size: 0.95rem; }
+        .rp-mode-btn {
+          flex: 1;
+          padding: 12px;
+          min-height: 44px;
+          border-radius: 12px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .rp-input-wrap { position: relative; display: flex; align-items: center; }
+        .rp-input-wrap > svg { position: absolute; left: 14px; color: #94a3b8; pointer-events: none; }
+        .rp-input-wrap input, .rp-input-wrap select { padding-left: 42px !important; }
+        .rp-upload-zone {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 16px;
+          border: 2px dashed var(--green);
+          border-radius: 12px;
+          background: var(--success-bg);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+        }
+        @media (max-width: 768px) {
+          .rp-summary-card { position: static !important; top: auto !important; }
+          .step-layout { gap: 24px; }
+          .rp-tab-btn { padding: 10px 18px; font-size: 0.95rem; }
+          .rp-header-icon { width: 44px; height: 44px; }
+        }
+        @media (max-width: 480px) {
+          .rp-tabs-row { width: 100%; }
+          .rp-tab-btn { flex: 1; padding: 10px; font-size: 0.85rem; gap: 6px; }
+          .rp-header-icon { width: 40px; height: 40px; }
+          .rp-mode-btn { padding: 10px; font-size: 0.88rem; gap: 6px; }
+        }
+      `}</style>
       <main className="create-shell container">
-        <h1>Request a Pickup</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
+          <span className="rp-header-icon"><Package size={24} /></span>
+          <h1 style={{ margin: 0 }}>Request a Pickup</h1>
+        </div>
         <p className="muted-text">Fill in the details below to schedule a delivery.</p>
 
         {/* TABS */}
-        <div style={{ display: 'flex', gap: '8px', background: 'var(--success-bg)', padding: '8px', borderRadius: '100px', marginBottom: '32px', width: 'fit-content' }}>
+        <div className="rp-tabs-row" style={{ marginBottom: '32px' }}>
           <button
+            className="rp-tab-btn"
             onClick={() => setActiveTab('single')}
             style={{
-              padding: '12px 28px',
-              border: 'none',
-              borderRadius: '100px',
               background: activeTab === 'single' ? 'var(--green)' : 'transparent',
               color: activeTab === 'single' ? '#fff' : 'var(--navy)',
               fontWeight: activeTab === 'single' ? 'bold' : '600',
-              cursor: 'pointer',
-              fontSize: '1.05rem',
-              transition: 'all 0.2s ease'
             }}
           >
-            Single Delivery
+            <Package size={17} /> Single Delivery
           </button>
           <button
+            className="rp-tab-btn"
             onClick={() => setActiveTab('bulk')}
             style={{
-              padding: '12px 28px',
-              border: 'none',
-              borderRadius: '100px',
               background: activeTab === 'bulk' ? 'var(--green)' : 'transparent',
               color: activeTab === 'bulk' ? '#fff' : 'var(--navy)',
               fontWeight: activeTab === 'bulk' ? 'bold' : '600',
-              cursor: 'pointer',
-              fontSize: '1.05rem',
-              transition: 'all 0.2s ease'
             }}
           >
-            Bulk Delivery
+            <Boxes size={17} /> Bulk Delivery
           </button>
         </div>
 
@@ -284,32 +394,21 @@ export default function RequestPickupPage() {
           <div className="form-card large-card">
 
             {/* SHARED FIELDS */}
-            <h2 className="form-section-title">Pickup Details</h2>
+            <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Truck size={22} /> Pickup Details</h2>
             <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
               <label>
                 <span>Preferred Pickup Date</span>
-                <input
-                  type="text"
-                  onFocus={(e) => {
-                    e.target.type = 'date';
-                    try { if ('showPicker' in HTMLInputElement.prototype) e.target.showPicker(); } catch (err) { }
-                  }}
-                  onClick={(e) => {
-                    const target = e.target as HTMLInputElement;
-                    try { if ('showPicker' in HTMLInputElement.prototype && target.type === 'date') target.showPicker(); } catch (err) { }
-                  }}
-                  onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
-                  placeholder="Select Preferred Date"
+                <DatePicker
                   value={pickupDate}
-                  onChange={e => setPickupDate(e.target.value)}
+                  onChange={setPickupDate}
+                  placeholder="Select Preferred Date"
+                  min={new Date().toISOString().slice(0, 10)}
+                  icon={<Calendar size={17} />}
                 />
               </label>
               <label>
                 <span>Delivery Priority</span>
-                <select value={deliveryPriority} onChange={e => setDeliveryPriority(e.target.value)}>
-                  <option value="Standard">Standard</option>
-                  <option value="High">High</option>
-                </select>
+                <CustomSelect value={deliveryPriority} onChange={v => setDeliveryPriority(v)} options={PRIORITY_OPTIONS} icon={<Flag size={17} />} />
               </label>
             </div>
 
@@ -317,101 +416,99 @@ export default function RequestPickupPage() {
               <label>
                 <span>Pickup Mode</span>
                 <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                  <button type="button" onClick={() => setPickupMode('motorbike')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: `2px solid ${pickupMode === 'motorbike' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'motorbike' ? 'var(--success-bg)' : '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <span>🏍️</span> Motorbike
+                  <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('motorbike')} style={{ border: `2px solid ${pickupMode === 'motorbike' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'motorbike' ? 'var(--success-bg)' : '#fff' }}>
+                    <Bike size={18} /> Motorbike
                   </button>
-                  <button type="button" onClick={() => setPickupMode('van')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: `2px solid ${pickupMode === 'van' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'van' ? 'var(--success-bg)' : '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <span>🚐</span> Van
+                  <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('van')} style={{ border: `2px solid ${pickupMode === 'van' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'van' ? 'var(--success-bg)' : '#fff' }}>
+                    <Truck size={18} /> Van
                   </button>
                 </div>
               </label>
             </div>
 
-            <h2 className="form-section-title">Sender Information</h2>
+            <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><User size={22} /> Sender Information</h2>
             <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
               <label>
                 <span>Sender's Name</span>
-                <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="John Doe" />
+                <div className="rp-input-wrap">
+                  <User size={17} />
+                  <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="John Doe" />
+                </div>
               </label>
               <label>
                 <span>Sender's Number</span>
-                <input value={senderNumber} onChange={e => setSenderNumber(e.target.value)} placeholder="024XXXXXXX" />
+                <div className="rp-input-wrap">
+                  <Phone size={17} />
+                  <input value={senderNumber} onChange={e => setSenderNumber(e.target.value)} placeholder="024XXXXXXX" />
+                </div>
               </label>
               <label>
                 <span>Pickup Contact Name (Optional)</span>
-                <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
+                <div className="rp-input-wrap">
+                  <Contact size={17} />
+                  <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
+                </div>
               </label>
               <label>
                 <span>Region</span>
-                <select value={pickupRegion} onChange={e => setPickupRegion(e.target.value)}>
-                  <option value="Kumasi">Kumasi</option>
-                </select>
+                <CustomSelect value={pickupRegion} onChange={v => setPickupRegion(v)} options={PICKUP_REGION_OPTIONS} icon={<MapPin size={17} />} />
               </label>
               <label style={{ gridColumn: '1 / -1' }}>
                 <span>Pickup Location</span>
-                <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Specific area or landmark" />
+                <div className="rp-input-wrap">
+                  <MapPinned size={17} />
+                  <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Specific area or landmark" />
+                </div>
               </label>
             </div>
 
             {/* TAB SPECIFIC FIELDS */}
             {activeTab === 'single' ? (
               <>
-                <h2 className="form-section-title">Receiver Information</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
                   <label>
                     <span>Receiver's Name</span>
-                    <input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder="Jane Doe" />
+                    <div className="rp-input-wrap">
+                      <User size={17} />
+                      <input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder="Jane Doe" />
+                    </div>
                   </label>
                   <label>
                     <span>Receiver's Number</span>
-                    <input value={receiverNumber} onChange={e => setReceiverNumber(e.target.value)} placeholder="024XXXXXXX" />
+                    <div className="rp-input-wrap">
+                      <Phone size={17} />
+                      <input value={receiverNumber} onChange={e => setReceiverNumber(e.target.value)} placeholder="024XXXXXXX" />
+                    </div>
                   </label>
                   <label>
                     <span>Dropoff Region</span>
-                    <select value={dropoffRegion} onChange={e => setDropoffRegion(e.target.value)}>
-                      <option value="Kumasi">Kumasi</option>
-                      <option value="Accra">Accra</option>
-                      <option value="Takoradi">Takoradi</option>
-                      <option value="Sunyani">Sunyani</option>
-                      <option value="Tamale">Tamale</option>
-                    </select>
+                    <CustomSelect value={dropoffRegion} onChange={v => setDropoffRegion(v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                   </label>
                   {dropoffRegion === 'Kumasi' && (
                     <label>
                       <span>Kumasi Area</span>
-                      <select value={dropoffKumasiSubArea} onChange={e => setDropoffKumasiSubArea(e.target.value as any)}>
-                        <option value="CampusAndEnvirons">KNUST Campus, Ayeduase, Ayigya, Bomso, Kotei</option>
-                        <option value="Other">Other Kumasi Areas</option>
-                      </select>
+                      <CustomSelect value={dropoffKumasiSubArea} onChange={v => setDropoffKumasiSubArea(v as 'CampusAndEnvirons' | 'Other')} options={KUMASI_SUB_AREA_OPTIONS} icon={<MapPin size={17} />} />
                     </label>
                   )}
                   <label style={{ gridColumn: '1 / -1' }}>
                     <span>Dropoff Location</span>
-                    <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Specific landmark or street" />
+                    <div className="rp-input-wrap">
+                      <MapPinned size={17} />
+                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Specific landmark or street" />
+                    </div>
                   </label>
                 </div>
 
-                <h2 className="form-section-title">Package Details</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
                   <label>
                     <span>Delivery Speed</span>
-                    <select value={deliverySpeed} onChange={e => setDeliverySpeed(e.target.value)}>
-                      <option value="" disabled>Select Speed</option>
-                      <option value="Same day">Same day</option>
-                      <option value="Next day">Next day</option>
-                      <option value="Express">Express</option>
-                    </select>
+                    <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
                   </label>
                   <label>
                     <span>Package Type</span>
-                    <select value={packageType} onChange={e => setPackageType(e.target.value)}>
-                      <option value="" disabled>Select Package</option>
-                      <option value="food">Food</option>
-                      <option value="parcel">Parcel</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fragile">Fragile items (cake, glass, ice, etc.)</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS} icon={<Package size={17} />} />
                   </label>
                 </div>
 
@@ -423,30 +520,34 @@ export default function RequestPickupPage() {
                         Do you want the rider to collect payment for the product from the buyer on your behalf? If yes, indicate the amount
                       </span>
                     </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="e.g. 150.00 (Leave blank if none)"
-                      value={productFee}
-                      onChange={e => setProductFee(e.target.value)}
-                    />
+                    <div className="rp-input-wrap">
+                      <Banknote size={17} />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 150.00 (Leave blank if none)"
+                        value={productFee}
+                        onChange={e => setProductFee(e.target.value)}
+                      />
+                    </div>
                   </label>
                 </div>
 
                 <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
                   <label>
-                    <span>Upload Package Image</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, false)} style={{ padding: '8px 0' }} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ImagePlus size={15} /> Upload Package Image</span>
+                    <FileUpload
+                      label="Upload Package Image"
+                      previews={imagePreview ? [imagePreview] : []}
+                      onFilesSelected={(files) => setImagePreview(URL.createObjectURL(files[0]))}
+                      onRemove={() => setImagePreview(null)}
+                      icon={<ImagePlus size={18} />}
+                    />
                   </label>
-                  {imagePreview && (
-                    <div style={{ marginTop: '8px' }}>
-                      <img src={imagePreview} alt="Preview" style={{ maxWidth: '200px', borderRadius: '8px', border: '1px solid var(--border)' }} />
-                    </div>
-                  )}
                 </div>
 
-                <h2 className="form-section-title">Additional Instructions</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
                 <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
                   <label>
                     <textarea
@@ -462,37 +563,28 @@ export default function RequestPickupPage() {
             ) : (
               <>
                 {/* BULK DELIVERY DETAILS */}
-                <h2 className="form-section-title">Package Details</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
                   <label>
                     <span>Delivery Speed</span>
-                    <select value={deliverySpeed} onChange={e => setDeliverySpeed(e.target.value)}>
-                      <option value="" disabled>Select Speed</option>
-                      <option value="Same day">Same day</option>
-                      <option value="Next day">Next day</option>
-                      <option value="Express">Express</option>
-                    </select>
+                    <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
                   </label>
                   <label>
                     <span>Package Type</span>
-                    <select value={packageType} onChange={e => setPackageType(e.target.value)}>
-                      <option value="" disabled>Select Package</option>
-                      <option value="food">Food</option>
-                      <option value="parcel">Parcel</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fragile">Fragile items</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS_BULK} icon={<Package size={17} />} />
                   </label>
                   <label>
                     <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 5"
-                      value={numberOfPackages}
-                      onChange={handleNumPackagesChange}
-                    />
+                    <div className="rp-input-wrap">
+                      <Hash size={17} />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 5"
+                        value={numberOfPackages}
+                        onChange={handleNumPackagesChange}
+                      />
+                    </div>
                   </label>
                   <label>
                     <span>
@@ -501,21 +593,24 @@ export default function RequestPickupPage() {
                         Do you want the rider to collect payment for the product from the buyer? If yes, indicate the amount
                       </span>
                     </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="e.g. 150.00 (Leave blank if none)"
-                      value={productFee}
-                      onChange={e => setProductFee(e.target.value)}
-                    />
+                    <div className="rp-input-wrap">
+                      <Banknote size={17} />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 150.00 (Leave blank if none)"
+                        value={productFee}
+                        onChange={e => setProductFee(e.target.value)}
+                      />
+                    </div>
                   </label>
                 </div>
 
-                <h2 className="form-section-title">Receiver Information</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
                 {numberOfPackages === '' || numberOfPackages < 1 ? (
                   <div style={{ padding: '16px', borderRadius: '8px', background: 'var(--danger-bg, #fef2f2)', border: '1px solid var(--danger, #ef4444)', color: 'var(--danger, #ef4444)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                    <AlertTriangle size={20} style={{ flexShrink: 0 }} />
                     <span><strong>Action Required:</strong> Please enter the number of packages above to unlock receiver information.</span>
                   </div>
                 ) : (
@@ -523,106 +618,50 @@ export default function RequestPickupPage() {
                     <p style={{ color: '#586159', marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
                       <strong>Choose between</strong> uploading images <strong>OR</strong> entering the details manually.
                     </p>
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--success-bg)', padding: '8px', borderRadius: '100px', marginBottom: '16px', width: 'fit-content' }}>
+                    <div className="rp-tabs-row" style={{ marginBottom: '16px' }}>
                       <button
                         type="button"
+                        className="rp-tab-btn rp-tab-btn-sm"
                         onClick={() => setBulkReceiverMode('upload')}
                         style={{
-                          padding: '10px 20px',
-                          border: 'none',
-                          borderRadius: '100px',
                           background: bulkReceiverMode === 'upload' ? 'var(--green)' : 'transparent',
                           color: bulkReceiverMode === 'upload' ? '#fff' : 'var(--navy)',
                           fontWeight: bulkReceiverMode === 'upload' ? 'bold' : '600',
-                          cursor: 'pointer',
-                          fontSize: '0.95rem',
-                          transition: 'all 0.2s ease'
                         }}
                       >
-                        Upload Image(s)
+                        <ImagePlus size={16} /> Upload Image(s)
                       </button>
                       <button
                         type="button"
+                        className="rp-tab-btn rp-tab-btn-sm"
                         onClick={() => setBulkReceiverMode('manual')}
                         style={{
-                          padding: '10px 20px',
-                          border: 'none',
-                          borderRadius: '100px',
                           background: bulkReceiverMode === 'manual' ? 'var(--green)' : 'transparent',
                           color: bulkReceiverMode === 'manual' ? '#fff' : 'var(--navy)',
                           fontWeight: bulkReceiverMode === 'manual' ? 'bold' : '600',
-                          cursor: 'pointer',
-                          fontSize: '0.95rem',
-                          transition: 'all 0.2s ease'
                         }}
                       >
-                        Enter Manually
+                        <PenLine size={16} /> Enter Manually
                       </button>
                     </div>
-          
+
 
                     {bulkReceiverMode === 'upload' && (
                       <div className="field-grid one-col" style={{ marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
                         <p style={{ color: 'var(--green-dark)', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '12px' }}>
                           Take clear pictures of packages with all relevant details visible.
                         </p>
-                        <label style={{
-                          display: 'flex',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '12px',
-                          padding: '16px',
-                          border: '2px dashed var(--green)',
-                          borderRadius: '12px',
-                          background: 'var(--success-bg)',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          textAlign: 'left'
-                        }}>
-                          <span style={{ fontSize: '1.5rem' }}>📸</span>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold', color: 'var(--green-dark)', fontSize: '0.95rem' }}>Tap to Select Images</span>
-                            <span style={{ fontSize: '0.8rem', color: '#586159' }}>JPG, PNG</span>
-                          </div>
-                          <input type="file" accept="image/*" multiple onChange={(e) => handleImageUpload(e, true)} style={{ display: 'none' }} />
-                        </label>
-                        
-                        {bulkImagePreviews.length > 0 && (
-                          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
-                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                              {bulkImagePreviews.length > 2 && (
-                                <div style={{ position: 'absolute', top: '-8px', left: '8px', right: '-8px', bottom: '8px', borderRadius: '16px', background: '#e2e8f0', zIndex: 0, border: '1px solid #cbd5e1' }}></div>
-                              )}
-                              {bulkImagePreviews.length > 1 && (
-                                <div style={{ position: 'absolute', top: '-4px', left: '4px', right: '-4px', bottom: '4px', borderRadius: '16px', background: '#f1f5f9', zIndex: 1, border: '1px solid #cbd5e1' }}></div>
-                              )}
-                              
-                              <img src={bulkImagePreviews[0]} alt="Selected Cover" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '16px', border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', position: 'relative', zIndex: 2 }} />
-                              
-                              <div style={{ 
-                                position: 'absolute', 
-                                top: '-10px', 
-                                right: '-10px', 
-                                background: '#3b82f6', 
-                                color: '#fff', 
-                                width: '30px', 
-                                height: '30px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                borderRadius: '50%', 
-                                fontWeight: 'bold',
-                                fontSize: '0.9rem',
-                                border: '2px solid #fff',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                zIndex: 3
-                              }}>
-                                {bulkImagePreviews.length}
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        <FileUpload
+                          label="Tap to Select Images"
+                          multiple
+                          previews={bulkImagePreviews}
+                          onFilesSelected={(files) => {
+                            const newUrls = files.map(file => URL.createObjectURL(file));
+                            setBulkImagePreviews(prev => [...prev, ...newUrls]);
+                          }}
+                          onRemove={(index) => setBulkImagePreviews(prev => prev.filter((_, i) => i !== index))}
+                          icon={<ImagePlus size={18} />}
+                        />
                       </div>
                     )}
                     
@@ -630,29 +669,32 @@ export default function RequestPickupPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
                         {bulkReceivers.map((rec, i) => (
                           <div key={i} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: '#f8fafc' }}>
-                            <h4 style={{ margin: '0 0 16px 0' }}>Receiver {i + 1}</h4>
+                            <h4 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><UserCheck size={16} /> Receiver {i + 1}</h4>
                             <div className="field-grid two-col">
                               <label>
                                 <span>Name</span>
-                                <input value={rec.name} onChange={e => handleBulkReceiverChange(i, 'name', e.target.value)} placeholder="Jane Doe" />
+                                <div className="rp-input-wrap">
+                                  <User size={17} />
+                                  <input value={rec.name} onChange={e => handleBulkReceiverChange(i, 'name', e.target.value)} placeholder="Jane Doe" />
+                                </div>
                               </label>
                               <label>
                                 <span>Number</span>
-                                <input value={rec.number} onChange={e => handleBulkReceiverChange(i, 'number', e.target.value)} placeholder="024XXXXXXX" />
+                                <div className="rp-input-wrap">
+                                  <Phone size={17} />
+                                  <input value={rec.number} onChange={e => handleBulkReceiverChange(i, 'number', e.target.value)} placeholder="024XXXXXXX" />
+                                </div>
                               </label>
                               <label>
                                 <span>Region</span>
-                                <select value={rec.region} onChange={e => handleBulkReceiverChange(i, 'region', e.target.value)}>
-                                  <option value="Kumasi">Kumasi</option>
-                                  <option value="Accra">Accra</option>
-                                  <option value="Takoradi">Takoradi</option>
-                                  <option value="Sunyani">Sunyani</option>
-                                  <option value="Tamale">Tamale</option>
-                                </select>
+                                <CustomSelect value={rec.region} onChange={v => handleBulkReceiverChange(i, 'region', v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                               </label>
                               <label>
                                 <span>Dropoff Location</span>
-                                <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
+                                <div className="rp-input-wrap">
+                                  <MapPinned size={17} />
+                                  <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
+                                </div>
                               </label>
                             </div>
                           </div>
@@ -662,7 +704,7 @@ export default function RequestPickupPage() {
                   </div>
                 )}
 
-                <h2 className="form-section-title">Additional Instructions</h2>
+                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
                 <div className="field-grid one-col" style={{ marginTop: '24px' }}>
                   <label>
                     <textarea
@@ -680,8 +722,8 @@ export default function RequestPickupPage() {
           </div>
 
           <aside className="side-stack">
-            <div className="summary-card" style={{ position: 'sticky', top: '100px' }}>
-              <div className="card-title">Order Summary</div>
+            <div className="summary-card rp-summary-card" style={{ position: 'sticky', top: '100px' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} /> Order Summary</div>
 
               <div className="summary-row"><span>Type</span><strong>{activeTab === 'single' ? 'Single Delivery' : 'Bulk Delivery'}</strong></div>
               <div className="summary-row"><span>Vehicle</span><strong>{pickupMode === 'motorbike' ? 'Motorbike' : 'Van'}</strong></div>
@@ -704,14 +746,18 @@ export default function RequestPickupPage() {
                 </div>
               )}
 
-              <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px' }}>
-                {isSubmitting ? 'Submitting…' : 'Create Order →'}
+              <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {isSubmitting ? 'Submitting…' : (<><Send size={16} /> Create Order</>)}
               </button>
               {submitError && (
-                <p style={{ color: '#991b1b', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem' }}>{submitError}</p>
+                <p style={{ color: '#991b1b', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> {submitError}
+                </p>
               )}
               {submitSuccess && (
-                <p style={{ color: 'var(--green)', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem' }}>Order created successfully! Redirecting…</p>
+                <p style={{ color: 'var(--green)', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> Order created successfully! Redirecting…
+                </p>
               )}
             </div>
           </aside>

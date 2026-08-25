@@ -4,9 +4,38 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
-router.use(requireAuth, requireRole('operations', 'admin'));
+router.use(requireAuth);
 
-router.get('/', async (_req, res) => {
+router.get('/me', requireRole('rider'), async (req, res) => {
+  const profile = await prisma.riderProfile.findUnique({
+    where: { userId: req.auth!.userId },
+    include: { user: { select: { id: true, name: true, phone: true } } },
+  });
+  if (!profile) {
+    return res.status(404).json({ error: 'Rider profile not found' });
+  }
+  res.json(profile);
+});
+
+const selfStatusSchema = z.object({
+  currentStatus: z.enum(['available', 'en_route', 'loading', 'maintenance', 'offline']),
+});
+
+router.patch('/me/status', requireRole('rider'), async (req, res) => {
+  const parsed = selfStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const profile = await prisma.riderProfile.update({
+    where: { userId: req.auth!.userId },
+    data: { currentStatus: parsed.data.currentStatus },
+    include: { user: { select: { id: true, name: true, phone: true } } },
+  });
+  res.json(profile);
+});
+
+router.get('/', requireRole('operations', 'admin'), async (_req, res) => {
   const riders = await prisma.riderProfile.findMany({
     include: { user: { select: { id: true, name: true, phone: true } } },
     orderBy: { createdAt: 'asc' },
@@ -21,7 +50,7 @@ const updateSchema = z.object({
   currentLocation: z.string().optional(),
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireRole('operations', 'admin'), async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
@@ -29,7 +58,7 @@ router.patch('/:id', async (req, res) => {
 
   try {
     const rider = await prisma.riderProfile.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: parsed.data,
       include: { user: { select: { id: true, name: true, phone: true } } },
     });

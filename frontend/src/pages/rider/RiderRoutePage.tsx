@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
+import Map from '../../components/Map';
 import { useToast } from '../../contexts/ToastContext';
+import { PageLoader } from '../../components/Spinner';
 import api from '../../services/api';
 import type { PodMethod, Shipment } from '../../types/models';
 
@@ -13,6 +16,9 @@ interface RouteStop {
   parcels: number;
   status: 'pending' | 'active' | 'completed' | 'failed';
   contact: string;
+  pickupLocation: string;
+  pickupRegion: string;
+  dropoffRegion: string;
 }
 
 function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
@@ -42,6 +48,9 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
       parcels: 1,
       status,
       contact: shipment.receiverNumber,
+      pickupLocation: shipment.pickupLocation,
+      pickupRegion: shipment.pickupRegion,
+      dropoffRegion: shipment.dropoffRegion,
     };
   });
 }
@@ -124,8 +133,8 @@ export default function RiderRoutePage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', color: '#fff', fontWeight: 700 }}>
-        Loading your route…
+      <div style={{ minHeight: '100vh', background: '#0f172a' }}>
+        <PageLoader dark label="Loading your route…" minHeight="100vh" />
       </div>
     );
   }
@@ -150,7 +159,7 @@ export default function RiderRoutePage() {
       <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px' }}>
         <div style={{ fontSize: '64px', marginBottom: '24px' }}>🏁</div>
         <h1 style={{ color: '#fff', margin: '0 0 16px 0' }}>Route Complete!</h1>
-        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>Great job. All stops for Route 42A have been serviced.</p>
+        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>Great job. All your assigned stops have been serviced.</p>
         <button
           onClick={() => navigate('/rider-board')}
           style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
@@ -164,26 +173,27 @@ export default function RiderRoutePage() {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#e2e8f0', overflow: 'hidden' }}>
 
-      {/* Mock Map Background */}
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")', backgroundSize: '100px', backgroundColor: '#e2e8f0', opacity: 0.8 }} />
-
-      {/* Route Path Mock SVG */}
-      <svg style={{ position: 'absolute', top: '10%', left: '10%', width: '80%', height: '50%', pointerEvents: 'none' }}>
-        <path d="M 10 10 Q 150 150 300 50 T 600 200" fill="none" stroke="#3b82f6" strokeWidth="8" strokeDasharray="16 16" />
-        <circle cx="300" cy="50" r="12" fill="#ef4444" stroke="#fff" strokeWidth="4" />
-        <circle cx="600" cy="200" r="12" fill="#94a3b8" stroke="#fff" strokeWidth="4" />
-      </svg>
+      {activeStop && (
+        <Map
+          className="route-map-fullscreen"
+          markers={[
+            { label: 'Pickup', address: `${activeStop.pickupLocation}, ${activeStop.pickupRegion}, Ghana` },
+            { label: 'Dropoff', address: `${activeStop.address}, ${activeStop.dropoffRegion}, Ghana` },
+          ]}
+          showRoute
+        />
+      )}
 
       {/* Top HUD */}
       <div style={{ position: 'absolute', top: '24px', left: '16px', right: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10 }}>
-        <button onClick={() => navigate('/rider-board')} style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          ←
+        <button onClick={() => navigate('/rider-board')} style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <ChevronLeft size={22} />
         </button>
         <div style={{ background: '#fff', padding: '12px 24px', borderRadius: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontWeight: 800, color: '#0f172a' }}>
-          Route 42A
+          Today's Route
         </div>
-        <button style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-          SOS
+        <button style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', cursor: 'pointer' }}>
+          <AlertOctagon size={20} />
         </button>
       </div>
 
@@ -191,18 +201,9 @@ export default function RiderRoutePage() {
       {error && (
         <div style={{ position: 'absolute', top: '84px', left: '16px', right: '16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '16px', padding: '12px 16px', fontWeight: 700, fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', zIndex: 15, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
           <span>{error}</span>
-          <button onClick={() => setError(null)} style={{ background: 'transparent', border: 'none', color: '#991b1b', fontWeight: 800, cursor: 'pointer', fontSize: '16px' }}>✕</button>
+          <button onClick={() => setError(null)} style={{ background: 'transparent', border: 'none', color: '#991b1b', fontWeight: 800, cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
         </div>
       )}
-
-      {/* Navigation Directions HUD */}
-      <div style={{ position: 'absolute', top: '90px', left: '16px', right: '16px', background: '#1e293b', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 10 }}>
-        <div style={{ fontSize: '32px', color: '#34d399' }}>↱</div>
-        <div>
-          <div style={{ fontSize: '24px', fontWeight: 800 }}>In 500m</div>
-          <div style={{ fontSize: '16px', color: '#cbd5e1' }}>Turn right onto 1st Ave</div>
-        </div>
-      </div>
 
       {/* Bottom Sheet - Active Stop */}
       {activeStop && (
@@ -228,10 +229,10 @@ export default function RiderRoutePage() {
 
           <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
             <a href={`tel:${activeStop.contact}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', color: '#0f172a', textDecoration: 'none', fontWeight: 700 }}>
-              📞 Call
+              <Phone size={16} /> Call
             </a>
             <button onClick={() => setIssueOpen(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#ef4444', fontWeight: 700, cursor: 'pointer' }}>
-              ⚠️ Issue
+              <AlertTriangle size={16} /> Issue
             </button>
           </div>
 
@@ -239,8 +240,8 @@ export default function RiderRoutePage() {
             onClick={() => setPodOpen(true)}
             style={{ width: '100%', background: '#078c35', color: '#fff', padding: '20px', borderRadius: '16px', border: 'none', fontSize: '20px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer' }}
           >
-            Arrived & Deliver
-            <span style={{ fontSize: '24px' }}>→</span>
+            Arrived &amp; Deliver
+            <ArrowRight size={22} />
           </button>
         </div>
       )}

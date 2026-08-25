@@ -1,8 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import {
+  Clock,
+  PackageCheck,
+  Truck,
+  Navigation,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Ban,
+  MapPin,
+  Weight,
+  Bike,
+  Package,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
+import { Skeleton, SkeletonCircle } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, ShipmentSpeed, VehicleType } from '../../types/models';
 
@@ -10,6 +26,12 @@ const VEHICLE_LABELS: Record<VehicleType, string> = {
   motorbike: 'Motorbike',
   van: 'Van',
   truck: 'Truck',
+};
+
+const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
+  motorbike: Bike,
+  van: Package,
+  truck: Truck,
 };
 
 const SPEED_LABELS: Record<ShipmentSpeed, string> = {
@@ -38,6 +60,17 @@ const STATUS_EVENT_DESCRIPTIONS: Record<ShipmentStatus, string> = {
   delayed: 'This delivery has been delayed.',
   failed: 'The delivery attempt was unsuccessful.',
   cancelled: 'This shipment was cancelled.',
+};
+
+const STATUS_ICONS: Record<ShipmentStatus, LucideIcon> = {
+  pending: Clock,
+  picked_up: PackageCheck,
+  in_transit: Truck,
+  out_for_delivery: Navigation,
+  delivered: CheckCircle2,
+  delayed: AlertTriangle,
+  failed: XCircle,
+  cancelled: Ban,
 };
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -116,7 +149,30 @@ export default function CustomerTrackingPage() {
     return (
       <div className="page-shell light-shell">
         <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
-          <p style={{ color: '#64748b', fontSize: '15px', fontWeight: 500 }}>Loading tracking details...</p>
+          <div className="tracking-header-row">
+            <div>
+              <Skeleton height="0.8em" width="140px" style={{ marginBottom: 10 }} />
+              <Skeleton height="2rem" width="240px" />
+            </div>
+            <Skeleton height="2.5em" width="120px" radius="var(--radius-sm)" />
+          </div>
+          <div className="tracking-content" style={{ marginTop: 24 }}>
+            <div className="map-card">
+              <Skeleton height={280} radius="var(--radius-lg)" />
+            </div>
+            <div className="history-panel">
+              <Skeleton height="1.2em" width="50%" style={{ marginBottom: 16 }} />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="history-item">
+                  <SkeletonCircle size={30} />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton height="0.85em" width="60%" style={{ marginBottom: 6 }} />
+                    <Skeleton height="0.75em" width="40%" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </main>
       </div>
     );
@@ -139,15 +195,28 @@ export default function CustomerTrackingPage() {
   }
 
   const statusEvents = shipment.statusEvents ?? [];
+  const CaptionIcon = STATUS_ICONS[shipment.status] ?? Navigation;
+  const ServiceIcon = VEHICLE_ICONS[shipment.vehicleType] ?? Truck;
 
   return (
     <div className="page-shell light-shell">
       <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
+        <style>{`
+          @media (max-width: 768px) {
+            .tracking-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
+            .tracking-h1 { font-size: 24px !important; }
+            .tracking-map-card { height: 200px !important; }
+            .tracking-details-card,
+            .tracking-timeline-card { padding: 20px !important; }
+            .tracking-service-row { flex-wrap: wrap !important; gap: 12px !important; }
+            .tracking-timeline-item { gap: 14px !important; }
+          }
+        `}</style>
 
         {/* Header Section */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>
+            <h1 className="tracking-h1" style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>
               Tracking Details
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -170,7 +239,7 @@ export default function CustomerTrackingPage() {
         </div>
 
         {/* Two-Column Grid */}
-        <div style={{
+        <div className="tracking-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
           gap: '32px',
@@ -181,7 +250,7 @@ export default function CustomerTrackingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
             {/* Live Map Placeholder */}
-            <div className="card-style" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative', background: '#e2e8f0' }}>
+            <div className="card-style tracking-map-card" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative', background: '#e2e8f0' }}>
               {/* Map grid pattern for premium aesthetic */}
               <div style={{
                 position: 'absolute', inset: 0,
@@ -197,12 +266,10 @@ export default function CustomerTrackingPage() {
                   boxShadow: '0 0 0 8px rgba(7, 140, 53, 0.2), 0 10px 20px rgba(0,0,0,0.1)',
                   animation: 'pulse 2s infinite'
                 }}>
-                  <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="10" r="3"/>
-                    <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/>
-                  </svg>
+                  <MapPin size={24} color="#ffffff" strokeWidth={2} />
                 </div>
-                <div style={{ marginTop: '16px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                  <CaptionIcon size={14} color="#078c35" />
                   {mapCaption(shipment.status)}
                 </div>
               </div>
@@ -216,31 +283,43 @@ export default function CustomerTrackingPage() {
             </div>
 
             {/* Shipment Details Card */}
-            <div className="card-style" style={{ padding: '24px' }}>
+            <div className="card-style tracking-details-card" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '20px' }}>Delivery Details</h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '20px', marginBottom: '24px' }}>
                 <div>
-                  <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Origin</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    <MapPin size={13} />
+                    Origin
+                  </div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.pickupLocation}</div>
                   <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>{shipment.pickupRegion}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Destination</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    <MapPin size={13} />
+                    Destination
+                  </div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.dropoffLocation}</div>
                   <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>{shipment.dropoffRegion}</div>
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="tracking-service-row" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Service Type</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{VEHICLE_LABELS[shipment.vehicleType]} · {SPEED_LABELS[shipment.speed]}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+                    <ServiceIcon size={15} color="#64748b" />
+                    {VEHICLE_LABELS[shipment.vehicleType]} · {SPEED_LABELS[shipment.speed]}
+                  </div>
                 </div>
                 {shipment.weightKg != null && (
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Weight</div>
-                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>{shipment.weightKg} kg</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+                      <Weight size={15} color="#64748b" />
+                      {shipment.weightKg} kg
+                    </div>
                   </div>
                 )}
               </div>
@@ -248,7 +327,7 @@ export default function CustomerTrackingPage() {
           </div>
 
           {/* RIGHT COLUMN: Vertical Timeline */}
-          <div className="card-style" style={{ padding: '32px' }}>
+          <div className="card-style tracking-timeline-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '32px' }}>Tracking History</h3>
 
             {statusEvents.length === 0 ? (
@@ -262,21 +341,16 @@ export default function CustomerTrackingPage() {
                   const isLatest = idx === statusEvents.length - 1;
                   const label = STATUS_EVENT_LABELS[event.status] ?? event.status;
                   const description = event.note || STATUS_EVENT_DESCRIPTIONS[event.status] || '';
+                  const StepIcon = STATUS_ICONS[event.status] ?? Clock;
 
                   return (
-                    <div key={event.id} style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: isLatest ? 0 : '32px' }}>
+                    <div key={event.id} className="tracking-timeline-item" style={{ display: 'flex', gap: '20px', position: 'relative', zIndex: 1, marginBottom: isLatest ? 0 : '32px' }}>
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '50%', background: '#078c35',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         boxShadow: isLatest ? '0 0 0 4px rgba(7, 140, 53, 0.15)' : undefined
                       }}>
-                        {isLatest ? (
-                          <div style={{ width: '10px', height: '10px', background: '#ffffff', borderRadius: '50%' }} />
-                        ) : (
-                          <svg viewBox="0 0 24 24" width="16" height="16" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        )}
+                        <StepIcon size={16} color="#ffffff" strokeWidth={2.25} />
                       </div>
                       <div>
                         <div style={{ fontSize: '16px', fontWeight: 700, color: isLatest ? '#078c35' : '#0f172a' }}>{label}</div>

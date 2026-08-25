@@ -1,41 +1,91 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import SharedPasswordView from './SharedPasswordView';
+import api from '../../services/api';
+import type { RiderProfile } from '../../types/models';
+
+function formatStatusLabel(status: string): string {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatVehicleType(type: string | null): string {
+  if (!type) return 'Not assigned';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
 
 function VehicleDetailsView() {
+  const [profile, setProfile] = useState<RiderProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { data } = await api.get<RiderProfile>('/riders/me');
+        setProfile(data);
+      } catch {
+        setError('Failed to load your vehicle information.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="card-style" style={{ padding: '32px', maxWidth: '600px', textAlign: 'center', color: '#64748b' }}>
+        Loading vehicle information…
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="card-style" style={{ padding: '32px', maxWidth: '600px', textAlign: 'center', color: '#991b1b', fontWeight: 600 }}>
+        {error ?? 'Vehicle information unavailable.'}
+      </div>
+    );
+  }
+
   return (
     <div className="card-style" style={{ padding: '32px', maxWidth: '600px' }}>
       <div className="section-heading-row" style={{ marginBottom: '24px' }}>
         <h3>Vehicle Information</h3>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div>
             <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>Vehicle Type</label>
-            <div style={{ padding: '12px 16px', background: '#f1f5f9', borderRadius: '8px', color: '#0f172a', fontWeight: 600 }}>Motorbike</div>
+            <div style={{ padding: '12px 16px', background: '#f1f5f9', borderRadius: '8px', color: profile.vehicleType ? '#0f172a' : '#94a3b8', fontWeight: 600 }}>
+              {formatVehicleType(profile.vehicleType)}
+            </div>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>License Plate</label>
-            <div style={{ padding: '12px 16px', background: '#f1f5f9', borderRadius: '8px', color: '#0f172a', fontWeight: 600 }}>GT-1234-24</div>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>Vehicle ID</label>
+            <div style={{ padding: '12px 16px', background: '#f1f5f9', borderRadius: '8px', color: profile.vehicleId ? '#0f172a' : '#94a3b8', fontWeight: 600 }}>
+              {profile.vehicleId ?? 'Not assigned'}
+            </div>
           </div>
         </div>
 
         <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>Make & Model</label>
-          <div style={{ padding: '12px 16px', background: '#f1f5f9', borderRadius: '8px', color: '#0f172a', fontWeight: 600 }}>Honda ACE 110</div>
-        </div>
-        
-        <div>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>Insurance Status</label>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>Current Status</label>
           <div style={{ display: 'inline-flex', padding: '6px 12px', background: '#dcfce7', color: '#166534', borderRadius: '20px', fontSize: '13px', fontWeight: 700 }}>
-            Valid until Dec 2026
+            {formatStatusLabel(profile.currentStatus)}
           </div>
         </div>
 
-        <div style={{ marginTop: '16px', padding: '16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px' }}>
-          <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>Need to update vehicle info?</strong>
-          <span style={{ fontSize: '14px', color: '#b45309' }}>Please contact Fleet Operations to process a vehicle change or update your insurance documentation.</span>
-        </div>
+        {!profile.vehicleId && (
+          <div style={{ marginTop: '16px', padding: '16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px' }}>
+            <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>No vehicle assigned yet</strong>
+            <span style={{ fontSize: '14px', color: '#b45309' }}>Please contact Fleet Operations to have a vehicle assigned to your account.</span>
+          </div>
+        )}
 
       </div>
     </div>

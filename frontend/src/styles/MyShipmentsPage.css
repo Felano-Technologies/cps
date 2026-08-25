@@ -2,6 +2,37 @@
   padding: 32px 0;
 }
 
+.shipments-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.shipments-header-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: var(--lime-soft);
+  color: var(--navy);
+}
+
+.shipments-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--danger-bg);
+  color: #991b1b;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+}
+
 .shipment-controls {
   display: flex;
   align-items: center;
@@ -22,6 +53,10 @@
 }
 
 .shipment-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
   background: transparent;
   border: none;
   padding: 8px 16px;
@@ -30,7 +65,12 @@
   color: #64748b;
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
+}
+
+.shipment-tab svg {
+  flex-shrink: 0;
 }
 
 .shipment-tab:hover {
@@ -49,8 +89,18 @@
   max-width: 320px;
 }
 
+.shipment-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
 .shipment-search input {
   width: 100%;
+  min-height: 44px;
   padding: 10px 16px 10px 42px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -77,8 +127,70 @@
   background-color: #f8fafc !important;
 }
 
+.cell-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cell-with-icon svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.cell-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shipment-track-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 13px;
+  background-color: #e0f3cb;
+  color: #078c35;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.shipment-track-btn:hover {
+  background-color: #ccebb1;
+}
+
+.shipments-loading-cell {
+  padding: 48px 24px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.shipments-loading-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shipments-spin {
+  animation: shipments-spin 0.8s linear infinite;
+}
+
+@keyframes shipments-spin {
+  to { transform: rotate(360deg); }
+}
+
 .status-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
@@ -97,6 +209,11 @@
   color: #854d0e;
 }
 
+.badge-out-for-delivery {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
 .badge-delayed {
   background-color: #fee2e2;
   color: #991b1b;
@@ -107,13 +224,33 @@
   color: #475569;
 }
 
+.badge-picked-up {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge-failed {
+  background-color: #ffe4e6;
+  color: #9f1239;
+}
+
+.badge-cancelled {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
 @media (max-width: 768px) {
+  .shipments-header-icon {
+    width: 40px;
+    height: 40px;
+  }
+
   .shipment-controls {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .shipment-search {
     max-width: 100%;
   }
@@ -125,5 +262,34 @@
     white-space: nowrap;
     padding-bottom: 8px;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .shipment-tab {
+    padding: 10px 16px;
+  }
+
+  .shipments-table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .cell-with-icon {
+    max-width: 60%;
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  .shipments-table td[colspan] {
+    display: block;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .shipments-table td[colspan]::before {
+    content: none;
+  }
+
+  .shipment-track-btn {
+    padding: 9px 16px;
   }
 }

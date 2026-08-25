@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, LogOut, Settings } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationBell from './NotificationBell';
 
 const PUBLIC_LINKS: { path: string; label: string }[] = [
   { path: '/', label: 'Home' },
@@ -66,7 +67,7 @@ export default function Topbar() {
         </div>
 
         <button
-          className="mobile-menu-btn"
+          className={`mobile-menu-btn${mobileMenuOpen ? ' open' : ''}`}
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle menu"
         >
@@ -124,6 +125,8 @@ export default function Topbar() {
               </NavLink>
             </>
           ) : (
+            <>
+            <NotificationBell />
             <div style={{ position: 'relative' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', padding: 0 }}
@@ -189,6 +192,7 @@ export default function Topbar() {
                 </div>
               )}
             </div>
+            </>
           )}
         </div>
       </div>

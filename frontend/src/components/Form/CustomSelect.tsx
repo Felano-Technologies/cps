@@ -58,7 +58,8 @@ export default function CustomSelect({ value, onChange, options, icon }: CustomS
               role="option"
               aria-selected={opt.value === value}
               className={`custom-select-option${opt.value === value ? ' selected' : ''}`}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 onChange(opt.value);
                 setOpen(false);
               }}

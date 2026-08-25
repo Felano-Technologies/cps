@@ -76,6 +76,7 @@ model User {
 
   riderProfile     RiderProfile?
   shipmentsAsOwner Shipment[]    @relation("CustomerShipments")
+  notifications    Notification[]
 
   @@map("users")
 }
@@ -137,7 +138,8 @@ model Shipment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  statusEvents ShipmentStatusEvent[]
+  statusEvents  ShipmentStatusEvent[]
+  notifications Notification[]
 
   @@map("shipments")
 }
@@ -151,4 +153,29 @@ model ShipmentStatusEvent {
   createdAt  DateTime       @default(now())
 
   @@map("shipment_status_events")
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@map("contact_messages")
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String
+  shipmentId String?
+  shipment   Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("notifications")
 }

@@ -3,12 +3,13 @@
 @import './styles/layout.css';
 @import './styles/components.css';
 @import './styles/Footer.css';
+@import './styles/loading.css';
 :root {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #334155;
-  background: #f6f8fa;
+  background: #fff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -24,6 +25,10 @@ html, body {
   min-height: 100vh;
   background: var(--bg, #ffffff);
   width: 100%;
+}
+
+body {
+  overflow-x: hidden;
 }
 
 button,
