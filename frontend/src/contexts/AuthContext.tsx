@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+import api from '../services/api';
 
 export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
@@ -34,6 +36,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
 /**
  * AuthProvider Component
  * Wraps the entire app to provide authentication state globally.
@@ -46,12 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const savedUser = localStorage.getItem('cps_user');
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
-      } catch (err) {
-        console.error('Auth check failed:', err);
+        const { data } = await api.get<User>('/auth/me');
+        setUser(data);
+      } catch {
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -60,23 +67,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, _password: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const mockUser: User = {
-        id: 'user-123',
-        name: 'John Doe',
-        email: email,
-        role: 'customer', 
-      };
-
-      setUser(mockUser);
-      localStorage.setItem('cps_user', JSON.stringify(mockUser));
-      return mockUser;
+      const { data } = await api.post<User>('/auth/login', { email, password });
+      setUser(data);
+      return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
+      const message = extractErrorMessage(err, 'Login failed');
       setError(message);
       throw err;
     } finally {
@@ -84,23 +84,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (name: string, email: string, _password: string, role: UserRole) => {
+  const signup = async (name: string, email: string, password: string, role: UserRole) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const mockUser: User = {
-        id: 'user-' + Date.now(),
-        name,
-        email,
-        role,
-      };
-
-      setUser(mockUser);
-      localStorage.setItem('cps_user', JSON.stringify(mockUser));
-      return mockUser;
+      const { data } = await api.post<User>('/auth/register', { name, email, password, role });
+      setUser(data);
+      return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Signup failed';
+      const message = extractErrorMessage(err, 'Signup failed');
       setError(message);
       throw err;
     } finally {
@@ -110,13 +103,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('cps_user');
     setError(null);
+    api.post('/auth/logout').catch(() => {});
   };
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('cps_user', JSON.stringify(updatedUser));
   };
 
   const value: AuthContextType = {

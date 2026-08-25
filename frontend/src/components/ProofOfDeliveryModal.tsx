@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 interface ProofOfDeliveryModalProps {
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (method: 'signature' | 'photo', recipientName: string) => void;
   stopAddress: string;
 }
 
@@ -93,9 +93,9 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
           </div>
         )}
 
-        <button 
-          onClick={onSubmit}
-          style={{ 
+        <button
+          onClick={() => onSubmit(method, name)}
+          style={{
             width: '100%', background: '#078c35', color: '#fff', 
             padding: '20px', borderRadius: '16px', border: 'none', fontWeight: 800, fontSize: '16px', marginTop: '32px', 
             boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'

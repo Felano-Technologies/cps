@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
+import api from '../../services/api';
+import type { PodMethod, Shipment } from '../../types/models';
 
 interface RouteStop {
   id: string;
@@ -12,52 +14,129 @@ interface RouteStop {
   contact: string;
 }
 
-const initialStops: RouteStop[] = [
-  { id: '1', address: '1400 1st Ave', details: 'Suite 200, Building B', parcels: 3, status: 'active', contact: '024 123 4567' },
-  { id: '2', address: '801 2nd Ave', details: 'Front desk drop-off', parcels: 1, status: 'pending', contact: '055 987 6543' },
-  { id: '3', address: '1001 4th Ave', details: 'Loading dock access', parcels: 5, status: 'pending', contact: '050 111 2222' },
-];
+function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
+  const sorted = [...shipments].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  let activeAssigned = false;
+
+  return sorted.map(shipment => {
+    let status: RouteStop['status'];
+    if (shipment.status === 'delivered') {
+      status = 'completed';
+    } else if (shipment.status === 'failed' || shipment.status === 'cancelled') {
+      status = 'failed';
+    } else if (!activeAssigned) {
+      status = 'active';
+      activeAssigned = true;
+    } else {
+      status = 'pending';
+    }
+
+    return {
+      id: shipment.id,
+      address: shipment.dropoffLocation,
+      details: shipment.additionalInstructions || shipment.pickupLocation || '',
+      parcels: 1,
+      status,
+      contact: shipment.receiverNumber,
+    };
+  });
+}
 
 export default function RiderRoutePage() {
-  const [stops, setStops] = useState<RouteStop[]>(initialStops);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [podOpen, setPodOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchShipments() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.get<Shipment[]>('/shipments');
+        if (isMounted) {
+          setShipments(response.data);
+        }
+      } catch {
+        if (isMounted) {
+          setError('Failed to load your route. Please try again later.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchShipments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stops = mapShipmentsToStops(shipments);
   const activeStop = stops.find(s => s.status === 'active');
-  const allCompleted = stops.every(s => s.status === 'completed' || s.status === 'failed');
+  const allCompleted = stops.length > 0 && stops.every(s => s.status === 'completed' || s.status === 'failed');
 
-  const handleCompleteActive = () => {
+  const handlePodSubmit = async (method: PodMethod, recipientName: string) => {
     if (!activeStop) return;
-    setStops(prev => {
-      const updated = [...prev];
-      const idx = updated.findIndex(s => s.id === activeStop.id);
-      updated[idx].status = 'completed';
-
-      const nextIdx = updated.findIndex(s => s.status === 'pending');
-      if (nextIdx !== -1) updated[nextIdx].status = 'active';
-      return updated;
-    });
-    setPodOpen(false);
+    try {
+      const response = await api.patch<Shipment>(`/shipments/${activeStop.id}/pod`, {
+        podMethod: method,
+        podRecipientName: recipientName,
+      });
+      setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
+      setPodOpen(false);
+    } catch {
+      setError('Failed to submit proof of delivery. Please try again.');
+    }
   };
 
-  const handleIssueSubmit = (reason: string) => {
+  const handleIssueSubmit = async (reason: string) => {
     if (!activeStop) return;
-    alert(`Issue reported to Ops: ${reason}`);
-
-    // In a real app, this might pause the route. Here we'll mark failed and move on.
-    setStops(prev => {
-      const updated = [...prev];
-      const idx = updated.findIndex(s => s.id === activeStop.id);
-      updated[idx].status = 'failed';
-
-      const nextIdx = updated.findIndex(s => s.status === 'pending');
-      if (nextIdx !== -1) updated[nextIdx].status = 'active';
-      return updated;
-    });
-    setIssueOpen(false);
+    try {
+      const response = await api.patch<Shipment>(`/shipments/${activeStop.id}/status`, {
+        status: 'delayed',
+        note: reason,
+      });
+      setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
+      setIssueOpen(false);
+    } catch {
+      setError('Failed to report issue. Please try again.');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', color: '#fff', fontWeight: 700 }}>
+        Loading your route…
+      </div>
+    );
+  }
+
+  if (error && shipments.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px', textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+        <p style={{ color: '#f87171', fontWeight: 700, marginBottom: '24px' }}>{error}</p>
+        <button
+          onClick={() => navigate('/rider-board')}
+          style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: '16px', fontWeight: 800, fontSize: '16px' }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   if (allCompleted) {
     return (
@@ -100,6 +179,14 @@ export default function RiderRoutePage() {
           SOS
         </button>
       </div>
+
+      {/* Inline error banner for action failures */}
+      {error && (
+        <div style={{ position: 'absolute', top: '84px', left: '16px', right: '16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '16px', padding: '12px 16px', fontWeight: 700, fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', zIndex: 15, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'transparent', border: 'none', color: '#991b1b', fontWeight: 800, cursor: 'pointer', fontSize: '16px' }}>✕</button>
+        </div>
+      )}
 
       {/* Navigation Directions HUD */}
       <div style={{ position: 'absolute', top: '90px', left: '16px', right: '16px', background: '#1e293b', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 10 }}>
@@ -155,7 +242,7 @@ export default function RiderRoutePage() {
         <ProofOfDeliveryModal
           stopAddress={activeStop.address}
           onClose={() => setPodOpen(false)}
-          onSubmit={handleCompleteActive}
+          onSubmit={handlePodSubmit}
         />
       )}
 

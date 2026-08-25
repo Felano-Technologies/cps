@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  customer
+  operations
+  admin
+  rider
+}
+
+enum VehicleType {
+  motorbike
+  van
+  truck
+}
+
+enum RiderStatus {
+  available
+  en_route
+  loading
+  maintenance
+  offline
+}
+
+enum ShipmentStatus {
+  pending
+  picked_up
+  in_transit
+  out_for_delivery
+  delivered
+  delayed
+  failed
+  cancelled
+}
+
+enum ShipmentPriority {
+  standard
+  high
+}
+
+enum ShipmentSpeed {
+  same_day
+  next_day
+  express
+}
+
+enum PackageType {
+  document
+  parcel
+  electronics
+  fragile
+  food
+  other
+}
+
+enum PodMethod {
+  signature
+  photo
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  riderProfile     RiderProfile?
+  shipmentsAsOwner Shipment[]    @relation("CustomerShipments")
+
+  @@map("users")
+}
+
+model RiderProfile {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId       String?
+  vehicleType     VehicleType?
+  currentStatus   RiderStatus @default(offline)
+  currentLocation String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  assignedShipments Shipment[] @relation("RiderShipments")
+
+  @@map("rider_profiles")
+}
+
+model Shipment {
+  id             String           @id @default(cuid())
+  trackingCode   String           @unique
+  batchId        String?
+  status         ShipmentStatus   @default(pending)
+  priority       ShipmentPriority @default(standard)
+  speed          ShipmentSpeed    @default(next_day)
+  vehicleType    VehicleType
+  packageType    PackageType
+
+  customerId String?
+  customer   User?   @relation("CustomerShipments", fields: [customerId], references: [id], onDelete: SetNull)
+
+  assignedRiderId String?
+  assignedRider   RiderProfile? @relation("RiderShipments", fields: [assignedRiderId], references: [id], onDelete: SetNull)
+
+  senderName    String
+  senderNumber  String
+  senderContact String?
+  pickupRegion  String
+  pickupLocation String
+  pickupDate    String?
+
+  receiverName   String
+  receiverNumber String
+  dropoffRegion  String
+  dropoffKumasiSubArea String?
+  dropoffLocation String
+
+  deliveryFee Decimal @db.Decimal(10, 2)
+  productFee  Decimal? @db.Decimal(10, 2)
+  weightKg    Decimal? @db.Decimal(10, 2)
+
+  podMethod        PodMethod?
+  podRecipientName String?
+
+  additionalInstructions String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  statusEvents ShipmentStatusEvent[]
+
+  @@map("shipments")
+}
+
+model ShipmentStatusEvent {
+  id         String         @id @default(cuid())
+  shipmentId String
+  shipment   Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  status     ShipmentStatus
+  note       String?
+  createdAt  DateTime       @default(now())
+
+  @@map("shipment_status_events")
+}

@@ -1,0 +1,308 @@
+import { randomUUID } from 'crypto';
+import { Router } from 'express';
+import { z } from 'zod';
+import { prisma } from '../lib/prisma';
+import { calculateDeliveryCost } from '../lib/pricing';
+import { generateTrackingCode } from '../lib/trackingCode';
+import { requireAuth, requireRole } from '../middleware/auth';
+
+const router = Router();
+router.use(requireAuth);
+
+const VEHICLE_TYPES = ['motorbike', 'van', 'truck'] as const;
+const PRIORITIES = ['standard', 'high'] as const;
+const SPEEDS = ['same_day', 'next_day', 'express'] as const;
+const PACKAGE_TYPES = ['document', 'parcel', 'electronics', 'fragile', 'food', 'other'] as const;
+const STATUSES = [
+  'pending',
+  'picked_up',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+  'delayed',
+  'failed',
+  'cancelled',
+] as const;
+
+const shipmentInputSchema = z.object({
+  vehicleType: z.enum(VEHICLE_TYPES),
+  priority: z.enum(PRIORITIES),
+  speed: z.enum(SPEEDS),
+  packageType: z.enum(PACKAGE_TYPES),
+  senderName: z.string().min(1),
+  senderNumber: z.string().min(1),
+  senderContact: z.string().optional(),
+  pickupRegion: z.string().min(1),
+  pickupLocation: z.string().min(1),
+  pickupDate: z.string().optional(),
+  receiverName: z.string().min(1),
+  receiverNumber: z.string().min(1),
+  dropoffRegion: z.string().min(1),
+  dropoffKumasiSubArea: z.enum(['CampusAndEnvirons', 'Other']).optional(),
+  dropoffLocation: z.string().min(1),
+  productFee: z.number().optional(),
+  weightKg: z.number().optional(),
+  additionalInstructions: z.string().optional(),
+});
+
+async function riderProfileIdFor(userId: string): Promise<string | null> {
+  const profile = await prisma.riderProfile.findUnique({ where: { userId }, select: { id: true } });
+  return profile?.id ?? null;
+}
+
+function buildShipmentCreateData(
+  input: z.infer<typeof shipmentInputSchema>,
+  customerId: string | null,
+  batchId: string | null
+) {
+  const deliveryFee = calculateDeliveryCost({
+    region: input.dropoffRegion,
+    kumasiSubArea: input.dropoffKumasiSubArea,
+  });
+  if (deliveryFee === null) {
+    throw new Error(`No delivery rate configured for region "${input.dropoffRegion}"`);
+  }
+
+  return {
+    trackingCode: generateTrackingCode(),
+    batchId,
+    vehicleType: input.vehicleType,
+    priority: input.priority,
+    speed: input.speed,
+    packageType: input.packageType,
+    customerId,
+    senderName: input.senderName,
+    senderNumber: input.senderNumber,
+    senderContact: input.senderContact,
+    pickupRegion: input.pickupRegion,
+    pickupLocation: input.pickupLocation,
+    pickupDate: input.pickupDate,
+    receiverName: input.receiverName,
+    receiverNumber: input.receiverNumber,
+    dropoffRegion: input.dropoffRegion,
+    dropoffKumasiSubArea: input.dropoffKumasiSubArea,
+    dropoffLocation: input.dropoffLocation,
+    deliveryFee,
+    productFee: input.productFee,
+    weightKg: input.weightKg,
+    additionalInstructions: input.additionalInstructions,
+    statusEvents: { create: { status: 'pending' as const } },
+  };
+}
+
+router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res) => {
+  const parsed = shipmentInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const customerId = req.auth!.role === 'customer' ? req.auth!.userId : null;
+
+  try {
+    const shipment = await prisma.shipment.create({
+      data: buildShipmentCreateData(parsed.data, customerId, null),
+    });
+    res.status(201).json(shipment);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipment' });
+  }
+});
+
+const bulkCreateSchema = z.object({
+  pickup: shipmentInputSchema.pick({
+    vehicleType: true,
+    packageType: true,
+    senderName: true,
+    senderNumber: true,
+    senderContact: true,
+    pickupRegion: true,
+    pickupLocation: true,
+    pickupDate: true,
+    productFee: true,
+    additionalInstructions: true,
+  }),
+  receivers: z
+    .array(
+      shipmentInputSchema.pick({
+        receiverName: true,
+        receiverNumber: true,
+        dropoffRegion: true,
+        dropoffKumasiSubArea: true,
+        dropoffLocation: true,
+        speed: true,
+        priority: true,
+      })
+    )
+    .min(1),
+});
+
+router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req, res) => {
+  const parsed = bulkCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const customerId = req.auth!.role === 'customer' ? req.auth!.userId : null;
+  const batchId = randomUUID();
+
+  try {
+    const created = await prisma.$transaction(
+      parsed.data.receivers.map((receiver) =>
+        prisma.shipment.create({
+          data: buildShipmentCreateData(
+            { ...parsed.data.pickup, ...receiver },
+            customerId,
+            batchId
+          ),
+        })
+      )
+    );
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipments' });
+  }
+});
+
+router.get('/', async (req, res) => {
+  const { status, search } = req.query as { status?: string; search?: string };
+
+  const where: Record<string, unknown> = {};
+
+  if (req.auth!.role === 'customer') {
+    where.customerId = req.auth!.userId;
+  } else if (req.auth!.role === 'rider') {
+    const riderProfileId = await riderProfileIdFor(req.auth!.userId);
+    where.assignedRiderId = riderProfileId ?? '__none__';
+  }
+
+  if (status && (STATUSES as readonly string[]).includes(status)) {
+    where.status = status;
+  }
+
+  if (search) {
+    where.OR = [
+      { trackingCode: { contains: search, mode: 'insensitive' } },
+      { receiverName: { contains: search, mode: 'insensitive' } },
+      { dropoffLocation: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const shipments = await prisma.shipment.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: { assignedRider: { include: { user: { select: { name: true } } } } },
+  });
+
+  res.json(shipments);
+});
+
+router.get('/:trackingCode', async (req, res) => {
+  const shipment = await prisma.shipment.findUnique({
+    where: { trackingCode: req.params.trackingCode },
+    include: {
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+      assignedRider: { include: { user: { select: { name: true } } } },
+    },
+  });
+
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  if (req.auth!.role === 'customer' && shipment.customerId !== req.auth!.userId) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  res.json(shipment);
+});
+
+const statusUpdateSchema = z.object({
+  status: z.enum(STATUSES),
+  note: z.string().optional(),
+});
+
+router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (req, res) => {
+  const parsed = statusUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id } });
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  if (req.auth!.role === 'rider') {
+    const riderProfileId = await riderProfileIdFor(req.auth!.userId);
+    if (!riderProfileId || shipment.assignedRiderId !== riderProfileId) {
+      return res.status(403).json({ error: 'Not assigned to this shipment' });
+    }
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      status: parsed.data.status,
+      statusEvents: { create: { status: parsed.data.status, note: parsed.data.note } },
+    },
+  });
+
+  res.json(updated);
+});
+
+const podSchema = z.object({
+  podMethod: z.enum(['signature', 'photo']),
+  podRecipientName: z.string().min(1),
+});
+
+router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
+  const parsed = podSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id } });
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  const riderProfileId = await riderProfileIdFor(req.auth!.userId);
+  if (!riderProfileId || shipment.assignedRiderId !== riderProfileId) {
+    return res.status(403).json({ error: 'Not assigned to this shipment' });
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      status: 'delivered',
+      podMethod: parsed.data.podMethod,
+      podRecipientName: parsed.data.podRecipientName,
+      statusEvents: { create: { status: 'delivered', note: `POD via ${parsed.data.podMethod}` } },
+    },
+  });
+
+  res.json(updated);
+});
+
+const assignSchema = z.object({ riderId: z.string().min(1) });
+
+router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = assignSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'riderId is required' });
+  }
+
+  const rider = await prisma.riderProfile.findUnique({ where: { id: parsed.data.riderId } });
+  if (!rider) {
+    return res.status(404).json({ error: 'Rider not found' });
+  }
+
+  const shipment = await prisma.shipment.update({
+    where: { id: req.params.id },
+    data: { assignedRiderId: rider.id },
+  });
+
+  res.json(shipment);
+});
+
+export default router;

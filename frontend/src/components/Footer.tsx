@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Phone, MessageCircle, Mail, Clock, MapPin } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 
 export default function Footer() {
@@ -24,7 +25,8 @@ export default function Footer() {
 
             <div className="footer-section" style={{ padding: '0 8px' }}>
               <h4>Office</h4>
-              <p className="footer-address">
+              <p className="footer-address" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <MapPin size={16} style={{ flexShrink: 0, marginTop: '3px', color: 'var(--lime)' }} />
                 Ayeduase Gate, near KNUST, Kumasi.
               </p>
             </div>
@@ -60,10 +62,10 @@ export default function Footer() {
               <div className="footer-section">
                 <h4>Support</h4>
                 <div className="support-list">
-                  <a href="tel:+233506514687" className="support-pill">Call: +233 50 651 4687</a>
-                  <a href="https://wa.me/233534583364" target="_blank" rel="noopener noreferrer" className="support-pill">WhatsApp: +233 53 458 3364</a>
-                  <a href="mailto:cpsdeliverygh@gmail.com" className="support-pill">cpsdeliverygh@gmail.com</a>
-                  <div className="support-pill">Mon - Fri: 8am - 5pm</div>
+                  <a href="tel:+233506514687" className="support-pill"><Phone size={16} /> Call: +233 50 651 4687</a>
+                  <a href="https://wa.me/233534583364" target="_blank" rel="noopener noreferrer" className="support-pill"><MessageCircle size={16} /> WhatsApp: +233 53 458 3364</a>
+                  <a href="mailto:cpsdeliverygh@gmail.com" className="support-pill"><Mail size={16} /> cpsdeliverygh@gmail.com</a>
+                  <div className="support-pill"><Clock size={16} /> Mon - Fri: 8am - 5pm</div>
                 </div>
               </div>
             </div>

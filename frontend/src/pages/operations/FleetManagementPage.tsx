@@ -235,7 +235,13 @@ export default function FleetManagementPage() {
                 style={{ width: '100%', maxWidth: '300px', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
               />
             </div>
-            
+
+            {actionError && (
+              <div style={{ padding: '12px 24px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: 600, borderBottom: '1px solid #fecaca' }}>
+                {actionError}
+              </div>
+            )}
+
             <div className="responsive-table-container">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
@@ -248,44 +254,71 @@ export default function FleetManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredFleet.length > 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: '14px' }}>
+                        Loading fleet data...
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '48px 24px', textAlign: 'center', color: '#991b1b', fontWeight: 600, fontSize: '14px' }}>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : filteredFleet.length > 0 ? (
                     filteredFleet.map(member => {
-                      const statusColor = getStatusColor(member.status);
-                      const avatarBg = member.status === 'Maintenance' ? '#f59e0b' : '#078c35';
+                      const statusColor = getStatusColor(member.currentStatus);
+                      const avatarBg = member.currentStatus === 'maintenance' ? '#f59e0b' : '#078c35';
                       return (
                         <tr key={member.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <div className="avatar-circle" style={{ background: avatarBg, color: '#fff' }}>
-                                {member.initials}
+                                {getInitials(member.user.name)}
                               </div>
                               <div>
-                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.name}</div>
-                                <div style={{ color: '#64748b', fontSize: '13px', marginTop: '2px', fontWeight: 600 }}>{member.vehicleId}</div>
+                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.user.name}</div>
+                                <div style={{ color: member.vehicleId ? '#64748b' : '#94a3b8', fontSize: '13px', marginTop: '2px', fontWeight: 600 }}>
+                                  {member.vehicleId ?? 'Unassigned'}
+                                </div>
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '16px 24px', fontSize: '24px' }} title={member.vehicleType}>
-                            {getVehicleIcon(member.vehicleType)}
+                          <td style={{ padding: '16px 24px' }} title={member.vehicleType ?? 'Unassigned'}>
+                            {member.vehicleType ? (
+                              <span style={{ fontSize: '24px' }}>{getVehicleIcon(member.vehicleType)}</span>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px' }}>Unassigned</span>
+                            )}
                           </td>
                           <td style={{ padding: '16px 24px', color: '#475569', fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap' }}>
-                            {member.location}
+                            {member.currentLocation ?? 'Unknown'}
                           </td>
                           <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
-                            <span style={{ 
+                            <span style={{
                               background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}`,
                               padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, display: 'inline-block'
                             }}>
-                              {member.status}
+                              {formatStatusLabel(member.currentStatus)}
                             </span>
                           </td>
                           <td style={{ padding: '16px 24px' }}>
-                            <button style={{ 
-                              background: 'none', border: '1px solid #cbd5e1', padding: '6px 12px', 
-                              borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#0f172a'
-                            }}>
-                              View
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <select
+                                value={member.currentStatus}
+                                disabled={updatingId === member.id}
+                                onChange={(e) => handleStatusChange(member.id, e.target.value as RiderStatus)}
+                                style={{
+                                  background: '#fff', border: '1px solid #cbd5e1', padding: '6px 8px',
+                                  borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#0f172a'
+                                }}
+                              >
+                                {STATUS_OPTIONS.map(status => (
+                                  <option key={status} value={status}>{formatStatusLabel(status)}</option>
+                                ))}
+                              </select>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -293,7 +326,7 @@ export default function FleetManagementPage() {
                   ) : (
                     <tr>
                       <td colSpan={5} style={{ padding: 0 }}>
-                        <EmptyState 
+                        <EmptyState
                           icon="🚐"
                           title="No Fleet Found"
                           message="There are no riders or vehicles matching your current filters."

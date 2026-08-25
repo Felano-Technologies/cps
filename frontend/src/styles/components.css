@@ -1,21 +1,26 @@
 .primary-green, .dark-btn, .neutral-btn, .track-btn, .table-btn, .mini-action, .route-action {
   border: 1px solid transparent;
-  border-radius: 1.5rem;
+  border-radius: var(--radius-sm);
   padding: 0.72rem 1rem;
   min-height: 44px;
   font-weight: 600;
+  transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
 }
 .primary-green { background: var(--green); color: #0b1210; }
-.dark-btn { background: #1a1a1a; color: #fff; }
+.primary-green:hover:not(:disabled) { background: var(--lime-hover); }
+.dark-btn { background: var(--navy); color: #fff; }
+.dark-btn:hover:not(:disabled) { background: var(--navy-dark); }
 .neutral-btn { background: transparent; border-color: var(--border); color: #474b4f; }
+.neutral-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--border-strong, var(--border)); }
 .track-btn, .table-btn, .route-action { background: var(--green); color: #0b1210; }
+.primary-green:disabled, .dark-btn:disabled, .neutral-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .service-card, .form-card, .summary-card, .info-card, .card-style, .table-panel, .stat-card,
 .map-card, .shipment-list-card, .route-card, .info-block, .table-card, .map-mini-card,
 .history-panel, .payment-method, .stop-item, .next-stop-row, .route-main-card, .route-map-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 18px;
 }
 
@@ -35,7 +40,7 @@
 .dark-green-card p, .dark-green-card h3, .dark-green-card .text-link { color: #0d2012; }
 .service-text h3 { margin: 0 0 8px; color: var(--green-dark); font-size: clamp(1.6rem, 2vw, 2.2rem); }
 .service-text p { color: #4d5850; margin: 0; }
-.mini-photo { width: 100%; max-width: 360px; height: 170px; border-radius: 2rem; background: linear-gradient(135deg, #edf2ea, #c9d7c8); }
+.mini-photo { width: 100%; max-width: 360px; height: 170px; border-radius: var(--radius-lg); background: linear-gradient(135deg, #edf2ea, #c9d7c8); }
 .cargo-photo { width: 100%; max-width: 320px; background: url('../assets/hero.png') center/cover no-repeat; }
 .van-photo { position: relative; overflow: hidden; }
 .van-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.65), rgba(255,255,255,0.1)); }
@@ -59,7 +64,8 @@
 .two-col { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .three-col { grid-template-columns: repeat(3,minmax(0,1fr)); }
 label { display: flex; flex-direction: column; gap: 8px; color: #586159; }
-label input, label select { box-sizing: border-box; width: 100%; margin: 0; min-height: 48px; border: 1px solid var(--border); border-radius: 1.5rem; background: #fff; padding: 0.75rem 0.9rem; color: #202124; }
+label input, label select { box-sizing: border-box; width: 100%; margin: 0; min-height: 48px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; padding: 0.75rem 0.9rem; color: #202124; transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
+label input:focus, label select:focus { outline: none; border-color: var(--lime); box-shadow: 0 0 0 3px var(--lime-soft, rgba(131, 211, 20, 0.2)); }
 .summary-row, .spec-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e4e7e2; }
 .wide-btn { width: 100%; margin-top: 16px; }
 .checkbox-wrap { flex-direction: row !important; align-items: center; }
@@ -112,7 +118,7 @@ th { color: #4f5457; font-size: .82rem; }
 .shipment-header .pill-soft { margin-left: auto; }
 
 .tracking-header-row { gap: 16px; margin-bottom: 16px; }
-.shipment-badge { padding: .62rem .9rem; border-radius: 1.5rem; background: #f3f3f3; border: 1px solid var(--border); }
+.shipment-badge { padding: .62rem .9rem; border-radius: var(--radius-sm); background: #f3f3f3; border: 1px solid var(--border); }
 .tracking-content { grid-template-columns: minmax(0, 1.65fr) minmax(320px,.7fr); }
 .history-panel { min-height: 100%; }
 .history-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 16px; }
@@ -124,7 +130,7 @@ th { color: #4f5457; font-size: .82rem; }
 .dot-black, .dot-green { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; }
 .dot-black { background: #5f6660; }
 .dot-green { background: var(--green); }
-.signature-box { margin-top: 18px; display: flex; gap: 12px; align-items: center; padding: 14px 12px; border-radius: 2rem; background: #f1f1f1; border: 1px solid #dedede; }
+.signature-box { margin-top: 18px; display: flex; gap: 12px; align-items: center; padding: 14px 12px; border-radius: var(--radius-lg); background: #f1f1f1; border: 1px solid #dedede; }
 
 .route-shell { display: flex; justify-content: center; padding: 12px 0 0; }
 .route-card { width: min(470px, calc(100% - 20px)); margin: 0 auto; border-radius: 0; border: 0; background: transparent; box-shadow: none; }
@@ -157,25 +163,16 @@ th { color: #4f5457; font-size: .82rem; }
 .nav-item.active { background: var(--green); color: #0b1210; border-radius: 999px; }
 
 .stats-lower { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-top: 18px; }
-.stats-lower div { background: #f5f7f4; border: 1px solid #e0e7dc; border-radius: 2rem; padding: 12px; }
+.stats-lower div { background: #f5f7f4; border: 1px solid #e0e7dc; border-radius: var(--radius-lg); padding: 12px; }
 .stats-lower span, .map-caption { color: #6c716a; }
 .map-caption, .table-header-row h3, .shipment-header h3 { font-size: 1.3rem; font-weight: 700; margin: 0; }
 .mini-options { width: 38px; height: 38px; border: 1px solid #e0e7dc; background: #fff; border-radius: 50%; }
 
-/* Hero section specific styles */
+/* Hero section specific styles (used by About/Contact/FAQ/Services/delivery pages) */
 .hero-section { display: grid; grid-template-columns: 1fr 0.95fr; gap: 28px; align-items: center; padding: 46px 0 24px; }
-.hero-copy h1 { margin: 0 0 20px; font-size: clamp(3rem, 4.9vw, 5.2rem); line-height: 0.98; letter-spacing: -0.07em; color: var(--green-dark); }
-.hero-copy p, .muted-text, .section-head-row p, .billing-screen p, .fleet-head-row p { margin: 0; color: #4f5750; font-size: 1.08rem; line-height: 1.5; }
-.search-box-row { margin-top: 38px; display: flex; gap: 12px; flex-wrap: wrap; }
-.input-shell { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 14px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
-.tracking-input { width: min(520px, 100%); }
+.muted-text, .section-head-row p, .billing-screen p, .fleet-head-row p { margin: 0; color: #4f5750; font-size: 1.08rem; line-height: 1.5; }
+.input-shell { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .input-shell input { width: 100%; border: 0; outline: none; background: transparent; color: #505654; }
-.circle-icon { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #66736a; display: inline-block; }
-.hero-visual { display: flex; justify-content: center; }
-.operations-card { width: min(100%, 520px); height: 500px; border-radius: 10px; overflow: hidden; background: url('../assets/hero.png') center/cover no-repeat; box-shadow: 0 12px 24px rgba(0,0,0,.12); }
-
-.brand-row { margin: 26px auto 0; width: min(1240px, calc(100% - 48px)); padding: 18px 0 16px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); text-align: center; color: #4f5750; letter-spacing: 0.13em; font-size: 0.75rem; }
-.trust-list { margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 34px; font-size: clamp(1.6rem, 2.3vw, 2.2rem); letter-spacing: -0.05em; color: #7a7e82; }
 
 .services-wrapper { padding: 54px 0 20px; }
 .services-wrapper h2 { color: var(--green-dark); font-size: clamp(2.2rem, 3vw, 3.6rem); margin: 0; letter-spacing: -0.06em; }
@@ -196,6 +193,6 @@ th { color: #4f5457; font-size: .82rem; }
     grid-template-columns: 1fr;
   }
   .search-header { width: 100%; margin-left: 0; }
-  .table-card, .table-panel { overflow-x: auto; width: 100%; border-radius: 1.5rem; }
+  .table-card, .table-panel { overflow-x: auto; width: 100%; border-radius: var(--radius-lg); }
   table { min-width: 600px; }
 }

@@ -16,7 +16,7 @@
 
 .footer-card {
   background-color: #123d2b;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   padding: 24px;
 }
 
@@ -97,14 +97,17 @@
 
 .support-pill {
   background-color: #1a573d;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 14px 16px;
   font-size: 15px;
   color: #f1f5f9;
   text-decoration: none;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   transition: background-color 0.2s;
 }
+.support-pill svg { flex-shrink: 0; color: var(--lime); }
 
 a.support-pill:hover {
   background-color: #216f4e;

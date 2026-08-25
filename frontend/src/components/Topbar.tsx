@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Menu, X, ChevronDown, LogOut, Settings } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 
@@ -55,16 +56,12 @@ export default function Topbar() {
           </NavLink>
         </div>
         
-        <button 
-          className="mobile-menu-btn" 
+        <button
+          className="mobile-menu-btn"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle menu"
         >
-          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="6" x2="20" y2="6"></line>
-            <line x1="4" y1="12" x2="20" y2="12"></line>
-            <line x1="4" y1="18" x2="20" y2="18"></line>
-          </svg>
+          {mobileMenuOpen ? <X size={24} strokeWidth={2.25} /> : <Menu size={24} strokeWidth={2.25} />}
         </button>
 
         <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`} aria-label="Main Navigation">
@@ -109,27 +106,28 @@ export default function Topbar() {
             </NavLink>
           ) : (
             <div style={{ position: 'relative' }}>
-              <button 
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', padding: 0 }}
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', padding: 0 }}
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
-                <div className="user-box" style={{ 
-                  width: '44px', height: '44px', cursor: 'pointer', 
-                  background: 'linear-gradient(135deg, var(--lime) 0%, #34d399 100%)', 
+                <div className="user-box" style={{
+                  width: '40px', height: '40px', cursor: 'pointer',
+                  background: 'linear-gradient(135deg, var(--lime) 0%, #34d399 100%)',
                   color: '#0f172a', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: '50%', boxShadow: '0 4px 10px rgba(131, 211, 20, 0.3)',
                   border: '2px solid #fff', transition: 'transform 0.2s var(--ease-out)'
                 }}>
                   {user?.name.charAt(0)}
                 </div>
+                <ChevronDown size={16} style={{ color: 'var(--muted)', transition: 'transform 0.2s var(--ease-out)', transform: userMenuOpen ? 'rotate(180deg)' : 'none' }} />
               </button>
 
               {userMenuOpen && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 12px)', right: 0,
                   background: '#ffffff',
-                  border: '1px solid #e2e8f0', borderRadius: '16px',
-                  boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(0,0,0,0.05)', 
+                  border: '1px solid #e2e8f0', borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(0,0,0,0.05)',
                   padding: '16px', minWidth: '240px', zIndex: 50,
                   animation: 'slideDown 0.3s var(--ease-out) forwards',
                   transformOrigin: 'top right'
@@ -140,28 +138,28 @@ export default function Topbar() {
                       to { opacity: 1; transform: scale(1) translateY(0); }
                     }
                     .menu-item {
-                      display: block; padding: 10px 12px; color: var(--text); text-decoration: none; border-radius: 10px;
+                      display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--text); text-decoration: none; border-radius: var(--radius-xs);
                       transition: all 0.2s; font-weight: 500;
                     }
                     .menu-item:hover { background: #f1f5f9; color: var(--navy); transform: translateX(4px); }
-                    .menu-danger { color: var(--danger); width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; border-radius: 10px; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+                    .menu-danger { display: flex; align-items: center; gap: 8px; color: var(--danger); width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; border-radius: var(--radius-xs); font-weight: 500; transition: all 0.2s; cursor: pointer; }
                     .menu-danger:hover { background: var(--danger-bg); transform: translateX(4px); }
                   `}</style>
                   <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: '1.1rem' }}>{user?.name}</div>
                     <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{user?.email}</div>
-                    <div style={{ 
-                      display: 'inline-block', fontSize: '0.7rem', marginTop: '8px', padding: '4px 8px', borderRadius: '8px',
-                      textTransform: 'uppercase', background: 'var(--success-bg)', color: 'var(--green-dark)', fontWeight: 800, letterSpacing: '0.05em' 
+                    <div style={{
+                      display: 'inline-block', fontSize: '0.7rem', marginTop: '8px', padding: '4px 8px', borderRadius: 'var(--radius-xs)',
+                      textTransform: 'uppercase', background: 'var(--success-bg)', color: 'var(--green-dark)', fontWeight: 800, letterSpacing: '0.05em'
                     }}>
                       {user?.role}
                     </div>
                   </div>
                   <NavLink to="/settings" className="menu-item" onClick={() => setUserMenuOpen(false)}>
-                    Settings
+                    <Settings size={16} /> Settings
                   </NavLink>
                   <button onClick={handleLogout} className="menu-danger" style={{ marginTop: '4px' }}>
-                    Sign Out
+                    <LogOut size={16} /> Sign Out
                   </button>
                 </div>
               )}

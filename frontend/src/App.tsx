@@ -72,8 +72,8 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
  * - Topbar is rendered once, outside Routes for global availability
  */
 function App() {
-  const { user } = useAuth();
-  const isStaff = user && ['rider', 'operations', 'admin'].includes(user.role);
+  const { user, isLoading } = useAuth();
+  const isStaff = !isLoading && user && ['rider', 'operations', 'admin'].includes(user.role);
 
   return (
     <div className="app-shell">
