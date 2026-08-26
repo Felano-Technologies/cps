@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck } from 'lucide-react';
+import { Truck, Bike, Car, Settings2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
 import { SkeletonTableRows } from '../../components/Skeleton';
+import AssignVehicleModal from '../../components/AssignVehicleModal';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
@@ -32,6 +33,7 @@ export default function FleetManagementPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('All Vehicles');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [assigningRider, setAssigningRider] = useState<RiderProfile | null>(null);
 
   useEffect(() => {
     const fetchRiders = async () => {
@@ -96,10 +98,10 @@ export default function FleetManagementPage() {
 
   const getVehicleIcon = (type: VehicleType | null) => {
     switch (type) {
-      case 'motorbike': return '🏍️';
-      case 'van': return '🚐';
-      case 'truck': return '🚚';
-      default: return '🚗';
+      case 'motorbike': return <Bike size={20} />;
+      case 'van': return <Truck size={20} />;
+      case 'truck': return <Truck size={20} />;
+      default: return <Car size={20} />;
     }
   };
 
@@ -314,7 +316,7 @@ export default function FleetManagementPage() {
                           </td>
                           <td style={{ padding: '16px 24px' }} title={member.vehicleType ?? 'Unassigned'}>
                             {member.vehicleType ? (
-                              <span style={{ fontSize: '24px' }}>{getVehicleIcon(member.vehicleType)}</span>
+                              <span style={{ color: '#475569', display: 'inline-flex' }}>{getVehicleIcon(member.vehicleType)}</span>
                             ) : (
                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px' }}>Unassigned</span>
                             )}
@@ -351,6 +353,20 @@ export default function FleetManagementPage() {
                                   />
                                 )}
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => setAssigningRider(member)}
+                                title="Assign vehicle"
+                                aria-label="Assign vehicle"
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  width: '44px', height: '44px', flexShrink: 0,
+                                  border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
+                                  color: '#475569', cursor: 'pointer',
+                                }}
+                              >
+                                <Settings2 size={16} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -402,6 +418,17 @@ export default function FleetManagementPage() {
           
         </div>
       </main>
+
+      {assigningRider && (
+        <AssignVehicleModal
+          rider={assigningRider}
+          onClose={() => setAssigningRider(null)}
+          onUpdate={(updated) => {
+            setRiders(prev => prev.map(r => (r.id === updated.id ? updated : r)));
+            setAssigningRider(null);
+          }}
+        />
+      )}
     </div>
   );
 }

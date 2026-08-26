@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCog, Printer, Plus, Package, Bike, AlertTriangle } from 'lucide-react';
+import { UserCog, Printer, Plus, Package, Bike, Truck, Car, AlertTriangle, Zap } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
@@ -24,7 +25,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
   pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  picked_up: { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
+  picked_up: { bg: '#ecfccb', text: '#3f6212', dot: '#84cc16' },
   in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
   out_for_delivery: { bg: '#e2e8f0', text: '#0f172a', dot: '#334155' },
   delivered: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
@@ -33,10 +34,10 @@ const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: str
   cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
 };
 
-const VEHICLE_EMOJI: Record<VehicleType, string> = {
-  motorbike: '🏍️',
-  van: '🚐',
-  truck: '🚚',
+const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
+  motorbike: Bike,
+  van: Car,
+  truck: Truck,
 };
 
 const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
@@ -356,14 +357,14 @@ export default function LiveOpsBoardPage() {
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available Fleet</div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{availableRiderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><Bike size={22} /></div>
+            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}><Bike size={22} /></div>
           </div>
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: delayedOrderCount > 0 ? '#7f1d1d' : '#0f172a', color: '#fff' }}>
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff', marginTop: '8px' }}>{delayedOrderCount}</div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: delayedOrderCount > 0 ? 'var(--warning)' : '#0f172a', marginTop: '8px' }}>{delayedOrderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><AlertTriangle size={22} /></div>
+            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><AlertTriangle size={22} /></div>
           </div>
         </div>
 
@@ -426,24 +427,25 @@ export default function LiveOpsBoardPage() {
                   const colors = STATUS_COLORS[order.status];
                   const isUrgent = order.priority === 'high';
                   const currentRiderId = order.assignedRiderId ?? '';
+                  const VehicleIcon = VEHICLE_ICONS[order.vehicleType];
                   return (
                     <div
                       key={order.id}
                       style={{
                         background: isUrgent ? '#fffbeb' : '#ffffff',
                         border: isUrgent ? '1px solid #fde68a' : '1px solid #e2e8f0',
-                        borderLeft: isUrgent ? '4px solid #eab308' : '1px solid #e2e8f0',
+                        borderLeft: isUrgent ? '4px solid var(--warning)' : '1px solid #e2e8f0',
                         borderRadius: '12px', padding: '16px', marginBottom: '12px', transition: 'box-shadow 0.2s'
                       }}
                       className="hover-shadow"
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '18px' }}>{VEHICLE_EMOJI[order.vehicleType]}</span>
+                          <span style={{ color: '#475569', display: 'inline-flex' }}><VehicleIcon size={18} /></span>
                           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.trackingCode}</span>
                           {isUrgent && (
-                            <span style={{ background: '#fef9c3', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em' }}>
-                              ⚡ URGENT
+                            <span style={{ background: '#fef9c3', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Zap size={12} /> URGENT
                             </span>
                           )}
                         </div>

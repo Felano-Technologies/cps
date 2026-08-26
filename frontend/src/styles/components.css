@@ -432,10 +432,6 @@ th { color: #4f5457; font-size: .82rem; }
 .custom-select-chevron.open { transform: rotate(180deg); }
 
 .custom-select-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
   z-index: 1000;
   margin: 0;
   padding: 6px;
@@ -532,9 +528,6 @@ th { color: #4f5457; font-size: .82rem; }
 
 .date-picker { position: relative; }
 .date-picker-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
   z-index: 1000;
   width: 280px;
   padding: 14px;
