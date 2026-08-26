@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { MapPin, Package, Truck, Zap, Flag } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import CustomSelect from './Form/CustomSelect';
+import Modal from './Modal';
 import type { CreateShipmentInput, PackageType, Shipment, ShipmentPriority, ShipmentSpeed, VehicleType } from '../types/models';
 
 interface CreateOrderModalProps {
@@ -84,15 +85,6 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setFormData(prev => ({ ...prev, [field]: value }));
   }
@@ -131,35 +123,16 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
   };
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)',
-        backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: '16px'
-      }}
-    >
+    <Modal onClose={onClose} maxWidth="600px" padding="0">
       <div
-        className="modal-content"
-        onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '600px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          background: '#fff', borderRadius: '16px', width: '100%',
           overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh'
         }}
       >
-        <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Create New Order</h2>
-            <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Manually dispatch a package for delivery.</div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', fontSize: '24px', color: '#94a3b8', cursor: 'pointer' }}
-          >
-            &times;
-          </button>
+        <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Create New Order</h2>
+          <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Manually dispatch a package for delivery.</div>
         </div>
 
         <div style={{ padding: '24px', overflowY: 'auto' }}>
@@ -321,6 +294,6 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

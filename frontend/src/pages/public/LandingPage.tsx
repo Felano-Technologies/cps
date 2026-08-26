@@ -20,11 +20,11 @@ import coverageImg from '../../assets/coverage.jpg';
 import '../../styles/landing.css';
 
 export default function LandingPage() {
-  const trustReveal = useReveal<HTMLDivElement>();
-  const headingReveal = useReveal<HTMLDivElement>();
-  const samedayReveal = useReveal<HTMLElement>();
-  const dispatchReveal = useReveal<HTMLElement>();
-  const coverageReveal = useReveal<HTMLElement>();
+  const { ref: trustRef, className: trustClass } = useReveal<HTMLDivElement>();
+  const { ref: headingRef, className: headingClass } = useReveal<HTMLDivElement>();
+  const { ref: samedayRef, className: samedayClass } = useReveal<HTMLElement>();
+  const { ref: dispatchRef, className: dispatchClass } = useReveal<HTMLElement>();
+  const { ref: coverageRef, className: coverageClass } = useReveal<HTMLElement>();
 
   return (
     <div className="page-shell light-shell">
@@ -90,7 +90,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <div ref={trustReveal.ref} className={`trust-strip ${trustReveal.className}`}>
+      <div ref={trustRef} className={`trust-strip ${trustClass}`}>
         <span className="label">Trusted by local businesses that need fast courier coverage</span>
         <ul>
           <li><ShoppingBag size={16} /> Retail</li>
@@ -101,13 +101,13 @@ export default function LandingPage() {
       </div>
 
       <section className="landing-services container">
-        <div ref={headingReveal.ref} className={`section-heading ${headingReveal.className}`}>
+        <div ref={headingRef} className={`section-heading ${headingClass}`}>
           <h2>Built for Couriers</h2>
           <p>Simple tools for dispatching riders, monitoring live orders, and keeping every delivery on time.</p>
         </div>
 
         <div className="services-top">
-          <article ref={samedayReveal.ref} className={`service-tile ${samedayReveal.className}`}>
+          <article ref={samedayRef} className={`service-tile ${samedayClass}`}>
             <div className="service-tile-media">
               <img src={samedayImg} alt="Same-day courier on a delivery run" />
             </div>
@@ -117,7 +117,7 @@ export default function LandingPage() {
             </div>
           </article>
 
-          <article ref={dispatchReveal.ref} className={`service-tile dark ${dispatchReveal.className}`}>
+          <article ref={dispatchRef} className={`service-tile dark ${dispatchClass}`}>
             <div className="service-tile-body">
               <span className="service-tile-icon"><Radar size={20} /></span>
               <h3>Rider Dispatch</h3>
@@ -129,7 +129,7 @@ export default function LandingPage() {
           </article>
         </div>
 
-        <article ref={coverageReveal.ref} className={`service-tile wide ${coverageReveal.className}`}>
+        <article ref={coverageRef} className={`service-tile wide ${coverageClass}`}>
           <div className="service-tile-media">
             <img src={coverageImg} alt="Map of delivery coverage areas" />
           </div>

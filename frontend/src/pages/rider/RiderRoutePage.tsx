@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight } from 'lucide-react';
+import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight, PackageX, PartyPopper } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Map from '../../components/Map';
@@ -154,10 +154,30 @@ export default function RiderRoutePage() {
     );
   }
 
+  if (stops.length === 0) {
+    return (
+      <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px' }}>
+        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#64748b' }}>
+          <PackageX size={40} />
+        </div>
+        <h1 style={{ color: '#fff', margin: '0 0 16px 0' }}>No Stops Assigned</h1>
+        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>You don't have any deliveries assigned right now. Check back once operations assigns you a stop.</p>
+        <button
+          onClick={() => navigate('/rider-board')}
+          style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
   if (allCompleted) {
     return (
       <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px' }}>
-        <div style={{ fontSize: '64px', marginBottom: '24px' }}>🏁</div>
+        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#22c55e' }}>
+          <PartyPopper size={40} />
+        </div>
         <h1 style={{ color: '#fff', margin: '0 0 16px 0' }}>Route Complete!</h1>
         <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>Great job. All your assigned stops have been serviced.</p>
         <button

@@ -19,9 +19,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: '#fef3c7', text: '#92400e' },
-  picked_up: { bg: '#e0f2fe', text: '#075985' },
+  picked_up: { bg: '#ecfccb', text: '#3f6212' },
   in_transit: { bg: '#fef08a', text: '#854d0e' },
-  out_for_delivery: { bg: '#dbeafe', text: '#1e40af' },
+  out_for_delivery: { bg: '#e2e8f0', text: '#0f172a' },
   delivered: { bg: '#dcfce7', text: '#166534' },
   delayed: { bg: '#fee2e2', text: '#991b1b' },
   failed: { bg: '#fee2e2', text: '#991b1b' },
@@ -104,7 +104,7 @@ function OrderHistoryView() {
                     </td>
                     <td data-label="Cost" style={{ padding: '24px 32px', fontWeight: 700, color: '#0f172a', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>GHS {Number(order.deliveryFee).toFixed(2)}</td>
                     <td data-label="Action" style={{ padding: '24px 32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                      <button onClick={() => toggleExpand(order.id)} style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 600, cursor: 'pointer' }}>
+                      <button onClick={() => toggleExpand(order.id)} style={{ background: 'none', border: 'none', color: 'var(--navy)', fontWeight: 600, cursor: 'pointer' }}>
                         {expandedOrderId === order.id ? 'Hide Details' : 'View More'}
                       </button>
                     </td>
@@ -142,10 +142,10 @@ export default function CustomerSettings() {
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px' }}>
         <nav style={{ display: 'flex', gap: '8px', background: '#e2e8f0', padding: '6px', borderRadius: '12px' }}>
-          <NavLink to="/settings/security" className={({ isActive }) => `neutral-btn ${isActive ? 'active-menu' : ''}`} style={({ isActive }) => ({ textAlign: 'center', border: 'none', background: isActive ? '#ffffff' : 'transparent', boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', color: isActive ? '#0f172a' : '#64748b' })}>
+          <NavLink to="/settings/security" className={({ isActive }) => `neutral-btn ${isActive ? 'active-menu' : ''}`} style={({ isActive }) => ({ textAlign: 'center', textDecoration: 'none', border: 'none', background: isActive ? '#ffffff' : 'transparent', boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', color: isActive ? '#0f172a' : '#64748b' })}>
             Password &amp; Security
           </NavLink>
-          <NavLink to="/settings/orders" className={({ isActive }) => `neutral-btn ${isActive ? 'active-menu' : ''}`} style={({ isActive }) => ({ textAlign: 'center', border: 'none', background: isActive ? '#ffffff' : 'transparent', boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', color: isActive ? '#0f172a' : '#64748b' })}>
+          <NavLink to="/settings/orders" className={({ isActive }) => `neutral-btn ${isActive ? 'active-menu' : ''}`} style={({ isActive }) => ({ textAlign: 'center', textDecoration: 'none', border: 'none', background: isActive ? '#ffffff' : 'transparent', boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, fontSize: '15px', color: isActive ? '#0f172a' : '#64748b' })}>
             Order History
           </NavLink>
         </nav>

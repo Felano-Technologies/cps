@@ -22,9 +22,9 @@ const VALUES = [
 ];
 
 export default function AboutPage() {
-  const pillarsReveal = useReveal<HTMLDivElement>();
-  const valuesReveal = useReveal<HTMLDivElement>();
-  const ctaReveal = useReveal<HTMLDivElement>();
+  const { ref: pillarsRef, className: pillarsClass } = useReveal<HTMLDivElement>();
+  const { ref: valuesRef, className: valuesClass } = useReveal<HTMLDivElement>();
+  const { ref: ctaRef, className: ctaClass } = useReveal<HTMLDivElement>();
 
   return (
     <div className="page-shell light-shell">
@@ -40,7 +40,7 @@ export default function AboutPage() {
         </p>
       </main>
 
-      <div ref={pillarsReveal.ref} className={`about-pillars container ${pillarsReveal.className}`}>
+      <div ref={pillarsRef} className={`about-pillars container ${pillarsClass}`}>
         <article className="about-pillar">
           <span className="pillar-icon"><Target size={22} /></span>
           <h2>Our Mission</h2>
@@ -61,7 +61,7 @@ export default function AboutPage() {
         </article>
       </div>
 
-      <section ref={valuesReveal.ref} className={`about-values container ${valuesReveal.className}`}>
+      <section ref={valuesRef} className={`about-values container ${valuesClass}`}>
         <div className="about-values-heading">
           <h2>What we stand for</h2>
           <p>The three things every delivery on our network is built around.</p>
@@ -77,7 +77,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <div ref={ctaReveal.ref} className={`about-cta ${ctaReveal.className}`}>
+      <div ref={ctaRef} className={`about-cta ${ctaClass}`}>
         <div>
           <h2>Ready to ship with us?</h2>
           <p>Create an account or reach out to our team to get started.</p>

@@ -34,24 +34,51 @@ interface MapProps {
 
 const geocodeCache = new globalThis.Map<string, GeoPoint | null>();
 
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function geocodeOnce(query: string): Promise<GeoPoint | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
+    );
+    if (!res.ok) {
+      console.warn(`[Map] Nominatim returned ${res.status} for "${query}"`);
+      return null;
+    }
+    const data = await res.json();
+    return data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+  } catch (err) {
+    console.warn(`[Map] Geocoding request failed for "${query}":`, err);
+    return null;
+  }
+}
+
+// Free-text addresses (e.g. "Suite 200, Building B, Kumasi, Ghana") often don't resolve
+// on Nominatim as-is. Retry with progressively shorter, more general versions —
+// dropping the leading (most specific) segment each time — before giving up.
 async function geocode(address: string): Promise<GeoPoint | null> {
   if (geocodeCache.has(address)) {
     return geocodeCache.get(address) ?? null;
   }
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
-    );
-    const data = await res.json();
-    const point: GeoPoint | null = data[0]
-      ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-      : null;
-    geocodeCache.set(address, point);
-    return point;
-  } catch {
-    geocodeCache.set(address, null);
-    return null;
+
+  const segments = address.split(',').map(s => s.trim()).filter(Boolean);
+  const attempts = segments.map((_, i) => segments.slice(i).join(', '));
+
+  let point: GeoPoint | null = null;
+  for (let i = 0; i < attempts.length; i++) {
+    if (i > 0) await wait(300);
+    point = await geocodeOnce(attempts[i]);
+    if (point) break;
   }
+
+  if (!point) {
+    console.warn(`[Map] Could not geocode any variant of "${address}"`);
+  }
+
+  geocodeCache.set(address, point);
+  return point;
 }
 
 export default function Map({ className = '', markers, showRoute = false }: MapProps) {
@@ -65,9 +92,10 @@ export default function Map({ className = '', markers, showRoute = false }: MapP
     setStatus('loading');
     (async () => {
       const resolved: Array<{ label: string; point: GeoPoint }> = [];
-      for (const marker of markers) {
-        const point = await geocode(marker.address);
-        if (point) resolved.push({ label: marker.label, point });
+      for (let i = 0; i < markers.length; i++) {
+        if (i > 0) await wait(300);
+        const point = await geocode(markers[i].address);
+        if (point) resolved.push({ label: markers[i].label, point });
       }
       if (!cancelled) {
         setPoints(resolved);
@@ -99,7 +127,7 @@ export default function Map({ className = '', markers, showRoute = false }: MapP
 
   return (
     <div className={`map-surface ${className}`.trim()}>
-      <MapContainer center={center} zoom={13} scrollWheelZoom={false} style={{ width: '100%', height: '100%' }}>
+      <MapContainer center={center} zoom={13} scrollWheelZoom={false} style={{ width: '100%', flex: 1 }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

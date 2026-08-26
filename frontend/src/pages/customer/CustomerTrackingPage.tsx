@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
+import Map from '../../components/Map';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton, SkeletonCircle } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
@@ -249,37 +250,20 @@ export default function CustomerTrackingPage() {
           {/* LEFT COLUMN: Map & Shipment Details */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-            {/* Live Map Placeholder */}
-            <div className="card-style tracking-map-card" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative', background: '#e2e8f0' }}>
-              {/* Map grid pattern for premium aesthetic */}
-              <div style={{
-                position: 'absolute', inset: 0,
-                backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)',
-                backgroundSize: '20px 20px', opacity: 0.5
-              }} />
-              <div style={{
-                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
-              }}>
-                <div style={{
-                  width: '48px', height: '48px', background: '#078c35', borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 0 0 8px rgba(7, 140, 53, 0.2), 0 10px 20px rgba(0,0,0,0.1)',
-                  animation: 'pulse 2s infinite'
-                }}>
-                  <MapPin size={24} color="#ffffff" strokeWidth={2} />
-                </div>
-                <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                  <CaptionIcon size={14} color="#078c35" />
-                  {mapCaption(shipment.status)}
-                </div>
+            {/* Live Map */}
+            <div className="card-style tracking-map-card" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative' }}>
+              <Map
+                className="tracking-map-surface"
+                markers={[
+                  { label: 'Pickup', address: `${shipment.pickupLocation}, ${shipment.pickupRegion}, Ghana` },
+                  { label: 'Dropoff', address: `${shipment.dropoffLocation}, ${shipment.dropoffRegion}, Ghana` },
+                ]}
+                showRoute
+              />
+              <div style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 500, display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                <CaptionIcon size={14} color="#078c35" />
+                {mapCaption(shipment.status)}
               </div>
-              <style>{`
-                @keyframes pulse {
-                  0% { box-shadow: 0 0 0 0 rgba(7, 140, 53, 0.4); }
-                  70% { box-shadow: 0 0 0 20px rgba(7, 140, 53, 0); }
-                  100% { box-shadow: 0 0 0 0 rgba(7, 140, 53, 0); }
-                }
-              `}</style>
             </div>
 
             {/* Shipment Details Card */}

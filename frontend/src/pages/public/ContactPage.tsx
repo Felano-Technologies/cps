@@ -1,56 +1,160 @@
+import { useState } from 'react';
+import axios from 'axios';
+import { User, Mail, MessageSquare, Send, AlertCircle, CheckCircle2, Phone, MapPin, Clock } from 'lucide-react';
+import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
+import '../../styles/contact.css';
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
+    return err.response.data.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
 export default function ContactPage() {
+  const toast = useToast();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSent(false);
+    setIsSubmitting(true);
+    try {
+      await api.post('/contact', { name, email, message });
+      setSent(true);
+      setName('');
+      setEmail('');
+      setMessage('');
+      toast.success('Message sent — we\'ll get back to you soon.');
+    } catch (err) {
+      const msg = extractErrorMessage(err, 'Failed to send your message. Please try again.');
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="page-shell light-shell">
-      <main className="hero-section container" style={{ paddingTop: '64px', paddingBottom: '32px' }}>
-        <div className="hero-copy" style={{ maxWidth: '800px' }}>
-          <h1>Get in touch.</h1>
-          <p style={{ fontSize: '1.2rem', color: 'var(--text)' }}>
-            Have a question about our services or need help with an active shipment? Our support team is here for you.
-          </p>
-        </div>
+      <main className="contact-hero container">
+        <h1>Get in touch.</h1>
+        <p className="lede">
+          Have a question about our services or need help with an active shipment? Our support team is
+          here for you.
+        </p>
       </main>
 
-      <section className="container" style={{ marginTop: '32px', marginBottom: '80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '48px' }}>
-        
-        <div className="contact-form-card" style={{ background: '#fff', padding: '40px', borderRadius: '24px', boxShadow: '0 12px 40px rgba(15,23,42,0.06)' }}>
-          <h3 style={{ marginBottom: '24px', fontSize: '1.5rem', color: 'var(--navy)' }}>Send us a message</h3>
-          <form style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="input-shell" style={{ width: '100%' }}>
-              <input placeholder="Your Name" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', padding: '16px 0', fontFamily: 'inherit' }} />
-            </div>
-            <div className="input-shell" style={{ width: '100%' }}>
-              <input type="email" placeholder="Your Email" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', padding: '16px 0', fontFamily: 'inherit' }} />
-            </div>
-            <div className="input-shell" style={{ width: '100%' }}>
-              <textarea placeholder="How can we help?" style={{ width: '100%', minHeight: '120px', border: 'none', background: 'transparent', outline: 'none', padding: '16px 0', fontFamily: 'inherit', resize: 'vertical' }}></textarea>
-            </div>
-            <button type="button" className="primary-green track-btn" style={{ padding: '16px', borderRadius: '12px', fontWeight: 700, marginTop: '8px', cursor: 'pointer', border: 'none' }}>Send Message</button>
-          </form>
-        </div>
+      <section className="contact-grid-wrap container">
+        <div className="contact-grid">
+          <div className="contact-form-card">
+            <h2>Send us a message</h2>
 
-        <div>
-          <h3 style={{ marginBottom: '24px', fontSize: '1.5rem', color: 'var(--navy)' }}>Direct Contact</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div>
-              <strong style={{ display: 'block', color: 'var(--navy)', marginBottom: '4px' }}>Phone & WhatsApp</strong>
-              <a href="tel:+233534583364" style={{ color: 'var(--text)', textDecoration: 'none' }}>+233 53 458 3364</a>
+            {error && (
+              <div className="contact-error">
+                <AlertCircle size={16} />
+                {error}
+              </div>
+            )}
+            {sent && !error && (
+              <div className="contact-success">
+                <CheckCircle2 size={16} />
+                Thanks — your message has been sent.
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <label className="contact-field">
+                <span>Your Name</span>
+                <div className="contact-input-wrap">
+                  <User size={17} className="leading-icon" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+              </label>
+
+              <label className="contact-field">
+                <span>Your Email</span>
+                <div className="contact-input-wrap">
+                  <Mail size={17} className="leading-icon" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                  />
+                </div>
+              </label>
+
+              <label className="contact-field">
+                <span>Message</span>
+                <div className="contact-input-wrap">
+                  <MessageSquare size={17} className="leading-icon" />
+                  <textarea
+                    required
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    placeholder="How can we help?"
+                  />
+                </div>
+              </label>
+
+              <button type="submit" disabled={isSubmitting} className="primary-green contact-submit">
+                <Send size={16} />
+                {isSubmitting ? 'Sending…' : 'Send Message'}
+              </button>
+            </form>
+          </div>
+
+          <div className="contact-info">
+            <h2>Direct Contact</h2>
+
+            <div className="contact-info-item">
+              <span className="contact-info-icon"><Phone size={18} /></span>
+              <div>
+                <strong>Phone &amp; WhatsApp</strong>
+                <a href="tel:+233534583364">+233 53 458 3364</a>
+              </div>
             </div>
-            <div>
-              <strong style={{ display: 'block', color: 'var(--navy)', marginBottom: '4px' }}>Email Support</strong>
-              <a href="mailto:cpsdeliverygh@gmail.com" style={{ color: 'var(--text)', textDecoration: 'none' }}>cpsdeliverygh@gmail.com</a>
+
+            <div className="contact-info-item">
+              <span className="contact-info-icon"><Mail size={18} /></span>
+              <div>
+                <strong>Email Support</strong>
+                <a href="mailto:cpsdeliverygh@gmail.com">cpsdeliverygh@gmail.com</a>
+              </div>
             </div>
-            <div>
-              <strong style={{ display: 'block', color: 'var(--navy)', marginBottom: '4px' }}>Office Address</strong>
-              <span style={{ color: 'var(--text)' }}>CPS Delivery Hub<br/>Ayeduase Gate<br/>Near KNUST, Kumasi</span>
+
+            <div className="contact-info-item">
+              <span className="contact-info-icon"><MapPin size={18} /></span>
+              <div>
+                <strong>Office Address</strong>
+                <span>CPS Delivery Hub, Ayeduase Gate, Near KNUST, Kumasi</span>
+              </div>
             </div>
-            <div>
-              <strong style={{ display: 'block', color: 'var(--navy)', marginBottom: '4px' }}>Operating Hours</strong>
-              <span style={{ color: 'var(--text)' }}>Monday - Friday: 8:00 AM - 5:00 PM</span>
+
+            <div className="contact-info-item">
+              <span className="contact-info-icon"><Clock size={18} /></span>
+              <div>
+                <strong>Operating Hours</strong>
+                <span>Monday – Friday: 8:00 AM – 5:00 PM</span>
+              </div>
             </div>
           </div>
         </div>
-
       </section>
     </div>
   );

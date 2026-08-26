@@ -79,10 +79,14 @@ export default function FleetManagementPage() {
     });
   }, [riders, activeTab, searchQuery]);
 
+  const availableCount = useMemo(() => riders.filter(r => r.currentStatus === 'available').length, [riders]);
+  const maintenanceCount = useMemo(() => riders.filter(r => r.currentStatus === 'maintenance').length, [riders]);
+  const unassignedCount = useMemo(() => riders.filter(r => !r.vehicleId).length, [riders]);
+
   const getStatusColor = (status: RiderStatus) => {
     switch (status) {
       case 'available': return { bg: '#e0ffe0', text: '#22863a', border: '#22863a' };
-      case 'en_route': return { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' };
+      case 'en_route': return { bg: '#e2e8f0', text: '#0f172a', border: '#334155' };
       case 'loading': return { bg: '#fef3c7', text: '#b45309', border: '#f59e0b' };
       case 'maintenance': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' };
       case 'offline': return { bg: '#f1f5f9', text: '#475569', border: '#94a3b8' };
@@ -230,31 +234,20 @@ export default function FleetManagementPage() {
         {/* KPI Row */}
         <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
           <div className="glass-card" style={{ padding: '24px' }}>
-            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Riders/Drivers</div>
-            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>1,248</div>
-            <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, marginTop: '8px' }}>↑ 4.2% vs last week</div>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Riders</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{riders.length}</div>
           </div>
           <div className="glass-card" style={{ padding: '24px' }}>
-            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>On-Time Rate</div>
-            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>98.4%</div>
-            <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, marginTop: '8px' }}>↑ 0.8% vs last week</div>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available Now</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#078c35', marginTop: '8px' }}>{availableCount}</div>
           </div>
           <div className="glass-card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fleet Health</div>
-                <div style={{ fontSize: '36px', fontWeight: 800, color: '#078c35', marginTop: '8px' }}>Good</div>
-              </div>
-            </div>
-            <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginTop: '12px' }}>
-              <div style={{ height: '100%', width: '85%', background: '#078c35' }}></div>
-            </div>
-            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500, marginTop: '8px' }}>15% scheduled for maintenance</div>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Maintenance</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: maintenanceCount > 0 ? '#ef4444' : '#0f172a', marginTop: '8px' }}>{maintenanceCount}</div>
           </div>
           <div className="glass-card" style={{ padding: '24px' }}>
-            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Utilization</div>
-            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>82<span style={{ fontSize: '20px', color: '#64748b' }}>%</span></div>
-            <div style={{ fontSize: '14px', color: '#ef4444', fontWeight: 600, marginTop: '8px' }}>↓ 1.1% vs last week</div>
+            <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unassigned Vehicle</div>
+            <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{unassignedCount}</div>
           </div>
         </div>
 
@@ -381,35 +374,30 @@ export default function FleetManagementPage() {
             </div>
           </div>
 
-          {/* Live Heatmap Mini Card */}
-          <div className="heatmap-container" style={{ height: '100%', minHeight: '600px' }}>
-            <div className="heatmap-grid" />
-            
-            {/* Heat Zones */}
-            <div className="heat-zone heat-high" style={{ top: '30%', left: '40%' }}></div>
-            <div className="heat-zone heat-medium" style={{ top: '60%', left: '20%' }}></div>
-            <div className="heat-zone heat-low" style={{ top: '20%', left: '70%' }}></div>
-            <div className="heat-zone heat-medium" style={{ top: '70%', left: '60%' }}></div>
-
-            {/* Overlay Info */}
-            <div style={{ position: 'absolute', top: '24px', left: '24px', right: '24px', zIndex: 10 }}>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', display: 'inline-block' }}>
-                <span style={{ fontWeight: 600, fontSize: '15px' }}>Live Density Heatmap</span>
-              </div>
+          {/* Fleet Status Breakdown */}
+          <div className="glass-card" style={{ height: '100%', minHeight: '600px', padding: '24px' }}>
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Fleet Status Breakdown</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {STATUS_OPTIONS.map(status => {
+                const count = riders.filter(r => r.currentStatus === status).length;
+                const pct = riders.length > 0 ? Math.round((count / riders.length) * 100) : 0;
+                const colors = getStatusColor(status);
+                return (
+                  <div key={status}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                      <span>{formatStatusLabel(status)}</span>
+                      <span>{count}</span>
+                    </div>
+                    <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: colors.border, borderRadius: '4px' }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <div style={{ position: 'absolute', bottom: '24px', left: '24px', right: '24px', zIndex: 10 }}>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Highest Density</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>East Legon Hub</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active Units</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#ef4444' }}>412</div>
-                </div>
-              </div>
-            </div>
+            {riders.length === 0 && (
+              <p style={{ marginTop: '16px', fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>No riders registered yet.</p>
+            )}
           </div>
           
         </div>

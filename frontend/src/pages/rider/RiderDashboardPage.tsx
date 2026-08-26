@@ -6,7 +6,6 @@ import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, R
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Map from '../../components/Map';
-import NotificationBell from '../../components/NotificationBell';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -26,9 +25,9 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; border: string }> = {
   pending: { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' },
-  picked_up: { bg: '#e0f2fe', text: '#075985', border: '#bae6fd' },
+  picked_up: { bg: '#ecfccb', text: '#3f6212', border: '#bef264' },
   in_transit: { bg: '#fef9c3', text: '#854d0e', border: '#fde68a' },
-  out_for_delivery: { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
+  out_for_delivery: { bg: '#e2e8f0', text: '#0f172a', border: '#334155' },
   delivered: { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
   delayed: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
   failed: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
@@ -167,7 +166,6 @@ export default function RiderDashboardPage() {
               <Skeleton height="0.75em" width="60px" />
             </div>
           </div>
-          <SkeletonCircle size={40} />
         </div>
         <main style={{ padding: '20px' }}>
           <Skeleton height={92} radius="24px" style={{ marginBottom: '24px' }} />
@@ -212,7 +210,6 @@ export default function RiderDashboardPage() {
             </div>
           </div>
         </div>
-        <NotificationBell />
       </div>
 
       <main style={{ padding: '20px' }}>

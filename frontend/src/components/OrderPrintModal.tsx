@@ -4,6 +4,7 @@ import cpsLogo from '../assets/logo2.png';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import CustomSelect from './Form/CustomSelect';
+import Modal from './Modal';
 import type { Shipment } from '../types/models';
 
 interface OrderPrintModalProps {
@@ -123,14 +124,13 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
         `}
       </style>
 
-      <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="modal-content modal-content-flex" style={{ background: '#fff', borderRadius: '12px', width: '90%', maxWidth: '800px', display: 'flex', overflow: 'hidden', maxHeight: '90vh' }}>
-          
+      <Modal onClose={onClose} maxWidth="800px" padding="0">
+        <div className="modal-content-flex" style={{ width: '100%', display: 'flex', overflow: 'hidden', maxHeight: '90vh' }}>
+
           {/* Controls Section */}
           <div className="modal-controls no-print" style={{ flex: 1, padding: '24px', borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2>Print Order Label</h2>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ margin: 0 }}>Print Order Label</h2>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
@@ -250,7 +250,7 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
           </div>
 
         </div>
-      </div>
+      </Modal>
     </>
   );
 }

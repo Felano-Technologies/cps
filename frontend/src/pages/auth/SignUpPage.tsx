@@ -13,7 +13,6 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'customer', label: 'Customer' },
   { value: 'operations', label: 'Operations / Dispatch' },
   { value: 'rider', label: 'Rider / Courier' },
-  { value: 'admin', label: 'Administrator' },
 ];
 
 export default function SignUpPage() {

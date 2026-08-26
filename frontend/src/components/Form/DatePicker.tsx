@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DatePickerProps {
@@ -40,28 +41,48 @@ export default function DatePicker({
   min,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const initial = parseISO(value) ?? new Date();
   const [viewYear, setViewYear] = useState(initial.getFullYear());
   const [viewMonth, setViewMonth] = useState(initial.getMonth());
 
+  const updatePosition = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPanelStyle({
+      position: 'fixed',
+      top: rect.bottom + 6,
+      left: rect.left,
+    });
+  };
+
   useEffect(() => {
+    if (!open) return;
+    updatePosition();
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
     };
-  }, []);
+  }, [open]);
 
   const firstOfMonth = new Date(viewYear, viewMonth, 1);
   const startWeekday = firstOfMonth.getDay();
@@ -96,6 +117,7 @@ export default function DatePicker({
   return (
     <div className="custom-select date-picker" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="custom-select-trigger"
         onClick={() => setOpen(o => !o)}
@@ -106,8 +128,8 @@ export default function DatePicker({
         <span className="custom-select-value">{value ? formatDisplay(value) : placeholder}</span>
       </button>
 
-      {open && (
-        <div className="date-picker-panel" role="dialog" aria-label="Choose date">
+      {open && createPortal(
+        <div ref={panelRef} className="date-picker-panel" style={panelStyle} role="dialog" aria-label="Choose date">
           <div className="date-picker-header">
             <button type="button" onClick={(e) => { e.preventDefault(); goPrevMonth(); }} aria-label="Previous month">
               <ChevronLeft size={16} />

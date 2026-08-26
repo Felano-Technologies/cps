@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 interface Option {
@@ -15,30 +16,53 @@ interface CustomSelectProps {
 
 export default function CustomSelect({ value, onChange, options, icon }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+
+  const updatePosition = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuStyle({
+      position: 'fixed',
+      top: rect.bottom + 6,
+      left: rect.left,
+      width: rect.width,
+    });
+  };
 
   useEffect(() => {
+    if (!open) return;
+    updatePosition();
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
     };
-  }, []);
+  }, [open]);
 
   const selected = options.find(o => o.value === value);
 
   return (
     <div className="custom-select" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="custom-select-trigger"
         onClick={() => setOpen(o => !o)}
@@ -50,8 +74,8 @@ export default function CustomSelect({ value, onChange, options, icon }: CustomS
         <ChevronDown size={16} className={`custom-select-chevron${open ? ' open' : ''}`} />
       </button>
 
-      {open && (
-        <ul className="custom-select-menu" role="listbox">
+      {open && createPortal(
+        <ul ref={menuRef} className="custom-select-menu custom-select-menu-portal" style={menuStyle} role="listbox">
           {options.map(opt => (
             <li
               key={opt.value}
@@ -67,7 +91,8 @@ export default function CustomSelect({ value, onChange, options, icon }: CustomS
               {opt.label}
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

@@ -31,9 +31,9 @@ const SERVICES = [
 ];
 
 function ServiceCard({ icon: Icon, title, text, to }: (typeof SERVICES)[number]) {
-  const reveal = useReveal<HTMLElement>();
+  const { ref, className } = useReveal<HTMLElement>();
   return (
-    <article ref={reveal.ref} className={`service-offer-card ${reveal.className}`}>
+    <article ref={ref} className={`service-offer-card ${className}`}>
       <span className="service-offer-icon"><Icon size={24} /></span>
       <h3>{title}</h3>
       <p>{text}</p>

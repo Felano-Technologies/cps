@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCog } from 'lucide-react';
+import { UserCog, Printer, Plus, Package, Bike, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
+import Map from '../../components/Map';
 import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
@@ -23,9 +24,9 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
   pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  picked_up: { bg: '#e0e7ff', text: '#3730a3', dot: '#6366f1' },
+  picked_up: { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
   in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
-  out_for_delivery: { bg: '#dbeafe', text: '#1e40af', dot: '#3b82f6' },
+  out_for_delivery: { bg: '#e2e8f0', text: '#0f172a', dot: '#334155' },
   delivered: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
   delayed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
   failed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
@@ -147,6 +148,31 @@ export default function LiveOpsBoardPage() {
       return matchesFilter && matchesSearch;
     });
   }, [orders, activeFilter, searchQuery]);
+
+  const activeOrderCount = useMemo(
+    () => orders.filter(o => !['delivered', 'failed', 'cancelled'].includes(o.status)).length,
+    [orders]
+  );
+  const availableRiderCount = useMemo(
+    () => riders.filter(r => r.currentStatus === 'available').length,
+    [riders]
+  );
+  const delayedOrderCount = useMemo(
+    () => orders.filter(o => o.status === 'delayed').length,
+    [orders]
+  );
+
+  const mapMarkers = useMemo(
+    () =>
+      orders
+        .filter(o => !['delivered', 'failed', 'cancelled'].includes(o.status))
+        .slice(0, 12)
+        .map(o => ({
+          label: `${o.trackingCode} · ${o.dropoffLocation}`,
+          address: `${o.dropoffLocation}, ${o.dropoffRegion}, Ghana`,
+        })),
+    [orders]
+  );
 
   async function handleAssignRider(shipmentId: string, riderId: string) {
     if (!riderId) return;
@@ -298,14 +324,14 @@ export default function LiveOpsBoardPage() {
               style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsPrintModalOpen(true)}
             >
-              🖨️ Print Receipt
+              <Printer size={18} /> Print Receipt
             </button>
             <button
               className="primary-green"
               style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsCreateModalOpen(true)}
             >
-              ➕ New Order
+              <Plus size={18} /> New Order
             </button>
           </div>
         </div>
@@ -321,67 +347,37 @@ export default function LiveOpsBoardPage() {
           <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Orders</div>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>342</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{activeOrderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📦</div>
+            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}><Package size={22} /></div>
           </div>
           <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available Fleet</div>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>84</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{availableRiderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#dbeafe', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🏍️</div>
+            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><Bike size={22} /></div>
           </div>
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', color: '#fff' }}>
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: delayedOrderCount > 0 ? '#7f1d1d' : '#0f172a', color: '#fff' }}>
             <div>
-              <div style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>On-Time SLA</div>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff', marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                96.8%
-                <span style={{ fontSize: '16px', color: '#4ade80', fontWeight: 600 }}>↑ 1.2%</span>
-              </div>
+              <div style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff', marginTop: '8px' }}>{delayedOrderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>⏱️</div>
+            <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><AlertTriangle size={22} /></div>
           </div>
         </div>
 
         {/* Main Dashboard Grid */}
         <div className="dashboard-main-grid">
 
-          {/* Live Radar Map */}
-          <div className="radar-map" style={{ height: '600px', width: '100%' }}>
-            <div className="radar-grid" />
-            <div className="radar-sweep" />
-
-            {/* Map Header Overlay */}
-            <div style={{ position: 'absolute', top: '24px', left: '24px', right: '24px', display: 'flex', justifyContent: 'space-between', zIndex: 10 }}>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', color: '#fff', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ width: '8px', height: '8px', background: '#83d314', borderRadius: '50%', boxShadow: '0 0 10px #83d314' }} />
-                <span style={{ fontWeight: 600, fontSize: '15px' }}>Live Fleet Tracking</span>
-              </div>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <span style={{ fontSize: '14px', color: '#94a3b8', marginRight: '8px' }}>Zone:</span>
-                <strong style={{ fontSize: '15px' }}>Greater Accra</strong>
-              </div>
-            </div>
-
-            {/* Glowing Map Nodes */}
-            <div className="map-node" style={{ top: '35%', left: '42%' }}></div>
-            <div className="map-node" style={{ top: '55%', left: '60%' }}></div>
-            <div className="map-node warning" style={{ top: '25%', left: '68%' }}></div>
-            <div className="map-node" style={{ top: '70%', left: '30%' }}></div>
-            <div className="map-node" style={{ top: '45%', left: '75%' }}></div>
-            <div className="map-node warning" style={{ top: '65%', left: '50%' }}></div>
-
-            <div style={{ position: 'absolute', bottom: '24px', left: '24px', background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', padding: '12px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', background: '#83d314', borderRadius: '50%' }} />
-                <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: 500 }}>Active Rider</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%' }} />
-                <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: 500 }}>Delayed / Issue</span>
-              </div>
-            </div>
+          {/* Live Fleet Map */}
+          <div style={{ height: '600px', width: '100%' }}>
+            <Map markers={mapMarkers} />
+            {orders.length > mapMarkers.length && (
+              <p style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                Showing {mapMarkers.length} of {orders.length} active orders on the map.
+              </p>
+            )}
           </div>
 
           {/* Interactive Sidebar */}
