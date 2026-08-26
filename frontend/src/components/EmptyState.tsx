@@ -1,15 +1,16 @@
 import React from 'react';
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   message: string;
   actionLabel?: string;
   onAction?: () => void;
   style?: React.CSSProperties;
+  iconColor?: string;
 }
 
-export default function EmptyState({ icon = '📭', title, message, actionLabel, onAction, style }: EmptyStateProps) {
+export default function EmptyState({ icon = '📭', title, message, actionLabel, onAction, style, iconColor = '#0f172a' }: EmptyStateProps) {
   return (
     <div style={{
       display: 'flex',
@@ -25,8 +26,8 @@ export default function EmptyState({ icon = '📭', title, message, actionLabel,
       margin: '24px 0',
       ...style
     }}>
-      <div style={{ 
-        fontSize: '48px', 
+      <div style={{
+        fontSize: '48px',
         marginBottom: '16px',
         background: '#f8fafc',
         width: '80px',
@@ -35,6 +36,7 @@ export default function EmptyState({ icon = '📭', title, message, actionLabel,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: '50%',
+        color: iconColor,
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(15, 23, 42, 0.05)'
       }}>
         {icon}

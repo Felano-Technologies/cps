@@ -99,12 +99,14 @@ export default function RiderRoutePage() {
   const activeStop = stops.find(s => s.status === 'active');
   const allCompleted = stops.length > 0 && stops.every(s => s.status === 'completed' || s.status === 'failed');
 
-  const handlePodSubmit = async (method: PodMethod, recipientName: string) => {
+  const handlePodSubmit = async (method: PodMethod, recipientName: string, signatureData: string | null, photoUrl: string | null) => {
     if (!activeStop) return;
     try {
       const response = await api.patch<Shipment>(`/shipments/${activeStop.id}/pod`, {
         podMethod: method,
         podRecipientName: recipientName,
+        podSignatureData: signatureData ?? undefined,
+        podPhotoUrl: photoUrl ?? undefined,
       });
       setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
       setPodOpen(false);
@@ -133,20 +135,22 @@ export default function RiderRoutePage() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0f172a' }}>
-        <PageLoader dark label="Loading your route…" minHeight="100vh" />
+      <div style={{ minHeight: '100vh', background: '#fff' }}>
+        <PageLoader label="Loading your route…" minHeight="100vh" />
       </div>
     );
   }
 
   if (error && shipments.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-        <p style={{ color: '#f87171', fontWeight: 700, marginBottom: '24px' }}>{error}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#fff', padding: '24px', textAlign: 'center' }}>
+        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#ef4444' }}>
+          <AlertTriangle size={40} />
+        </div>
+        <p style={{ color: '#991b1b', fontWeight: 700, marginBottom: '24px' }}>{error}</p>
         <button
           onClick={() => navigate('/rider-board')}
-          style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: '16px', fontWeight: 800, fontSize: '16px' }}
+          style={{ background: '#078c35', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: '16px', fontWeight: 800, fontSize: '16px' }}
         >
           Return to Dashboard
         </button>
@@ -156,15 +160,15 @@ export default function RiderRoutePage() {
 
   if (stops.length === 0) {
     return (
-      <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px' }}>
-        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#64748b' }}>
+      <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#fff', padding: '24px' }}>
+        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#64748b' }}>
           <PackageX size={40} />
         </div>
-        <h1 style={{ color: '#fff', margin: '0 0 16px 0' }}>No Stops Assigned</h1>
-        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>You don't have any deliveries assigned right now. Check back once operations assigns you a stop.</p>
+        <h1 style={{ color: '#0f172a', margin: '0 0 16px 0' }}>No Stops Assigned</h1>
+        <p style={{ color: '#64748b', textAlign: 'center', marginBottom: '32px' }}>You don't have any deliveries assigned right now. Check back once operations assigns you a stop.</p>
         <button
           onClick={() => navigate('/rider-board')}
-          style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
+          style={{ background: '#078c35', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
         >
           Return to Dashboard
         </button>
@@ -174,15 +178,15 @@ export default function RiderRoutePage() {
 
   if (allCompleted) {
     return (
-      <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '24px' }}>
-        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#22c55e' }}>
+      <div className="page-shell light-shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#fff', padding: '24px' }}>
+        <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: '#e0ffe0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: '#078c35' }}>
           <PartyPopper size={40} />
         </div>
-        <h1 style={{ color: '#fff', margin: '0 0 16px 0' }}>Route Complete!</h1>
-        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>Great job. All your assigned stops have been serviced.</p>
+        <h1 style={{ color: '#0f172a', margin: '0 0 16px 0' }}>Route Complete!</h1>
+        <p style={{ color: '#64748b', textAlign: 'center', marginBottom: '32px' }}>Great job. All your assigned stops have been serviced.</p>
         <button
           onClick={() => navigate('/rider-board')}
-          style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
+          style={{ background: '#078c35', color: '#fff', border: 'none', padding: '16px 32px', borderRadius: '16px', fontWeight: 800, fontSize: '18px' }}
         >
           Return to Dashboard
         </button>

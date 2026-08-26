@@ -8,7 +8,7 @@ function NotificationPrefsView() {
   const [delayedOrderAlerts, setDelayedOrderAlerts] = useState(true);
 
   return (
-    <div className="card-style" style={{ padding: '32px', maxWidth: '600px' }}>
+    <div className="card-style" style={{ padding: '32px' }}>
       <div className="section-heading-row" style={{ marginBottom: '24px' }}>
         <h3>Notification Preferences</h3>
       </div>
@@ -72,7 +72,7 @@ export default function OpsSettings() {
           </NavLink>
         </nav>
 
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '100%' }}>
           <Routes>
             <Route path="/" element={<Navigate to="security" replace />} />
             <Route path="security" element={<SharedPasswordView />} />

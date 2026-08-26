@@ -37,7 +37,7 @@ function VehicleDetailsView() {
 
   if (isLoading) {
     return (
-      <div className="card-style" style={{ padding: '32px', maxWidth: '600px', textAlign: 'center', color: '#64748b' }}>
+      <div className="card-style" style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
         Loading vehicle information…
       </div>
     );
@@ -45,14 +45,14 @@ function VehicleDetailsView() {
 
   if (error || !profile) {
     return (
-      <div className="card-style" style={{ padding: '32px', maxWidth: '600px', textAlign: 'center', color: '#991b1b', fontWeight: 600 }}>
+      <div className="card-style" style={{ padding: '32px', textAlign: 'center', color: '#991b1b', fontWeight: 600 }}>
         {error ?? 'Vehicle information unavailable.'}
       </div>
     );
   }
 
   return (
-    <div className="card-style" style={{ padding: '32px', maxWidth: '600px' }}>
+    <div className="card-style" style={{ padding: '32px' }}>
       <div className="section-heading-row" style={{ marginBottom: '24px' }}>
         <h3>Vehicle Information</h3>
       </div>
@@ -112,7 +112,7 @@ export default function RiderSettings() {
           </NavLink>
         </nav>
 
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '100%' }}>
           <Routes>
             <Route path="/" element={<Navigate to="security" replace />} />
             <Route path="security" element={<SharedPasswordView />} />

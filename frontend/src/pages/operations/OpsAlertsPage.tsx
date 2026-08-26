@@ -199,7 +199,8 @@ export default function OpsAlertsPage() {
             })
           ) : (
             <EmptyState
-              icon="✅"
+              icon={<CheckCircle2 size={36} />}
+              iconColor="#078c35"
               title="All Clear!"
               message={filter === 'active' ? 'There are no active alerts right now. Your fleet is operating smoothly.' : 'No resolved issues found in recent history.'}
             />

@@ -277,9 +277,17 @@ export default function OpsTrackingPage() {
 
               {shipment.podMethod && (
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ width: '40px', height: '40px', background: '#dcfce7', color: '#166534', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CheckCircle2 size={20} />
-                  </div>
+                  {shipment.podPhotoUrl ? (
+                    <img
+                      src={shipment.podPhotoUrl}
+                      alt="Proof of delivery"
+                      style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, border: '1px solid #e2e8f0' }}
+                    />
+                  ) : (
+                    <div style={{ width: '40px', height: '40px', background: '#dcfce7', color: '#166534', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <CheckCircle2 size={20} />
+                    </div>
+                  )}
                   <div>
                     <strong style={{ display: 'block', color: '#0f172a', fontSize: '15px' }}>Proof of Delivery ({shipment.podMethod})</strong>
                     <div style={{ color: '#64748b', fontSize: '13px', marginTop: '2px' }}>Received by {shipment.podRecipientName ?? 'recipient'}</div>

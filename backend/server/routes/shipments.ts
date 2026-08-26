@@ -291,6 +291,14 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
 const podSchema = z.object({
   podMethod: z.enum(['signature', 'photo']),
   podRecipientName: z.string().min(1),
+  podSignatureData: z.string().optional(),
+  podPhotoUrl: z.string().url().optional(),
+}).refine(data => data.podMethod !== 'photo' || !!data.podPhotoUrl, {
+  message: 'A delivery photo is required for photo proof of delivery',
+  path: ['podPhotoUrl'],
+}).refine(data => data.podMethod !== 'signature' || !!data.podSignatureData, {
+  message: 'A signature is required for signature proof of delivery',
+  path: ['podSignatureData'],
 });
 
 router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
@@ -309,15 +317,26 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     return res.status(403).json({ error: 'Not assigned to this shipment' });
   }
 
+  if (shipment.status === 'delivered') {
+    return res.json(shipment);
+  }
+
   const updated = await prisma.shipment.update({
-    where: { id: shipment.id },
+    where: { id: shipment.id, status: { not: 'delivered' } },
     data: {
       status: 'delivered',
       podMethod: parsed.data.podMethod,
       podRecipientName: parsed.data.podRecipientName,
+      podSignatureData: parsed.data.podSignatureData,
+      podPhotoUrl: parsed.data.podPhotoUrl,
       statusEvents: { create: { status: 'delivered', note: `POD via ${parsed.data.podMethod}` } },
     },
-  });
+  }).catch(() => null);
+
+  if (!updated) {
+    const current = await prisma.shipment.findUnique({ where: { id: shipment.id } });
+    return res.json(current);
+  }
 
   if (updated.customerId) {
     notify(

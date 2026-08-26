@@ -6,6 +6,7 @@ import ridersRoutes from './routes/riders';
 import shipmentsRoutes from './routes/shipments';
 import notificationsRoutes from './routes/notifications';
 import contactRoutes from './routes/contact';
+import uploadsRoutes from './routes/uploads';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -24,6 +25,7 @@ app.use('/api/shipments', shipmentsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/uploads', uploadsRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

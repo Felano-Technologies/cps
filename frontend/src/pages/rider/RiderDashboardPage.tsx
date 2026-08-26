@@ -121,12 +121,14 @@ export default function RiderDashboardPage() {
 
   const interactingStop = shipments.find(s => s.id === interactingStopId) ?? null;
 
-  const handlePodSubmit = async (method: 'signature' | 'photo', recipientName: string) => {
+  const handlePodSubmit = async (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null) => {
     if (!interactingStopId) return;
     try {
       const { data } = await api.patch<Shipment>(`/shipments/${interactingStopId}/pod`, {
         podMethod: method,
         podRecipientName: recipientName,
+        podSignatureData: signatureData ?? undefined,
+        podPhotoUrl: photoUrl ?? undefined,
       });
       setShipments(prev => prev.map(s => (s.id === data.id ? data : s)));
       toast.success('Delivery confirmed.');

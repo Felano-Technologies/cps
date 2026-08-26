@@ -133,6 +133,7 @@ model Shipment {
   podMethod        PodMethod?
   podRecipientName String?
   podSignatureData String?
+  podPhotoUrl      String?
 
   additionalInstructions String?
 

@@ -62,6 +62,8 @@ export interface Shipment {
   weightKg: string | null;
   podMethod: PodMethod | null;
   podRecipientName: string | null;
+  podSignatureData: string | null;
+  podPhotoUrl: string | null;
   additionalInstructions: string | null;
   createdAt: string;
   updatedAt: string;
