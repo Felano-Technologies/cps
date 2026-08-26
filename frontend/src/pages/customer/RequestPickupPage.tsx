@@ -409,6 +409,11 @@ export default function RequestPickupPage() {
               <label>
                 <span>Delivery Priority</span>
                 <CustomSelect value={deliveryPriority} onChange={v => setDeliveryPriority(v)} options={PRIORITY_OPTIONS} icon={<Flag size={17} />} />
+                {deliveryPriority === 'High' && (
+                  <div style={{ fontSize: '12px', color: '#854d0e', background: '#fef9c3', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                    Choosing high priority attracts a slight increase in delivery fee for faster arrival.
+                  </div>
+                )}
               </label>
             </div>
 

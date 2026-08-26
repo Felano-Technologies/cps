@@ -15,6 +15,7 @@ const PRIORITIES = ['standard', 'high'] as const;
 const SPEEDS = ['same_day', 'next_day', 'express'] as const;
 const PACKAGE_TYPES = ['document', 'parcel', 'electronics', 'fragile', 'food', 'other'] as const;
 const STATUSES = [
+  'awaiting_price',
   'pending',
   'picked_up',
   'in_transit',
@@ -87,7 +88,7 @@ function buildShipmentCreateData(
     productFee: input.productFee,
     weightKg: input.weightKg,
     additionalInstructions: input.additionalInstructions,
-    statusEvents: { create: { status: 'pending' as const } },
+    statusEvents: { create: { status: 'awaiting_price' as const } },
   };
 }
 
@@ -387,6 +388,60 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
   ).catch(() => {});
 
   res.json(shipment);
+});
+
+const processSchema = z.object({
+  deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+  riderId: z.string().optional(),
+  opsRemarks: z.string().optional(),
+});
+
+router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = processSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      deliveryFee: parsed.data.deliveryFee,
+      assignedRiderId: parsed.data.riderId || undefined,
+      opsRemarks: parsed.data.opsRemarks,
+      ...(shipment.status === 'awaiting_price' ? {
+        status: 'pending',
+        statusEvents: { create: { status: 'pending', note: 'Order processed by operations' } }
+      } : {})
+    },
+    include: { assignedRider: { include: { user: true } } }
+  });
+
+  if (updated.customerId) {
+    notify(
+      updated.customerId,
+      'shipment_price_updated',
+      `Order ${updated.trackingCode} Confirmed`,
+      `Your order ${updated.trackingCode} has been confirmed. Delivery Fee: GHS ${Number(updated.deliveryFee).toFixed(2)}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  if (updated.assignedRiderId && updated.assignedRiderId !== shipment.assignedRiderId) {
+    notify(
+      updated.assignedRider!.userId,
+      'shipment_assigned',
+      'New delivery assigned',
+      `You've been assigned a delivery to ${updated.dropoffLocation}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  res.json(updated);
 });
 
 export default router;

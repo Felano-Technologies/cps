@@ -16,6 +16,10 @@ interface RouteStop {
   parcels: number;
   status: 'pending' | 'active' | 'completed' | 'failed';
   contact: string;
+  senderName: string;
+  senderNumber: string;
+  receiverName: string;
+  receiverNumber: string;
   pickupLocation: string;
   pickupRegion: string;
   dropoffRegion: string;
@@ -48,6 +52,10 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
       parcels: 1,
       status,
       contact: shipment.receiverNumber,
+      senderName: shipment.senderName,
+      senderNumber: shipment.senderNumber,
+      receiverName: shipment.receiverName,
+      receiverNumber: shipment.receiverNumber,
       pickupLocation: shipment.pickupLocation,
       pickupRegion: shipment.pickupRegion,
       dropoffRegion: shipment.dropoffRegion,
@@ -234,35 +242,62 @@ export default function RiderRoutePage() {
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, background: '#fff',
           borderTopLeftRadius: '32px', borderTopRightRadius: '32px',
-          padding: '24px', paddingBottom: '48px', boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.1)', zIndex: 20,
+          padding: '24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+          boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.1)', zIndex: 20,
+          display: 'flex', flexDirection: 'column', maxHeight: '85vh',
           animation: 'slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
         }}>
-          <div style={{ width: '40px', height: '6px', background: '#e2e8f0', borderRadius: '3px', margin: '0 auto 24px' }} />
+          <div style={{ width: '40px', height: '6px', background: '#e2e8f0', borderRadius: '3px', margin: '0 auto 24px', flexShrink: 0 }} />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <div>
-              <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px' }}>NEXT STOP</div>
-              <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>{activeStop.address}</h2>
-              <div style={{ color: '#64748b', fontSize: '15px', marginTop: '4px' }}>{activeStop.details}</div>
+          <div style={{ overflowY: 'auto', flex: 1, paddingBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div>
+                <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px' }}>NEXT STOP</div>
+                <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>{activeStop.address}</h2>
+                <div style={{ color: '#64748b', fontSize: '15px', marginTop: '4px' }}>{activeStop.details}</div>
+              </div>
+              <div style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{activeStop.parcels}</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Pkg</div>
+              </div>
             </div>
-            <div style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{activeStop.parcels}</div>
-              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Pkg</div>
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
-            <a href={`tel:${activeStop.contact}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', color: '#0f172a', textDecoration: 'none', fontWeight: 700 }}>
-              <Phone size={16} /> Call
-            </a>
-            <button onClick={() => setIssueOpen(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#ef4444', fontWeight: 700, cursor: 'pointer' }}>
-              <AlertTriangle size={16} /> Issue
+            <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', marginBottom: '24px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '16px', marginTop: 0 }}>Order Contacts</h3>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Sender</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.senderName}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.senderNumber}</div>
+                </div>
+                <a href={`tel:${activeStop.senderNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
+                  <Phone size={18} />
+                </a>
+              </div>
+
+              <div style={{ height: '1px', background: '#e2e8f0', margin: '0 -16px 16px' }} />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Receiver</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.receiverName}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.receiverNumber}</div>
+                </div>
+                <a href={`tel:${activeStop.receiverNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
+                  <Phone size={18} />
+                </a>
+              </div>
+            </div>
+
+            <button onClick={() => setIssueOpen(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '16px', color: '#ef4444', fontWeight: 700, cursor: 'pointer', fontSize: '16px' }}>
+              <AlertTriangle size={18} /> Report Issue
             </button>
           </div>
 
           <button
             onClick={() => setPodOpen(true)}
-            style={{ width: '100%', background: '#078c35', color: '#fff', padding: '20px', borderRadius: '16px', border: 'none', fontSize: '20px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer' }}
+            style={{ width: '100%', flexShrink: 0, background: '#078c35', color: '#fff', padding: '20px', borderRadius: '16px', border: 'none', fontSize: '20px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer', marginTop: '12px' }}
           >
             Arrived &amp; Deliver
             <ArrowRight size={22} />

@@ -25,6 +25,7 @@ import type { Shipment, ShipmentStatus, VehicleType, ShipmentSpeed } from '../..
 import '../../styles/MyShipmentsPage.css';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Awaiting Price',
   pending: 'Pending',
   picked_up: 'Picked Up',
   in_transit: 'In Transit',
@@ -36,6 +37,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_ICONS: Record<ShipmentStatus, LucideIcon> = {
+  awaiting_price: AlertCircle,
   pending: Clock,
   picked_up: Package,
   in_transit: Truck,
@@ -65,6 +67,7 @@ const SPEED_LABELS: Record<ShipmentSpeed, string> = {
 
 const TABS: { value: 'All Shipments' | ShipmentStatus; label: string }[] = [
   { value: 'All Shipments', label: 'All Shipments' },
+  { value: 'awaiting_price', label: STATUS_LABELS.awaiting_price },
   { value: 'pending', label: STATUS_LABELS.pending },
   { value: 'picked_up', label: STATUS_LABELS.picked_up },
   { value: 'in_transit', label: STATUS_LABELS.in_transit },
