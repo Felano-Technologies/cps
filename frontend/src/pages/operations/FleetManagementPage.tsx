@@ -332,9 +332,9 @@ export default function FleetManagementPage() {
                               {formatStatusLabel(member.currentStatus)}
                             </span>
                           </td>
-                          <td style={{ padding: '16px 24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <div style={{ width: '180px' }}>
+                          <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+                              <div style={{ width: '160px', flexShrink: 0 }}>
                                 {updatingId === member.id ? (
                                   <div style={{
                                     display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '44px',

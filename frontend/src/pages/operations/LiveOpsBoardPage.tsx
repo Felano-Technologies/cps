@@ -283,9 +283,9 @@ export default function LiveOpsBoardPage() {
           border-color: #cbd5e1;
         }
         .filter-pill.active {
-          background: #0f172a;
+          background: #078c35;
           color: #fff;
-          border-color: #0f172a;
+          border-color: #078c35;
         }
 
         .dashboard-main-grid {

@@ -132,6 +132,7 @@ model Shipment {
 
   podMethod        PodMethod?
   podRecipientName String?
+  podSignatureData String?
 
   additionalInstructions String?
 

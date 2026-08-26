@@ -1,3 +1,39 @@
+.signature-pad-wrap { position: relative; }
+.signature-canvas {
+  width: 100%;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: var(--radius-md);
+  cursor: crosshair;
+  display: block;
+}
+.signature-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+.signature-clear-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.signature-clear-btn:hover { color: var(--danger); border-color: var(--danger); }
+
 .primary-green, .dark-btn, .neutral-btn, .track-btn, .table-btn, .mini-action, .route-action {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
