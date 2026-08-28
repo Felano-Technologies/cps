@@ -31,12 +31,22 @@ export default function LandingPage() {
 
       <main className="landing-hero container">
         <div className="hero-copy">
+          <h2 style={{ fontSize: 'clamp(2.8rem, 4.6vw, 4.2rem)', color: 'var(--navy)', fontWeight: 800, margin: '0 0 24px', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
+            Welcome to <br />
+            <span style={{ color: 'forestgreen' }}>CPS</span> <br />
+            Delivery Services
+          </h2>
+
           <span className="hero-eyebrow">
             <Radar size={14} />
             Local courier network
           </span>
 
-          <h1>Fast. Reliable. Local.</h1>
+          <div style={{ margin: '8px 0 24px' }}>
+            <Link to="/request-pickup" className="dark-btn" style={{ display: 'inline-flex', padding: '14px 28px', fontSize: '1.05rem', borderRadius: '8px' }}>
+              <PackagePlus size={18} /> Request Pickup
+            </Link>
+          </div>
           <p className="lede">
             Professional motorbike and van courier operations for same-day pickups, urgent drops, and
             time-sensitive deliveries across the city.
@@ -50,9 +60,6 @@ export default function LandingPage() {
             <Link to="/shipments" className="primary-green track-btn">
               Track <ArrowRight size={16} />
             </Link>
-            <Link to="/request-pickup" className="dark-btn">
-              <PackagePlus size={16} /> Request Pickup
-            </Link>
           </div>
 
           <ul className="hero-capabilities">
@@ -62,32 +69,7 @@ export default function LandingPage() {
           </ul>
         </div>
 
-        <div className="hero-visual">
-          <div className="hero-visual-glow" aria-hidden="true" />
 
-          <div className="hero-visual-frame">
-            <img src={heroImg} alt="Rider preparing a delivery" />
-          </div>
-
-          <div className="hero-visual-badge tracking">
-            <span className="icon-chip">
-              <Radar size={16} />
-              <span className="live-dot" />
-            </span>
-            <div>
-              <strong>Live rider tracking</strong>
-              <span>Know exactly where your parcel is</span>
-            </div>
-          </div>
-
-          <div className="hero-visual-badge verified">
-            <span className="icon-chip"><ShieldCheck size={16} /></span>
-            <div>
-              <strong>Verified delivery</strong>
-              <span>Signed proof, every drop-off</span>
-            </div>
-          </div>
-        </div>
       </main>
 
       <div ref={trustRef} className={`trust-strip ${trustClass}`}>
