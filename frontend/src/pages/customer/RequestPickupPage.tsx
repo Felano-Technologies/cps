@@ -514,6 +514,11 @@ export default function RequestPickupPage() {
                   <label>
                     <span>Package Type</span>
                     <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS} icon={<Package size={17} />} />
+                    {packageType !== 'fragile' && (
+                      <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                        Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                      </div>
+                    )}
                   </label>
                 </div>
 
@@ -577,6 +582,11 @@ export default function RequestPickupPage() {
                   <label>
                     <span>Package Type</span>
                     <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS_BULK} icon={<Package size={17} />} />
+                    {packageType !== 'fragile' && (
+                      <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                        Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                      </div>
+                    )}
                   </label>
                   <label>
                     <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>

@@ -245,6 +245,11 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                     options={PACKAGE_TYPE_OPTIONS}
                     icon={<Package size={17} />}
                   />
+                  {formData.packageType !== 'fragile' && (
+                    <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                      Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Vehicle Type</label>
