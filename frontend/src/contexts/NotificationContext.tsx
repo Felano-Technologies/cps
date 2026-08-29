@@ -14,6 +14,12 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const POLL_INTERVAL_MS = 30000;
 
+function resolveWebSocketUrl(): string {
+  const apiUrl = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+  const base = apiUrl.replace(/\/api\/?$/, '').replace(/^http/, 'ws');
+  return `${base}/ws`;
+}
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -39,6 +45,46 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const interval = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isAuthenticated, refresh]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const connect = () => {
+      if (cancelled) return;
+      socket = new WebSocket(resolveWebSocketUrl());
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'notification' && payload.notification) {
+            const incoming: Notification = payload.notification;
+            setNotifications(prev => [incoming, ...prev.filter(n => n.id !== incoming.id)]);
+            setUnreadCount(prev => prev + 1);
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      };
+
+      socket.onclose = () => {
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [isAuthenticated]);
 
   const markRead = useCallback(async (id: string) => {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));

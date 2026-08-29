@@ -71,7 +71,7 @@ model User {
   email        String   @unique
   passwordHash String
   role         UserRole
-  phone        String?
+  phone        String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -182,4 +182,16 @@ model Notification {
   createdAt  DateTime  @default(now())
 
   @@map("notifications")
+}
+
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  code       String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+  @@map("phone_otps")
 }

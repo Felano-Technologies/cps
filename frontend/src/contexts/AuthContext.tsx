@@ -30,6 +30,9 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<User>;
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<User>;
+  requestPhoneOtp: (phone: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, code: string) => Promise<{ exists: boolean; user?: User }>;
+  completePhoneSignup: (phone: string, code: string, name: string, role: UserRole) => Promise<User>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -100,6 +103,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const requestPhoneOtp = async (phone: string) => {
+    setError(null);
+    try {
+      await api.post('/auth/phone/request-otp', { phone });
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to send code');
+      setError(message);
+      throw err;
+    }
+  };
+
+  const verifyPhoneOtp = async (phone: string, code: string) => {
+    setError(null);
+    try {
+      const { data } = await api.post<{ exists: boolean; user?: User }>('/auth/phone/verify-otp', { phone, code });
+      if (data.exists && data.user) {
+        setUser(data.user);
+      }
+      return data;
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Invalid or expired code');
+      setError(message);
+      throw err;
+    }
+  };
+
+  const completePhoneSignup = async (phone: string, code: string, name: string, role: UserRole) => {
+    setError(null);
+    try {
+      const { data } = await api.post<User>('/auth/phone/signup', { phone, code, name, role });
+      setUser(data);
+      return data;
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to complete signup');
+      setError(message);
+      throw err;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setError(null);
@@ -117,6 +159,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     error,
     login,
     signup,
+    requestPhoneOtp,
+    verifyPhoneOtp,
+    completePhoneSignup,
     logout,
     updateUser,
   };

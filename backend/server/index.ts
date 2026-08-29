@@ -5,8 +5,10 @@ import authRoutes from './routes/auth';
 import ridersRoutes from './routes/riders';
 import shipmentsRoutes from './routes/shipments';
 import notificationsRoutes from './routes/notifications';
+import alertsRoutes from './routes/alerts';
 import contactRoutes from './routes/contact';
 import uploadsRoutes from './routes/uploads';
+import { initWebSocketServer } from './lib/ws';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -36,9 +38,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/shipments', shipmentsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/alerts', alertsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+initWebSocketServer(server);
