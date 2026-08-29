@@ -13,6 +13,7 @@ import { Skeleton, SkeletonCircle, SkeletonStatCard, SkeletonListItem } from '..
 import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus } from '../../types/models';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Awaiting Price',
   pending: 'Pending',
   picked_up: 'Picked Up',
   in_transit: 'In Transit',
@@ -24,6 +25,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; border: string }> = {
+  awaiting_price: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
   pending: { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' },
   picked_up: { bg: '#ecfccb', text: '#3f6212', border: '#bef264' },
   in_transit: { bg: '#fef9c3', text: '#854d0e', border: '#fde68a' },

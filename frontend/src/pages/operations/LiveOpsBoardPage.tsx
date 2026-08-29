@@ -1,92 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCog, Printer, Plus, Package, Bike, Truck, Car, AlertTriangle, Zap } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Printer, Plus, Package, Bike, Truck, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
-import EmptyState from '../../components/EmptyState';
-import CustomSelect from '../../components/Form/CustomSelect';
-import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
-
-const STATUS_LABELS: Record<ShipmentStatus, string> = {
-  awaiting_price: 'Awaiting Price',
-  pending: 'Pending',
-  picked_up: 'Picked Up',
-  in_transit: 'In Transit',
-  out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
-  delayed: 'Delayed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
-
-const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
-  awaiting_price: { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
-  pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  picked_up: { bg: '#ecfccb', text: '#3f6212', dot: '#84cc16' },
-  in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
-  out_for_delivery: { bg: '#e2e8f0', text: '#0f172a', dot: '#334155' },
-  delivered: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  delayed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
-  failed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
-  cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
-};
-
-const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
-  motorbike: Bike,
-  van: Car,
-  truck: Truck,
-};
-
-const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
-  document: 'Document delivery',
-  parcel: 'Parcel delivery',
-  electronics: 'Electronics delivery',
-  fragile: 'Fragile delivery',
-  food: 'Food delivery',
-  other: 'Package delivery',
-};
-
-const STATUS_FILTERS: Array<'All' | ShipmentStatus> = [
-  'All',
-  'awaiting_price',
-  'pending',
-  'picked_up',
-  'in_transit',
-  'out_for_delivery',
-  'delayed',
-  'delivered',
-  'failed',
-  'cancelled',
-];
-
-function formatCreatedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
+import type { Shipment, RiderProfile } from '../../types/models';
 
 export default function LiveOpsBoardPage() {
   const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'All' | ShipmentStatus>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [riders, setRiders] = useState<RiderProfile[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [assigningId, setAssigningId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function fetchOrders() {
-      setIsLoading(true);
       setError(null);
       try {
         const response = await api.get<Shipment[]>('/shipments');
@@ -97,10 +30,6 @@ export default function LiveOpsBoardPage() {
         if (isMounted) {
           setError('Failed to load orders. Please try again later.');
           toast.error('Failed to load orders.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
         }
       }
     }
@@ -136,22 +65,6 @@ export default function LiveOpsBoardPage() {
     };
   }, []);
 
-  const riderOptions = useMemo(() => [
-    { value: '', label: 'Unassigned' },
-    ...riders.map(rider => ({ value: rider.id, label: rider.user.name })),
-  ], [riders]);
-
-  const filteredOrders = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    return orders.filter(order => {
-      const matchesFilter = activeFilter === 'All' || order.status === activeFilter;
-      const matchesSearch =
-        order.trackingCode.toLowerCase().includes(query) ||
-        order.packageType.toLowerCase().includes(query);
-      return matchesFilter && matchesSearch;
-    });
-  }, [orders, activeFilter, searchQuery]);
-
   const newOrderCount = useMemo(
     () => orders.filter(o => o.status === 'awaiting_price').length,
     [orders]
@@ -169,22 +82,6 @@ export default function LiveOpsBoardPage() {
     [orders]
   );
 
-  async function handleAssignRider(shipmentId: string, riderId: string) {
-    if (!riderId) return;
-    setAssigningId(shipmentId);
-    setError(null);
-    try {
-      const response = await api.patch<Shipment>(`/shipments/${shipmentId}/assign`, { riderId });
-      setOrders(prev => prev.map(order => (order.id === shipmentId ? response.data : order)));
-      toast.success('Rider assigned.');
-    } catch {
-      setError('Failed to assign rider. Please try again.');
-      toast.error('Failed to assign rider.');
-    } finally {
-      setAssigningId(null);
-    }
-  }
-
   return (
     <div className="page-shell light-shell">
       <style>{`
@@ -195,91 +92,6 @@ export default function LiveOpsBoardPage() {
           border: 1px solid rgba(255, 255, 255, 0.8);
           box-shadow: 0 8px 32px rgba(15, 23, 42, 0.05);
           border-radius: 16px;
-        }
-
-        .radar-map {
-          background: #0f172a;
-          border-radius: 16px;
-          position: relative;
-          overflow: hidden;
-          box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 10px 30px rgba(15, 23, 42, 0.2);
-        }
-        .radar-grid {
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(rgba(131, 211, 20, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(131, 211, 20, 0.1) 1px, transparent 1px);
-          background-size: 30px 30px;
-          opacity: 0.5;
-        }
-        .radar-sweep {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 150%;
-          height: 150%;
-          background: conic-gradient(from 0deg, transparent 70%, rgba(131, 211, 20, 0.4) 100%);
-          transform-origin: 0 0;
-          animation: sweep 4s linear infinite;
-          pointer-events: none;
-        }
-        @keyframes sweep {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
-        .map-node {
-          position: absolute;
-          width: 12px;
-          height: 12px;
-          background: #83d314;
-          border-radius: 50%;
-          box-shadow: 0 0 10px #83d314, 0 0 20px #83d314;
-          transform: translate(-50%, -50%);
-        }
-        .map-node.warning {
-          background: #ef4444;
-          box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
-        }
-        .map-node::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          border-radius: 50%;
-          border: 1px solid #83d314;
-          animation: ripple 2s infinite ease-out;
-        }
-        .map-node.warning::after {
-          border-color: #ef4444;
-        }
-        @keyframes ripple {
-          0% { transform: scale(0.5); opacity: 1; }
-          100% { transform: scale(2.5); opacity: 0; }
-        }
-
-        .filter-pill {
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          border: 1px solid #e2e8f0;
-          background: #fff;
-          color: #64748b;
-          transition: all 0.2s;
-          white-space: nowrap;
-        }
-        .filter-pill:hover {
-          border-color: #cbd5e1;
-        }
-        .filter-pill.active {
-          background: #078c35;
-          color: #fff;
-          border-color: #078c35;
         }
 
         .dashboard-main-grid {
@@ -304,9 +116,6 @@ export default function LiveOpsBoardPage() {
         @media (max-width: 1024px) {
           .dashboard-main-grid {
             grid-template-columns: 1fr;
-          }
-          .radar-map {
-            height: 400px !important;
           }
         }
         @media (max-width: 768px) {

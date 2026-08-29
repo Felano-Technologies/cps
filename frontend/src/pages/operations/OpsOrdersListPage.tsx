@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Zap, Car, Bike, Truck } from 'lucide-react';
+import { ArrowLeft, Search, Zap, Car, Bike, Truck, PackageSearch } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
@@ -217,7 +217,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <tr>
                     <td colSpan={6} style={{ padding: '32px' }}>
                       <EmptyState
-                        icon="📋"
+                        icon={<PackageSearch size={36} />}
                         title={`No ${title} Found`}
                         message={`There are currently no orders in the ${title.toLowerCase()} category.`}
                       />

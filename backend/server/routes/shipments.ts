@@ -390,6 +390,40 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
   res.json(shipment);
 });
 
+const priceSchema = z.object({
+  deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+});
+
+router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = priceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: { deliveryFee: parsed.data.deliveryFee },
+    include: { assignedRider: { include: { user: true } } },
+  });
+
+  if (updated.customerId) {
+    notify(
+      updated.customerId,
+      'shipment_price_updated',
+      `Order ${updated.trackingCode} price updated`,
+      `Your order's delivery fee is now GHS ${Number(updated.deliveryFee).toFixed(2)}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  res.json(updated);
+});
+
 const processSchema = z.object({
   deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
   riderId: z.string().optional(),
