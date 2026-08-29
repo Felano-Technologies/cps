@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Phone } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import CustomSelect from '../../components/Form/CustomSelect';
-import PhoneAuthPanel from '../../components/PhoneAuthPanel';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
@@ -17,7 +16,6 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 ];
 
 export default function SignUpPage() {
-  const [authMode, setAuthMode] = useState<'email' | 'phone'>('email');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,27 +64,6 @@ export default function SignUpPage() {
               <p>Get started with CPS Delivery Services.</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '6px', borderRadius: '12px', marginBottom: '24px' }}>
-              <button
-                type="button"
-                onClick={() => setAuthMode('email')}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: authMode === 'email' ? '#fff' : 'transparent', color: authMode === 'email' ? '#0f172a' : '#64748b', boxShadow: authMode === 'email' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none' }}
-              >
-                <Mail size={16} /> Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode('phone')}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: authMode === 'phone' ? '#fff' : 'transparent', color: authMode === 'phone' ? '#0f172a' : '#64748b', boxShadow: authMode === 'phone' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none' }}
-              >
-                <Phone size={16} /> Phone
-              </button>
-            </div>
-
-            {authMode === 'phone' ? (
-              <PhoneAuthPanel mode="signup" />
-            ) : (
-              <>
             {(error || localError) && (
               <div className="auth-error">
                 <AlertCircle size={16} />
@@ -148,8 +125,6 @@ export default function SignUpPage() {
                 {isLoading ? 'Creating...' : 'Sign Up'}
               </button>
             </form>
-              </>
-            )}
 
             <div className="auth-switch">
               Already have an account? <Link to="/signin">Sign In</Link>
