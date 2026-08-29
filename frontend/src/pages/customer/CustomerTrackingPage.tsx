@@ -14,6 +14,7 @@ import {
   Weight,
   Bike,
   Package,
+  AlertCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
@@ -42,6 +43,7 @@ const SPEED_LABELS: Record<ShipmentSpeed, string> = {
 };
 
 const STATUS_EVENT_LABELS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Awaiting Price Confirmation',
   pending: 'Order Placed',
   picked_up: 'Package Picked Up',
   in_transit: 'In Transit',
@@ -53,6 +55,7 @@ const STATUS_EVENT_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_EVENT_DESCRIPTIONS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Your order is awaiting price confirmation from operations.',
   pending: 'Your order has been placed and is awaiting pickup.',
   picked_up: 'Item collected from the sender.',
   in_transit: 'Your package is on its way.',
@@ -64,6 +67,7 @@ const STATUS_EVENT_DESCRIPTIONS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_ICONS: Record<ShipmentStatus, LucideIcon> = {
+  awaiting_price: AlertCircle,
   pending: Clock,
   picked_up: PackageCheck,
   in_transit: Truck,

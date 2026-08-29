@@ -29,6 +29,7 @@ enum RiderStatus {
 }
 
 enum ShipmentStatus {
+  awaiting_price
   pending
   picked_up
   in_transit
@@ -101,7 +102,7 @@ model Shipment {
   id             String           @id @default(cuid())
   trackingCode   String           @unique
   batchId        String?
-  status         ShipmentStatus   @default(pending)
+  status         ShipmentStatus   @default(awaiting_price)
   priority       ShipmentPriority @default(standard)
   speed          ShipmentSpeed    @default(next_day)
   vehicleType    VehicleType
@@ -136,6 +137,7 @@ model Shipment {
   podPhotoUrl      String?
 
   additionalInstructions String?
+  opsRemarks             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

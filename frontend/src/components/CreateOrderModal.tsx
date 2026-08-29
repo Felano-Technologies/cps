@@ -245,6 +245,11 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                     options={PACKAGE_TYPE_OPTIONS}
                     icon={<Package size={17} />}
                   />
+                  {formData.packageType !== 'fragile' && (
+                    <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                      Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Vehicle Type</label>
@@ -272,6 +277,11 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                     options={PRIORITY_OPTIONS}
                     icon={<Flag size={17} />}
                   />
+                  {formData.priority === 'high' && (
+                    <div style={{ fontSize: '12px', color: '#854d0e', background: '#fef9c3', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                      Choosing high priority attracts a slight increase in delivery fee for faster arrival.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -279,19 +289,24 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
           </form>
         </div>
 
-        <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button type="button" onClick={onClose} className="neutral-btn" style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="create-order-form"
-            className="primary-green"
-            disabled={isSubmitting}
-            style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', opacity: isSubmitting ? 0.7 : 1 }}
-          >
-            {isSubmitting ? 'Creating...' : 'Create Order'}
-          </button>
+        <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '12px', color: '#64748b', maxWidth: '400px', lineHeight: 1.5 }}>
+            <strong>Note:</strong> Any delivery fee you may have seen is just an estimate and is subject to change. Please check your notifications soon for the actual confirmed price.
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button type="button" onClick={onClose} className="neutral-btn" style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="create-order-form"
+              className="primary-green"
+              disabled={isSubmitting}
+              style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', opacity: isSubmitting ? 0.7 : 1 }}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Order'}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

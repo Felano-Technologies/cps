@@ -1,6 +1,7 @@
 export type VehicleType = 'motorbike' | 'van' | 'truck';
 export type RiderStatus = 'available' | 'en_route' | 'loading' | 'maintenance' | 'offline';
 export type ShipmentStatus =
+  | 'awaiting_price'
   | 'pending'
   | 'picked_up'
   | 'in_transit'
@@ -65,6 +66,7 @@ export interface Shipment {
   podSignatureData: string | null;
   podPhotoUrl: string | null;
   additionalInstructions: string | null;
+  opsRemarks?: string;
   createdAt: string;
   updatedAt: string;
   statusEvents?: ShipmentStatusEvent[];

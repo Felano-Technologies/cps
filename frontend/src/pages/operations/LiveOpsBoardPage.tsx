@@ -7,12 +7,12 @@ import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
-import Map from '../../components/Map';
 import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Awaiting Price',
   pending: 'Pending',
   picked_up: 'Picked Up',
   in_transit: 'In Transit',
@@ -24,6 +24,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
+  awaiting_price: { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
   pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
   picked_up: { bg: '#ecfccb', text: '#3f6212', dot: '#84cc16' },
   in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
@@ -51,6 +52,7 @@ const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
 
 const STATUS_FILTERS: Array<'All' | ShipmentStatus> = [
   'All',
+  'awaiting_price',
   'pending',
   'picked_up',
   'in_transit',
@@ -150,8 +152,12 @@ export default function LiveOpsBoardPage() {
     });
   }, [orders, activeFilter, searchQuery]);
 
+  const newOrderCount = useMemo(
+    () => orders.filter(o => o.status === 'awaiting_price').length,
+    [orders]
+  );
   const activeOrderCount = useMemo(
-    () => orders.filter(o => !['delivered', 'failed', 'cancelled'].includes(o.status)).length,
+    () => orders.filter(o => ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(o.status)).length,
     [orders]
   );
   const availableRiderCount = useMemo(
@@ -160,18 +166,6 @@ export default function LiveOpsBoardPage() {
   );
   const delayedOrderCount = useMemo(
     () => orders.filter(o => o.status === 'delayed').length,
-    [orders]
-  );
-
-  const mapMarkers = useMemo(
-    () =>
-      orders
-        .filter(o => !['delivered', 'failed', 'cancelled'].includes(o.status))
-        .slice(0, 12)
-        .map(o => ({
-          label: `${o.trackingCode} · ${o.dropoffLocation}`,
-          address: `${o.dropoffLocation}, ${o.dropoffRegion}, Ghana`,
-        })),
     [orders]
   );
 
@@ -290,10 +284,21 @@ export default function LiveOpsBoardPage() {
 
         .dashboard-main-grid {
           display: grid;
-          grid-template-columns: 1fr 380px;
+          grid-template-columns: 1fr;
           gap: 24px;
           padding: 0 24px;
           align-items: start;
+        }
+        
+        .kpi-link-card {
+          text-decoration: none;
+          color: inherit;
+          transition: transform 0.2s, box-shadow 0.2s;
+          display: block;
+        }
+        .kpi-link-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
         }
 
         @media (max-width: 1024px) {
@@ -344,170 +349,47 @@ export default function LiveOpsBoardPage() {
         )}
 
         {/* KPI Row */}
-        <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
+          
+          <Link to="/ops/new-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>New Orders</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: newOrderCount > 0 ? '#ea580c' : '#0f172a', marginTop: '8px' }}>{newOrderCount}</div>
+            </div>
+            <div style={{ width: '48px', height: '48px', background: '#fff7ed', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c2410c' }}>
+              <Package size={22} />
+            </div>
+          </Link>
+
+          <Link to="/ops/active-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Orders</div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{activeOrderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}><Package size={22} /></div>
-          </div>
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}>
+              <Truck size={22} />
+            </div>
+          </Link>
+
+          <Link to="/fleet" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available Fleet</div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{availableRiderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}><Bike size={22} /></div>
-          </div>
+            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}>
+              <Bike size={22} />
+            </div>
+          </Link>
+
           <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: delayedOrderCount > 0 ? 'var(--warning)' : '#0f172a', marginTop: '8px' }}>{delayedOrderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}><AlertTriangle size={22} /></div>
-          </div>
-        </div>
-
-        {/* Main Dashboard Grid */}
-        <div className="dashboard-main-grid">
-
-          {/* Live Fleet Map */}
-          <div style={{ height: '600px', width: '100%' }}>
-            <Map markers={mapMarkers} />
-            {orders.length > mapMarkers.length && (
-              <p style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-                Showing {mapMarkers.length} of {orders.length} active orders on the map.
-              </p>
-            )}
-          </div>
-
-          {/* Interactive Sidebar */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '600px', overflow: 'hidden' }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>Dispatch Queue</h3>
-
-              <div style={{ position: 'relative', marginBottom: '16px' }}>
-                <input
-                  type="text"
-                  placeholder="Search by Tracking Code or Type..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ width: '100%', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
-                {STATUS_FILTERS.map(filter => (
-                  <button
-                    key={filter}
-                    className={`filter-pill ${activeFilter === filter ? 'active' : ''}`}
-                    onClick={() => setActiveFilter(filter)}
-                  >
-                    {filter === 'All' ? 'All' : STATUS_LABELS[filter]}
-                  </button>
-                ))}
-              </div>
+            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}>
+              <AlertTriangle size={22} />
             </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f8fafc' }}>
-              {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px' }}>
-                      <Skeleton height="1em" width="40%" />
-                      <Skeleton height="1.4em" width="70px" radius="6px" />
-                    </div>
-                    <Skeleton height="0.85em" width="55%" style={{ marginBottom: '8px' }} />
-                    <Skeleton height="0.8em" width="80%" style={{ marginBottom: '12px' }} />
-                    <Skeleton height="2.2em" width="100%" radius="10px" />
-                  </div>
-                ))
-              ) : filteredOrders.length > 0 ? (
-                filteredOrders.map(order => {
-                  const colors = STATUS_COLORS[order.status];
-                  const isUrgent = order.priority === 'high';
-                  const currentRiderId = order.assignedRiderId ?? '';
-                  const VehicleIcon = VEHICLE_ICONS[order.vehicleType];
-                  return (
-                    <div
-                      key={order.id}
-                      style={{
-                        background: isUrgent ? '#fffbeb' : '#ffffff',
-                        border: isUrgent ? '1px solid #fde68a' : '1px solid #e2e8f0',
-                        borderLeft: isUrgent ? '4px solid var(--warning)' : '1px solid #e2e8f0',
-                        borderRadius: '12px', padding: '16px', marginBottom: '12px', transition: 'box-shadow 0.2s'
-                      }}
-                      className="hover-shadow"
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ color: '#475569', display: 'inline-flex' }}><VehicleIcon size={18} /></span>
-                          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.trackingCode}</span>
-                          {isUrgent && (
-                            <span style={{ background: '#fef9c3', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <Zap size={12} /> URGENT
-                            </span>
-                          )}
-                        </div>
-                        <span style={{
-                          background: colors.bg, color: colors.text,
-                          padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                          display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
-                        }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.dot }}></span>
-                          {STATUS_LABELS[order.status]}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#475569', fontWeight: 500, marginBottom: '4px' }}>
-                        {PACKAGE_TYPE_LABELS[order.packageType]}
-                      </div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <span>Created: {formatCreatedAt(order.createdAt)}</span>
-                        <Link to={`/ops/tracking/${order.trackingCode}`} style={{ color: '#078c35', fontWeight: 600, textDecoration: 'none' }}>
-                          Track →
-                        </Link>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <label style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Rider:</label>
-                        <div style={{ flex: 1 }}>
-                          {assigningId === order.id ? (
-                            <div style={{
-                              display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '44px',
-                              border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f1f5f9',
-                              padding: '0.65rem 0.9rem', color: '#94a3b8', fontSize: '0.95rem', cursor: 'not-allowed'
-                            }}>
-                              <UserCog size={16} />
-                              Assigning…
-                            </div>
-                          ) : (
-                            <CustomSelect
-                              value={currentRiderId}
-                              onChange={(v) => handleAssignRider(order.id, v)}
-                              options={riderOptions}
-                              icon={<UserCog size={16} />}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <EmptyState
-                  icon="📋"
-                  title="No Orders Found"
-                  message="There are no orders matching your current dispatch filter. Try clearing your search or switching tabs."
-                  actionLabel="Clear Filters"
-                  onAction={() => { setSearchQuery(''); setActiveFilter('All'); }}
-                  style={{ margin: '16px' }}
-                />
-              )}
-            </div>
-            <style>{`
-              .hover-shadow:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            `}</style>
           </div>
-
         </div>
 
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}

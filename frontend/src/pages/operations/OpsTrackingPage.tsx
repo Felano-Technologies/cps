@@ -4,12 +4,12 @@ import axios from 'axios';
 import { Share2, Printer, MapPin as MapPinIcon, Package, CheckCircle2, User, RefreshCw } from 'lucide-react';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CustomSelect from '../../components/Form/CustomSelect';
-import Map from '../../components/Map';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  awaiting_price: 'Awaiting Price',
   pending: 'Pending',
   picked_up: 'Picked Up',
   in_transit: 'In Transit',
@@ -37,6 +37,19 @@ export default function OpsTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [newPrice, setNewPrice] = useState('');
+  
+  const [processFee, setProcessFee] = useState('');
+  const [processRiderId, setProcessRiderId] = useState('');
+  const [processRemarks, setProcessRemarks] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (shipment?.status === 'awaiting_price') {
+      setProcessFee(String(shipment.deliveryFee));
+    }
+  }, [shipment]);
 
   useEffect(() => {
     if (!parcelId) return;
@@ -85,6 +98,37 @@ export default function OpsTrackingPage() {
     }
   };
 
+  const handlePriceUpdate = async () => {
+    if (!shipment || !newPrice) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/price`, { deliveryFee: Number(newPrice) });
+      setShipment(data);
+      setIsEditingPrice(false);
+      setNewPrice('');
+      toast.success('Price updated and customer notified.');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Failed to update price.'));
+    }
+  };
+
+  const handleProcessOrder = async () => {
+    if (!shipment || !processFee) return;
+    setIsProcessing(true);
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/process`, {
+        deliveryFee: Number(processFee),
+        riderId: processRiderId || undefined,
+        opsRemarks: processRemarks || undefined,
+      });
+      setShipment(data);
+      toast.success('Order processed and moved to active queue.');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Failed to process order.'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleShareLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
       () => toast.success('Tracking link copied.'),
@@ -120,7 +164,7 @@ export default function OpsTrackingPage() {
         }
         .tracking-main-grid {
           display: grid;
-          grid-template-columns: 1fr 400px;
+          grid-template-columns: 1fr;
           gap: 24px;
           align-items: start;
         }
@@ -197,17 +241,56 @@ export default function OpsTrackingPage() {
           </div>
         </div>
 
-        <div className="tracking-main-grid" style={{ marginBottom: '24px' }}>
-
-          <div style={{ height: '600px', width: '100%' }}>
-            <Map
-              markers={[
-                { label: 'Pickup', address: `${shipment.pickupLocation}, ${shipment.pickupRegion}, Ghana` },
-                { label: 'Dropoff', address: `${shipment.dropoffLocation}, ${shipment.dropoffRegion}, Ghana` },
-              ]}
-              showRoute
-            />
+        {shipment.status === 'awaiting_price' && (
+          <div className="glass-card" style={{ padding: '32px', marginBottom: '24px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#92400e', marginBottom: '16px' }}>Process New Order</h3>
+            <p style={{ color: '#b45309', marginBottom: '24px', fontSize: '15px' }}>
+              Assign a final price and rider to move this order to the active queue.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>Final Delivery Fee (GHS) *</label>
+                <input 
+                  type="number" 
+                  value={processFee} 
+                  onChange={(e) => setProcessFee(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '14px', background: '#fff', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>Assign Rider</label>
+                <CustomSelect
+                  value={processRiderId}
+                  onChange={setProcessRiderId}
+                  options={riderOptions}
+                  icon={<User size={16} />}
+                />
+              </div>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>Operations Remarks (Internal)</label>
+              <textarea 
+                value={processRemarks} 
+                onChange={(e) => setProcessRemarks(e.target.value)}
+                rows={3}
+                placeholder="Add any internal notes..."
+                style={{ width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '14px', background: '#fff', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={handleProcessOrder}
+                disabled={isProcessing || !processFee}
+                className="primary-green"
+                style={{ padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', opacity: (isProcessing || !processFee) ? 0.7 : 1 }}
+              >
+                {isProcessing ? 'Processing...' : 'Process & Confirm Order'}
+              </button>
+            </div>
           </div>
+        )}
+
+        <div className="tracking-main-grid" style={{ marginBottom: '24px' }}>
 
           <div className="glass-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '32px' }}>Tracking History</h3>
@@ -273,6 +356,27 @@ export default function OpsTrackingPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
                 <span style={{ color: '#64748b', fontWeight: 500 }}>Assigned Rider</span>
                 <strong style={{ color: '#0f172a' }}>{shipment.assignedRider?.user.name ?? 'Unassigned'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
+                <span style={{ color: '#64748b', fontWeight: 500 }}>Delivery Fee</span>
+                {isEditingPrice ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b', fontWeight: 600 }}>GHS</span>
+                    <input 
+                      type="number" 
+                      value={newPrice} 
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      style={{ width: '80px', padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    />
+                    <button onClick={handlePriceUpdate} className="primary-green" style={{ padding: '6px 12px', minHeight: 'auto', borderRadius: '6px' }}>Save</button>
+                    <button onClick={() => setIsEditingPrice(false)} className="neutral-btn" style={{ padding: '6px 12px', minHeight: 'auto', borderRadius: '6px' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <strong style={{ color: '#0f172a' }}>GHS {Number(shipment.deliveryFee).toFixed(2)}</strong>
+                    <button onClick={() => { setIsEditingPrice(true); setNewPrice(String(shipment.deliveryFee)); }} style={{ background: 'transparent', border: 'none', color: '#078c35', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Edit</button>
+                  </div>
+                )}
               </div>
 
               {shipment.podMethod && (
