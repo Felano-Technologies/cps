@@ -24,7 +24,15 @@ export interface RiderProfile {
   currentLocation: string | null;
   createdAt: string;
   updatedAt: string;
-  user: { id?: string; name: string; phone?: string | null };
+  user: { id?: string; name: string; email?: string; phone?: string | null };
+}
+
+export interface ShipmentCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role?: string;
 }
 
 export interface ShipmentStatusEvent {
@@ -45,6 +53,7 @@ export interface Shipment {
   vehicleType: VehicleType;
   packageType: PackageType;
   customerId: string | null;
+  customer?: ShipmentCustomer | null;
   assignedRiderId: string | null;
   assignedRider?: RiderProfile | null;
   senderName: string;
@@ -103,3 +112,33 @@ export interface CreateShipmentInput {
   weightKg?: number;
   additionalInstructions?: string;
 }
+
+export type DeductionCategory =
+  | 'late_delivery'
+  | 'damaged_goods'
+  | 'fuel_advance'
+  | 'equipment'
+  | 'disciplinary'
+  | 'loan_repayment'
+  | 'other';
+
+export interface RiderDeduction {
+  id: string;
+  riderId: string;
+  rider?: RiderProfile;
+  amount: string | number;
+  category: DeductionCategory;
+  reason: string;
+  shipmentId: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeductionSummary {
+  totalAmount: number;
+  totalCount: number;
+  uniqueRiders: number;
+  categoryBreakdown: Record<string, number>;
+}
+

@@ -114,7 +114,7 @@ function OrderHistoryView() {
                       <td colSpan={5} style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', fontSize: '14px' }}>
                           <div><strong style={{ display: 'block', marginBottom: '4px' }}>Address</strong><span>{order.dropoffLocation}, {order.dropoffRegion}</span></div>
-                          <div><strong style={{ display: 'block', marginBottom: '4px' }}>Carrier &amp; Weight</strong><span>{formatVehicleSpeed(order)} • {order.weightKg ? `${order.weightKg} kg` : 'N/A'}</span></div>
+                          <div><strong style={{ display: 'block', marginBottom: '4px' }}>Carrier &amp; Option</strong><span>{formatVehicleSpeed(order)} • {order.batchId ? 'Bulk' : order.speed === 'express' || order.priority === 'high' ? 'Express' : 'Standard'}</span></div>
                           <div><strong style={{ display: 'block', marginBottom: '4px' }}>Instructions</strong><span>{order.additionalInstructions || 'None'}</span></div>
                         </div>
                       </td>

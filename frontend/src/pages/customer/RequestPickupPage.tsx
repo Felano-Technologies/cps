@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Package, Boxes, Calendar, Flag, Bike, Truck, User, UserCheck, Contact, Phone,
   MapPin, MapPinned, Zap, Banknote, ImagePlus, StickyNote, Hash, PenLine,
   AlertTriangle, AlertCircle, CheckCircle2, ClipboardList, Send, PackageSearch,
+  Info,
 } from 'lucide-react';
 import api from '../../services/api';
 import { calculateDeliveryCost } from '../../utils/pricing';
@@ -114,23 +115,64 @@ export default function RequestPickupPage() {
   const [bulkImagePreviews, setBulkImagePreviews] = useState<string[]>([]);
   const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string }>>([]);
 
-  // Calculated Cost (Single Delivery)
-  const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
+  // Form Completion Checks
+  const isSingleComplete = Boolean(
+    senderName.trim() &&
+    senderNumber.trim() &&
+    pickupRegion.trim() &&
+    pickupLocation.trim() &&
+    receiverName.trim() &&
+    receiverNumber.trim() &&
+    dropoffRegion.trim() &&
+    dropoffLocation.trim() &&
+    deliverySpeed.trim() &&
+    packageType.trim()
+  );
 
-  // Submission State
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const isBulkComplete = Boolean(
+    senderName.trim() &&
+    senderNumber.trim() &&
+    pickupRegion.trim() &&
+    pickupLocation.trim() &&
+    deliverySpeed.trim() &&
+    packageType.trim() &&
+    typeof numberOfPackages === 'number' &&
+    numberOfPackages > 0 &&
+    (
+      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim())) ||
+      (bulkReceiverMode === 'upload' && bulkImagePreviews.length > 0)
+    )
+  );
 
-  useEffect(() => {
+  const isFormComplete = activeTab === 'single' ? isSingleComplete : isBulkComplete;
+
+  // Calculated Cost (Starts at 0.00 until all required fields are filled)
+  const estimatedCost = useMemo(() => {
+    if (!isFormComplete) return 0;
+
     if (activeTab === 'single') {
       const cost = calculateDeliveryCost({
         region: dropoffRegion,
         kumasiSubArea: dropoffRegion === 'Kumasi' ? dropoffKumasiSubArea : undefined
       });
-      setEstimatedCost(cost);
+      return cost ?? 0;
+    } else {
+      if (bulkReceiverMode === 'manual') {
+        return bulkReceivers.reduce((total, rec) => {
+          const cost = calculateDeliveryCost({ region: rec.region });
+          return total + (cost ?? 35);
+        }, 0);
+      } else {
+        const count = typeof numberOfPackages === 'number' ? numberOfPackages : 0;
+        return count * 35;
+      }
     }
-  }, [dropoffRegion, dropoffKumasiSubArea, activeTab]);
+  }, [isFormComplete, activeTab, dropoffRegion, dropoffKumasiSubArea, bulkReceiverMode, bulkReceivers, numberOfPackages]);
+
+  // Submission State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const handleBulkReceiverChange = (index: number, field: string, value: string) => {
     const newReceivers = [...bulkReceivers];
@@ -745,21 +787,35 @@ export default function RequestPickupPage() {
               <div className="summary-row"><span>Priority</span><strong>{deliveryPriority}</strong></div>
               <div className="summary-row"><span>Speed</span><strong>{deliverySpeed}</strong></div>
 
-              {activeTab === 'single' ? (
-                <>
-                  <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px' }}>
-                    <span>Estimated Fee</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'var(--green)' }}>
-                      {estimatedCost ? `GHS ${estimatedCost.toFixed(2)}` : 'Pending'}
-                    </strong>
-                  </div>
-                </>
-              ) : (
-                <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px' }}>
+              <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600, color: 'var(--navy)' }}>Estimated Fee</span>
+                  <span style={{ fontSize: '11px', color: isFormComplete ? '#166534' : '#94a3b8', fontWeight: 600 }}>
+                    {isFormComplete ? 'Calculated Estimate' : 'Fill required details to estimate'}
+                  </span>
+                </div>
+                <strong style={{ fontSize: '1.3rem', color: isFormComplete ? 'var(--green-dark, #078c35)' : '#64748b' }}>
+                  GHS {estimatedCost.toFixed(2)}
+                </strong>
+              </div>
+
+              {activeTab === 'bulk' && (
+                <div className="summary-row" style={{ marginTop: '8px' }}>
                   <span>Total Packages</span>
-                  <strong style={{ fontSize: '1.2rem' }}>{numberOfPackages || 0}</strong>
+                  <strong style={{ fontSize: '1.1rem' }}>{numberOfPackages || 0}</strong>
                 </div>
               )}
+
+              {/* Operations Review Notice */}
+              <div style={{ marginTop: '18px', padding: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <Info size={18} color="#166534" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+                  <strong style={{ display: 'block', marginBottom: '2px', color: '#14532d', fontSize: '12.5px' }}>
+                    Estimate &amp; Operations Review
+                  </strong>
+                  The amount displayed is an initial estimate. The final price is subject to review and confirmation by operations based on order specifics. Please check your <span style={{ fontWeight: 700, textDecoration: 'underline' }}>notifications</span> for the accepted final price.
+                </div>
+              </div>
 
               <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {isSubmitting ? 'Submitting…' : (<><Send size={16} /> Create Order</>)}

@@ -1,92 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCog, Printer, Plus, Package, Bike, Truck, Car, AlertTriangle, Zap } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Banknote } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
-import EmptyState from '../../components/EmptyState';
-import CustomSelect from '../../components/Form/CustomSelect';
-import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, PackageType } from '../../types/models';
-
-const STATUS_LABELS: Record<ShipmentStatus, string> = {
-  awaiting_price: 'Awaiting Price',
-  pending: 'Pending',
-  picked_up: 'Picked Up',
-  in_transit: 'In Transit',
-  out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
-  delayed: 'Delayed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
-
-const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: string }> = {
-  awaiting_price: { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
-  pending: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  picked_up: { bg: '#ecfccb', text: '#3f6212', dot: '#84cc16' },
-  in_transit: { bg: '#e0ffe0', text: '#22863a', dot: '#22863a' },
-  out_for_delivery: { bg: '#e2e8f0', text: '#0f172a', dot: '#334155' },
-  delivered: { bg: '#f1f5f9', text: '#475569', dot: '#94a3b8' },
-  delayed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
-  failed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
-  cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
-};
-
-const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
-  motorbike: Bike,
-  van: Car,
-  truck: Truck,
-};
-
-const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
-  document: 'Document delivery',
-  parcel: 'Parcel delivery',
-  electronics: 'Electronics delivery',
-  fragile: 'Fragile delivery',
-  food: 'Food delivery',
-  other: 'Package delivery',
-};
-
-const STATUS_FILTERS: Array<'All' | ShipmentStatus> = [
-  'All',
-  'awaiting_price',
-  'pending',
-  'picked_up',
-  'in_transit',
-  'out_for_delivery',
-  'delayed',
-  'delivered',
-  'failed',
-  'cancelled',
-];
-
-function formatCreatedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
+import type { Shipment, RiderProfile } from '../../types/models';
 
 export default function LiveOpsBoardPage() {
   const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'All' | ShipmentStatus>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [riders, setRiders] = useState<RiderProfile[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [assigningId, setAssigningId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function fetchOrders() {
-      setIsLoading(true);
       setError(null);
       try {
         const response = await api.get<Shipment[]>('/shipments');
@@ -97,10 +29,6 @@ export default function LiveOpsBoardPage() {
         if (isMounted) {
           setError('Failed to load orders. Please try again later.');
           toast.error('Failed to load orders.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
         }
       }
     }
@@ -122,9 +50,8 @@ export default function LiveOpsBoardPage() {
           setRiders(response.data);
         }
       } catch {
-        // Non-fatal: assign-rider dropdowns will just be empty.
         if (isMounted) {
-          toast.error('Failed to load orders.');
+          toast.error('Failed to load fleet.');
         }
       }
     }
@@ -135,22 +62,6 @@ export default function LiveOpsBoardPage() {
       isMounted = false;
     };
   }, []);
-
-  const riderOptions = useMemo(() => [
-    { value: '', label: 'Unassigned' },
-    ...riders.map(rider => ({ value: rider.id, label: rider.user.name })),
-  ], [riders]);
-
-  const filteredOrders = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    return orders.filter(order => {
-      const matchesFilter = activeFilter === 'All' || order.status === activeFilter;
-      const matchesSearch =
-        order.trackingCode.toLowerCase().includes(query) ||
-        order.packageType.toLowerCase().includes(query);
-      return matchesFilter && matchesSearch;
-    });
-  }, [orders, activeFilter, searchQuery]);
 
   const newOrderCount = useMemo(
     () => orders.filter(o => o.status === 'awaiting_price').length,
@@ -168,22 +79,6 @@ export default function LiveOpsBoardPage() {
     () => orders.filter(o => o.status === 'delayed').length,
     [orders]
   );
-
-  async function handleAssignRider(shipmentId: string, riderId: string) {
-    if (!riderId) return;
-    setAssigningId(shipmentId);
-    setError(null);
-    try {
-      const response = await api.patch<Shipment>(`/shipments/${shipmentId}/assign`, { riderId });
-      setOrders(prev => prev.map(order => (order.id === shipmentId ? response.data : order)));
-      toast.success('Rider assigned.');
-    } catch {
-      setError('Failed to assign rider. Please try again.');
-      toast.error('Failed to assign rider.');
-    } finally {
-      setAssigningId(null);
-    }
-  }
 
   return (
     <div className="page-shell light-shell">
@@ -390,6 +285,16 @@ export default function LiveOpsBoardPage() {
               <AlertTriangle size={22} />
             </div>
           </div>
+
+          <Link to="/ops/deductions" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider Deductions</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#dc2626', marginTop: '8px' }}>Manage Fines</div>
+            </div>
+            <div style={{ width: '48px', height: '48px', background: '#fef2f2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+              <Banknote size={22} />
+            </div>
+          </Link>
         </div>
 
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}

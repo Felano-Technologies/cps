@@ -14,7 +14,6 @@ import {
   FileText,
 } from 'lucide-react';
 import { useReveal } from '../../hooks/useReveal';
-import heroImg from '../../assets/hero.png';
 import samedayImg from '../../assets/sameday.png';
 import coverageImg from '../../assets/coverage.jpg';
 import '../../styles/landing.css';

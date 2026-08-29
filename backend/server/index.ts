@@ -7,6 +7,7 @@ import shipmentsRoutes from './routes/shipments';
 import notificationsRoutes from './routes/notifications';
 import contactRoutes from './routes/contact';
 import uploadsRoutes from './routes/uploads';
+import deductionsRoutes from './routes/deductions';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/shipments', shipmentsRoutes);
 app.use('/api/riders', ridersRoutes);
+app.use('/api/deductions', deductionsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
