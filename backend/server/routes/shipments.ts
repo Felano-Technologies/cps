@@ -209,7 +209,10 @@ router.get('/', async (req, res) => {
   const shipments = await prisma.shipment.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { assignedRider: { include: { user: { select: { name: true } } } } },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+    },
   });
 
   res.json(shipments);
@@ -220,7 +223,8 @@ router.get('/:trackingCode', async (req, res) => {
     where: { trackingCode: req.params.trackingCode },
     include: {
       statusEvents: { orderBy: { createdAt: 'asc' } },
-      assignedRider: { include: { user: { select: { name: true } } } },
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
     },
   });
 
@@ -263,6 +267,11 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     data: {
       status: parsed.data.status,
       statusEvents: { create: { status: parsed.data.status, note: parsed.data.note } },
+    },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
     },
   });
 
@@ -332,10 +341,22 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
       podPhotoUrl: parsed.data.podPhotoUrl,
       statusEvents: { create: { status: 'delivered', note: `POD via ${parsed.data.podMethod}` } },
     },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+    },
   }).catch(() => null);
 
   if (!updated) {
-    const current = await prisma.shipment.findUnique({ where: { id: shipment.id } });
+    const current = await prisma.shipment.findUnique({
+      where: { id: shipment.id },
+      include: {
+        assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+        customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+        statusEvents: { orderBy: { createdAt: 'asc' } },
+      },
+    });
     return res.json(current);
   }
 
@@ -360,7 +381,10 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
     return res.status(400).json({ error: 'riderId is required' });
   }
 
-  const rider = await prisma.riderProfile.findUnique({ where: { id: parsed.data.riderId } });
+  const rider = await prisma.riderProfile.findUnique({
+    where: { id: parsed.data.riderId },
+    include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+  });
   if (!rider) {
     return res.status(404).json({ error: 'Rider not found' });
   }
@@ -368,6 +392,11 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
   const shipment = await prisma.shipment.update({
     where: { id: req.params.id as string },
     data: { assignedRiderId: rider.id },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+    },
   });
 
   if (shipment.customerId) {
@@ -407,16 +436,22 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
 
   const updated = await prisma.shipment.update({
     where: { id: shipment.id },
-    data: { deliveryFee: parsed.data.deliveryFee },
-    include: { assignedRider: { include: { user: true } } },
+    data: {
+      deliveryFee: parsed.data.deliveryFee,
+    },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+    },
   });
 
   if (updated.customerId) {
     notify(
       updated.customerId,
       'shipment_price_updated',
-      `Order ${updated.trackingCode} price updated`,
-      `Your order's delivery fee is now GHS ${Number(updated.deliveryFee).toFixed(2)}.`,
+      `Shipment ${updated.trackingCode} price updated`,
+      `The delivery fee for ${updated.trackingCode} has been updated to GHS ${Number(updated.deliveryFee).toFixed(2)}.`,
       updated.id
     ).catch(() => {});
   }
@@ -452,7 +487,11 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
         statusEvents: { create: { status: 'pending', note: 'Order processed by operations' } }
       } : {})
     },
-    include: { assignedRider: { include: { user: true } } }
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+    }
   });
 
   if (updated.customerId) {

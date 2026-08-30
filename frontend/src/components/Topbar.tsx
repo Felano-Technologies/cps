@@ -22,6 +22,7 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   operations: [
     { path: '/ops-board', label: 'Live Ops Board' },
     { path: '/fleet', label: 'Fleet Management' },
+    { path: '/ops/deductions', label: 'Rider Deductions' },
     { path: '/ops-alerts', label: 'Alerts' },
     { path: '/ops-analytics', label: 'Analytics' },
     { path: '/settings', label: 'Settings' },

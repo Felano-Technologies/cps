@@ -11,7 +11,7 @@ import {
   XCircle,
   Ban,
   MapPin,
-  Weight,
+  Boxes,
   Bike,
   Package,
   AlertCircle,
@@ -188,7 +188,7 @@ export default function CustomerTrackingPage() {
       <div className="page-shell light-shell">
         <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
           <EmptyState
-            icon="🔍"
+            icon={<AlertCircle size={36} />}
             title="Shipment Not Found"
             message={error || "We couldn't find that shipment."}
             actionLabel="Back to Shipments"
@@ -301,15 +301,13 @@ export default function CustomerTrackingPage() {
                     {VEHICLE_LABELS[shipment.vehicleType]} · {SPEED_LABELS[shipment.speed]}
                   </div>
                 </div>
-                {shipment.weightKg != null && (
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Weight</div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
-                      <Weight size={15} color="#64748b" />
-                      {shipment.weightKg} kg
-                    </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>Delivery Option</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontSize: '15px', fontWeight: 700, color: '#078c35' }}>
+                    <Boxes size={15} color="#078c35" />
+                    {shipment.batchId ? 'Bulk Delivery' : shipment.speed === 'express' || shipment.priority === 'high' ? 'Express Delivery' : 'Standard Delivery'}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

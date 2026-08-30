@@ -39,6 +39,7 @@ import OpsAlertsPage from './pages/operations/OpsAlertsPage';
 import OpsAnalyticsPage from './pages/operations/OpsAnalyticsPage';
 import AdminPanelPage from './pages/admin/AdminPanelPage';
 import OpsOrdersListPage from './pages/operations/OpsOrdersListPage';
+import RiderDeductionsPage from './pages/operations/RiderDeductionsPage';
 
 // Shared Pages
 import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
@@ -174,6 +175,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="operations">
                 <OpsAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops/deductions"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <RiderDeductionsPage />
               </ProtectedRoute>
             }
           />

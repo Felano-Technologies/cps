@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Printer, Plus, Package, Bike, Truck, AlertTriangle } from 'lucide-react';
+import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Banknote } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
@@ -11,7 +11,6 @@ export default function LiveOpsBoardPage() {
   const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [riders, setRiders] = useState<RiderProfile[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +50,8 @@ export default function LiveOpsBoardPage() {
           setRiders(response.data);
         }
       } catch {
-        // Non-fatal: assign-rider dropdowns will just be empty.
         if (isMounted) {
-          toast.error('Failed to load orders.');
+          toast.error('Failed to load fleet.');
         }
       }
     }
@@ -199,6 +197,16 @@ export default function LiveOpsBoardPage() {
               <AlertTriangle size={22} />
             </div>
           </div>
+
+          <Link to="/ops/deductions" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider Deductions</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#dc2626', marginTop: '8px' }}>Manage Fines</div>
+            </div>
+            <div style={{ width: '48px', height: '48px', background: '#fef2f2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+              <Banknote size={22} />
+            </div>
+          </Link>
         </div>
 
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import SharedPasswordView from './SharedPasswordView';
 import EmptyState from '../../components/EmptyState';
 import { SkeletonListItem } from '../../components/Skeleton';
@@ -74,7 +75,7 @@ function OrderHistoryView() {
         <p style={{ textAlign: 'center', padding: '32px', color: '#991b1b', fontWeight: 600 }}>{error}</p>
       ) : shipments.length === 0 ? (
         <EmptyState
-          icon="📦"
+          icon={<Package size={36} />}
           title="No Orders Yet"
           message="Your past shipments will show up here once you've made a pickup request."
         />
@@ -114,7 +115,7 @@ function OrderHistoryView() {
                       <td colSpan={5} style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', fontSize: '14px' }}>
                           <div><strong style={{ display: 'block', marginBottom: '4px' }}>Address</strong><span>{order.dropoffLocation}, {order.dropoffRegion}</span></div>
-                          <div><strong style={{ display: 'block', marginBottom: '4px' }}>Carrier &amp; Weight</strong><span>{formatVehicleSpeed(order)} • {order.weightKg ? `${order.weightKg} kg` : 'N/A'}</span></div>
+                          <div><strong style={{ display: 'block', marginBottom: '4px' }}>Carrier &amp; Option</strong><span>{formatVehicleSpeed(order)} • {order.batchId ? 'Bulk' : order.speed === 'express' || order.priority === 'high' ? 'Express' : 'Standard'}</span></div>
                           <div><strong style={{ display: 'block', marginBottom: '4px' }}>Instructions</strong><span>{order.additionalInstructions || 'None'}</span></div>
                         </div>
                       </td>

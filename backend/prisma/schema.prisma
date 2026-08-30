@@ -93,7 +93,8 @@ model RiderProfile {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  assignedShipments Shipment[] @relation("RiderShipments")
+  assignedShipments Shipment[]       @relation("RiderShipments")
+  deductions        RiderDeduction[]
 
   @@map("rider_profiles")
 }
@@ -194,4 +195,19 @@ model PhoneOtp {
 
   @@index([phone])
   @@map("phone_otps")
+}
+
+model RiderDeduction {
+  id          String       @id @default(cuid())
+  riderId     String
+  rider       RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  amount      Decimal      @db.Decimal(10, 2)
+  category    String       // late_delivery, damaged_goods, fuel_advance, equipment, disciplinary, loan_repayment, other
+  reason      String
+  shipmentId  String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("rider_deductions")
 }
