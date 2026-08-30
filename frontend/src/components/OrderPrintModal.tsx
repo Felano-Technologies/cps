@@ -9,6 +9,7 @@ import type { Shipment } from '../types/models';
 
 interface OrderPrintModalProps {
   onClose: () => void;
+  shipment?: Shipment;
 }
 
 const PRIORITY_OPTIONS = [
@@ -20,24 +21,42 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
+function formDataFromShipment(shipment: Shipment) {
+  return {
+    senderName: shipment.senderName,
+    senderNumber: shipment.senderNumber,
+    receiverName: shipment.receiverName,
+    receiverNumber: shipment.receiverNumber,
+    pickupLocation: shipment.pickupLocation,
+    dropoffLocation: shipment.dropoffLocation,
+    packageType: capitalize(shipment.packageType),
+    priority: shipment.priority === 'high' ? 'High' : 'Standard',
+    cost: shipment.deliveryFee,
+  };
+}
+
+export default function OrderPrintModal({ onClose, shipment }: OrderPrintModalProps) {
   const toast = useToast();
   const [mode, setMode] = useState<'fetch' | 'manual'>('fetch');
-  const [orderId, setOrderId] = useState('');
+  const [orderId, setOrderId] = useState(shipment?.trackingCode ?? '');
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [fetchedCreatedAt, setFetchedCreatedAt] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    senderName: '',
-    senderNumber: '',
-    receiverName: '',
-    receiverNumber: '',
-    pickupLocation: '',
-    dropoffLocation: '',
-    packageType: '',
-    priority: 'Standard',
-    cost: '',
-  });
+  const [fetchedCreatedAt, setFetchedCreatedAt] = useState<string | null>(shipment?.createdAt ?? null);
+  const [formData, setFormData] = useState(
+    shipment
+      ? formDataFromShipment(shipment)
+      : {
+          senderName: '',
+          senderNumber: '',
+          receiverName: '',
+          receiverNumber: '',
+          pickupLocation: '',
+          dropoffLocation: '',
+          packageType: '',
+          priority: 'Standard',
+          cost: '',
+        }
+  );
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -55,20 +74,10 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
     setFetchError(null);
     try {
       const response = await api.get<Shipment>(`/shipments/${encodeURIComponent(trackingCode)}`);
-      const shipment = response.data;
-      setOrderId(shipment.trackingCode);
-      setFetchedCreatedAt(shipment.createdAt);
-      setFormData({
-        senderName: shipment.senderName,
-        senderNumber: shipment.senderNumber,
-        receiverName: shipment.receiverName,
-        receiverNumber: shipment.receiverNumber,
-        pickupLocation: shipment.pickupLocation,
-        dropoffLocation: shipment.dropoffLocation,
-        packageType: capitalize(shipment.packageType),
-        priority: shipment.priority === 'high' ? 'High' : 'Standard',
-        cost: shipment.deliveryFee,
-      });
+      const fetchedShipment = response.data;
+      setOrderId(fetchedShipment.trackingCode);
+      setFetchedCreatedAt(fetchedShipment.createdAt);
+      setFormData(formDataFromShipment(fetchedShipment));
     } catch {
       const message = 'Order not found. Check the tracking code and try again.';
       setFetchError(message);
@@ -84,30 +93,31 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
       <style>
         {`
           @media print {
-            body * {
-              visibility: hidden;
-            }
-            .modal-overlay, .modal-shell {
-              position: static !important;
-              overflow: visible !important;
-              max-height: none !important;
-            }
-            #printable-receipt, #printable-receipt * {
-              visibility: visible;
-            }
-            #printable-receipt {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 80mm; /* standard thermal receipt width */
-              padding: 5mm;
-              font-family: monospace;
-              font-size: 12px;
-              color: #000;
-              background: #fff;
+            #root {
+              display: none !important;
             }
             .no-print {
               display: none !important;
+            }
+            .modal-overlay {
+              position: static !important;
+              background: none !important;
+              backdrop-filter: none !important;
+              padding: 0 !important;
+            }
+            .modal-shell {
+              position: static !important;
+              overflow: visible !important;
+              max-height: none !important;
+              box-shadow: none !important;
+            }
+            .modal-preview {
+              background: none !important;
+              padding: 0 !important;
+            }
+            #printable-receipt {
+              width: 80mm; /* standard thermal receipt width */
+              box-shadow: none !important;
             }
           }
           @media (max-width: 768px) {

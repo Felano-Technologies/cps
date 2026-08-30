@@ -708,15 +708,20 @@ export default function RiderDeductionsPage() {
         <style>{`
           .hover-row:hover { background: #f8fafc !important; }
           @media print {
-            body * { visibility: hidden; }
-            .modal-overlay, .modal-shell {
+            #root { display: none !important; }
+            .no-print { display: none !important; }
+            .modal-overlay {
+              position: static !important;
+              background: none !important;
+              backdrop-filter: none !important;
+              padding: 0 !important;
+            }
+            .modal-shell {
               position: static !important;
               overflow: visible !important;
               max-height: none !important;
+              box-shadow: none !important;
             }
-            #printable-deduction-slip, #printable-deduction-slip * { visibility: visible; }
-            #printable-deduction-slip { position: absolute; left: 0; top: 0; width: 100%; }
-            .no-print { display: none !important; }
           }
         `}</style>
       </main>

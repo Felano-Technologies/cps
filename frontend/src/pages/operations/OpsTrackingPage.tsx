@@ -1021,7 +1021,7 @@ export default function OpsTrackingPage() {
 
       </main>
 
-      {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
+      {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} shipment={shipment} />}
     </div>
   );
 }
