@@ -87,6 +87,11 @@ export default function OrderPrintModal({ onClose }: OrderPrintModalProps) {
             body * {
               visibility: hidden;
             }
+            .modal-overlay, .modal-shell {
+              position: static !important;
+              overflow: visible !important;
+              max-height: none !important;
+            }
             #printable-receipt, #printable-receipt * {
               visibility: visible;
             }

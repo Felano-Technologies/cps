@@ -709,6 +709,11 @@ export default function RiderDeductionsPage() {
           .hover-row:hover { background: #f8fafc !important; }
           @media print {
             body * { visibility: hidden; }
+            .modal-overlay, .modal-shell {
+              position: static !important;
+              overflow: visible !important;
+              max-height: none !important;
+            }
             #printable-deduction-slip, #printable-deduction-slip * { visibility: visible; }
             #printable-deduction-slip { position: absolute; left: 0; top: 0; width: 100%; }
             .no-print { display: none !important; }
