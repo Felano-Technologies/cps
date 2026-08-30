@@ -26,6 +26,25 @@ const createDeductionSchema = z.object({
   notifyRider: z.boolean().optional().default(true),
 });
 
+// GET /api/deductions/me - the logged-in rider's own deductions
+router.get('/me', requireRole('rider'), async (req, res) => {
+  try {
+    const riderProfile = await prisma.riderProfile.findUnique({ where: { userId: req.auth!.userId }, select: { id: true } });
+    if (!riderProfile) {
+      return res.json([]);
+    }
+
+    const deductions = await prisma.riderDeduction.findMany({
+      where: { riderId: riderProfile.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(deductions);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to fetch deductions' });
+  }
+});
+
 // GET /api/deductions - list deductions
 router.get('/', requireRole('operations', 'admin'), async (req, res) => {
   const { riderId, category, search } = req.query as { riderId?: string; category?: string; search?: string };

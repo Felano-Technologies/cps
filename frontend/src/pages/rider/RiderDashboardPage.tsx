@@ -2,15 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package } from 'lucide-react';
+import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package, Banknote } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Modal from '../../components/Modal';
+import EmptyState from '../../components/EmptyState';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton, SkeletonCircle, SkeletonStatCard, SkeletonListItem } from '../../components/Skeleton';
-import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus } from '../../types/models';
+import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus, RiderDeduction } from '../../types/models';
+
+const DEDUCTION_CATEGORY_LABELS: Record<string, string> = {
+  late_delivery: 'Late Delivery',
+  damaged_goods: 'Damaged / Lost Goods',
+  fuel_advance: 'Fuel Advance',
+  equipment: 'Uniform & Equipment',
+  disciplinary: 'Disciplinary Fine',
+  loan_repayment: 'Loan Repayment',
+  other: 'Other Adjustment',
+};
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
   awaiting_price: 'Awaiting Price',
@@ -54,6 +65,7 @@ export default function RiderDashboardPage() {
 
   const [profile, setProfile] = useState<RiderProfile | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [deductions, setDeductions] = useState<RiderDeduction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,16 +73,19 @@ export default function RiderDashboardPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [interactingStopId, setInteractingStopId] = useState<string | null>(null);
   const [detailsStopId, setDetailsStopId] = useState<string | null>(null);
+  const [isDeductionsModalOpen, setIsDeductionsModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, shipmentsRes] = await Promise.all([
+        const [profileRes, shipmentsRes, deductionsRes] = await Promise.all([
           api.get<RiderProfile>('/riders/me'),
           api.get<Shipment[]>('/shipments'),
+          api.get<RiderDeduction[]>('/deductions/me'),
         ]);
         setProfile(profileRes.data);
         setShipments(shipmentsRes.data);
+        setDeductions(deductionsRes.data);
       } catch {
         setError('Failed to load your dashboard.');
         toast.error('Failed to load your dashboard.');
@@ -108,6 +123,11 @@ export default function RiderDashboardPage() {
       .filter(s => s.status === 'delivered' && s.updatedAt.slice(0, 10) === todayStr)
       .reduce((sum, s) => sum + Number(s.deliveryFee), 0);
   }, [shipments]);
+
+  const totalDeductions = useMemo(
+    () => deductions.reduce((sum, d) => sum + Number(d.amount), 0),
+    [deductions]
+  );
 
   const chartData = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -244,7 +264,7 @@ export default function RiderDashboardPage() {
 
         {isOnline && (
           <>
-            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
               <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Wallet size={14} /> Today's Earnings</div>
                 <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>GHS {todaysEarnings.toFixed(2)}</div>
@@ -257,6 +277,14 @@ export default function RiderDashboardPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Route size={14} /> Active Stops</div>
                 <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>{shipments.length - completedCount}</div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsDeductionsModalOpen(true)}
+                style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Banknote size={14} /> Deductions</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: totalDeductions > 0 ? '#dc2626' : '#0f172a' }}>GHS {totalDeductions.toFixed(2)}</div>
+              </button>
             </div>
 
             <div style={{ background: '#ffffff', borderRadius: '20px', padding: '20px', marginBottom: '24px', border: '1px solid #e2e8f0' }}>
@@ -518,6 +546,36 @@ export default function RiderDashboardPage() {
               </div>
             )}
           </div>
+        </Modal>
+      )}
+
+      {isDeductionsModalOpen && (
+        <Modal onClose={() => setIsDeductionsModalOpen(false)} title="Earnings Deductions" maxWidth="480px">
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '-8px', marginBottom: '20px' }}>
+            Total deducted: <strong style={{ color: totalDeductions > 0 ? '#dc2626' : '#0f172a' }}>GHS {totalDeductions.toFixed(2)}</strong>
+          </p>
+          {deductions.length === 0 ? (
+            <EmptyState
+              icon={<Banknote size={36} />}
+              title="No Deductions"
+              message="You have no earnings deductions on record."
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
+              {deductions.map(d => (
+                <div key={d.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{DEDUCTION_CATEGORY_LABELS[d.category] ?? d.category}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 800, color: '#dc2626', flexShrink: 0 }}>-GHS {Number(d.amount).toFixed(2)}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>{d.reason}</p>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
+                    {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Modal>
       )}
     </div>
