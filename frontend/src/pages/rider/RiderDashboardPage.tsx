@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route } from 'lucide-react';
+import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
-import Map from '../../components/Map';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -277,18 +276,10 @@ export default function RiderDashboardPage() {
                 background: '#ffffff', borderRadius: '24px', overflow: 'hidden', marginBottom: '32px',
                 border: '1px solid #e2e8f0', boxShadow: '0 12px 32px rgba(15, 23, 42, 0.08)',
               }}>
-                <Map
-                  className="map-mini-surface"
-                  markers={[
-                    { label: 'Pickup', address: `${activeStop.pickupLocation}, ${activeStop.pickupRegion}, Ghana` },
-                    { label: 'Dropoff', address: `${activeStop.dropoffLocation}, ${activeStop.dropoffRegion}, Ghana` },
-                  ]}
-                  showRoute
-                />
-
                 <div style={{ padding: '20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                     <div>
+                      <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px', textTransform: 'uppercase' }}>Active Order</div>
                       <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em' }}>{activeStop.dropoffLocation}</h3>
                       <p style={{ margin: 0, fontSize: '14px', color: '#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <MapPin size={14} /> {activeStop.dropoffRegion}
@@ -298,6 +289,40 @@ export default function RiderDashboardPage() {
                       {STATUS_LABELS[activeStop.status]}
                     </span>
                   </div>
+
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Pickup</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.pickupLocation}, {activeStop.pickupRegion}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Receiver</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.receiverName}</div>
+                      </div>
+                      <a
+                        href={`tel:${activeStop.receiverNumber}`}
+                        style={{ marginLeft: 'auto', width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
+                      >
+                        <Phone size={15} />
+                      </a>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fef9c3', color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Package size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Package</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>{activeStop.packageType} · {activeStop.speed.replace('_', ' ')}</div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>GHS {Number(activeStop.deliveryFee).toFixed(2)}</div>
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => navigate('/route')}
                     style={{ width: '100%', background: '#0f172a', color: '#fff', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: 800, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
