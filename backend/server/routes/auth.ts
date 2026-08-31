@@ -47,8 +47,11 @@ async function issueOtp(phone: string) {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
   await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
-  console.log(`[otp] Code for ${phone}: ${code} (visible here until MNOTIFY_SENDER_ID is set)`);
-  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`, { isOtp: true }).catch(() => {});
+  console.log(`[otp] Code for ${phone}: ${code}`);
+  // Not tagged sms_type: "otp" — that bills from mNotify's separate OTP
+  // wallet (currently unfunded), while regular sends use the normal SMS
+  // credit balance, which is funded. Revisit once the wallet is topped up.
+  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
 }
 
 async function findValidOtp(phone: string, code: string) {
