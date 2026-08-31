@@ -59,43 +59,57 @@ export function playNotificationAlertSound(volumeMultiplier = 1.0) {
     }
 
     const now = ctx.currentTime;
-    const vol = Math.min(1.0, Math.max(0.1, volumeMultiplier));
+    const vol = Math.min(2.0, Math.max(0.1, volumeMultiplier));
 
-    // Note 1: Clean, high-clarity crystal chime tone (G5 - 784 Hz)
+    // Dynamic compression to maximize perceived loudness without clipping
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-14, now);
+    compressor.knee.setValueAtTime(30, now);
+    compressor.ratio.setValueAtTime(10, now);
+    compressor.attack.setValueAtTime(0.003, now);
+    compressor.release.setValueAtTime(0.2, now);
+    compressor.connect(ctx.destination);
+
+    // Master volume boost stage
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(1.5 * vol, now);
+    masterGain.connect(compressor);
+
+    // Note 1: High-impact crystal chime tone (G5 - 783.99 Hz)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(783.99, now);
-    gain1.gain.setValueAtTime(0.5 * vol, now);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    gain1.gain.setValueAtTime(0.9, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
     osc1.connect(gain1);
-    gain1.connect(ctx.destination);
+    gain1.connect(masterGain);
     osc1.start(now);
-    osc1.stop(now + 0.35);
+    osc1.stop(now + 0.38);
 
-    // Note 2: Bright harmonic chime (C6 - 1046.5 Hz)
+    // Note 2: Bright harmonic chime (C6 - 1046.50 Hz)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(1046.50, now + 0.1);
-    gain2.gain.setValueAtTime(0.6 * vol, now + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+    gain2.gain.setValueAtTime(0.95, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
     osc2.connect(gain2);
-    gain2.connect(ctx.destination);
+    gain2.connect(masterGain);
     osc2.start(now + 0.1);
-    osc2.stop(now + 0.55);
+    osc2.stop(now + 0.58);
 
-    // Note 3: High bell overtone (E6 - 1318.5 Hz) for rich presence & audibility
+    // Note 3: High bell overtone (E6 - 1318.5 Hz) for audibility
     const osc3 = ctx.createOscillator();
     const gain3 = ctx.createGain();
     osc3.type = 'sine';
     osc3.frequency.setValueAtTime(1318.51, now + 0.2);
-    gain3.gain.setValueAtTime(0.5 * vol, now + 0.2);
-    gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+    gain3.gain.setValueAtTime(0.9, now + 0.2);
+    gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.68);
     osc3.connect(gain3);
-    gain3.connect(ctx.destination);
+    gain3.connect(masterGain);
     osc3.start(now + 0.2);
-    osc3.stop(now + 0.65);
+    osc3.stop(now + 0.68);
   } catch {
     // AudioContext blocked or not supported
   }
@@ -163,8 +177,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       );
 
       if (!isInitialFetchRef.current && hasNewUnread) {
-        // Operations & Admin side rings continuously for 1 minute (60s); other roles get single chime
-        if (user?.role === 'operations' || user?.role === 'admin') {
+        // Operations, Admin, and Rider sides ring continuously for 1 minute (60s); customer role gets single chime
+        if (user?.role === 'operations' || user?.role === 'admin' || user?.role === 'rider') {
           startAlertRinging(60000);
         } else {
           playNotificationAlertSound();
@@ -211,6 +225,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const payload = JSON.parse(event.data);
           if (payload.type === 'notification' && payload.notification) {
             const incoming: Notification = payload.notification;
+            if (!knownNotificationIdsRef.current.has(incoming.id)) {
+              knownNotificationIdsRef.current.add(incoming.id);
+              if (user?.role === 'operations' || user?.role === 'admin' || user?.role === 'rider') {
+                startAlertRinging(60000);
+              } else {
+                playNotificationAlertSound();
+              }
+            }
             setNotifications(prev => [incoming, ...prev.filter(n => n.id !== incoming.id)]);
             setUnreadCount(prev => prev + 1);
           }
@@ -233,7 +255,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role, startAlertRinging]);
 
   const markRead = useCallback(async (id: string) => {
     stopAlertRinging();
