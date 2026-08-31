@@ -19,9 +19,9 @@ const CATEGORY_META: Record<DeductionCategory, { label: string; bg: string; text
   late_delivery: { label: 'Late Delivery', bg: '#fef2f2', text: '#991b1b', border: '#fecaca', icon: Clock },
   damaged_goods: { label: 'Damaged / Lost Goods', bg: '#fff1f2', text: '#be123c', border: '#fecdd3', icon: AlertTriangle },
   fuel_advance: { label: 'Fuel Advance', bg: '#f0fdf4', text: '#166534', border: '#bbf7d0', icon: Fuel },
-  equipment: { label: 'Uniform & Equipment', bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe', icon: Wrench },
+  equipment: { label: 'Uniform & Equipment', bg: '#f1f5f9', text: '#334155', border: '#cbd5e1', icon: Wrench },
   disciplinary: { label: 'Disciplinary Fine', bg: '#fff7ed', text: '#c2410c', border: '#fed7aa', icon: ShieldAlert },
-  loan_repayment: { label: 'Loan Repayment', bg: '#faf5ff', text: '#6b21a8', border: '#e9d5ff', icon: Banknote },
+  loan_repayment: { label: 'Loan Repayment', bg: '#e2e8f0', text: '#0f172a', border: '#94a3b8', icon: Banknote },
   other: { label: 'Other Adjustment', bg: '#f1f5f9', text: '#475569', border: '#cbd5e1', icon: Scale },
 };
 
@@ -269,7 +269,7 @@ export default function RiderDeductionsPage() {
               </div>
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Riders with active deductions</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#eff6ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+            <div style={{ width: '48px', height: '48px', background: '#e2e8f0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a' }}>
               <User size={22} />
             </div>
           </div>
@@ -462,7 +462,7 @@ export default function RiderDeductionsPage() {
                   <tr>
                     <td colSpan={6} style={{ padding: '36px' }}>
                       <EmptyState
-                        icon="💰"
+                        icon={<Banknote size={36} />}
                         title="No Deductions Found"
                         message="There are currently no deduction records matching your search or filters."
                       />
@@ -708,10 +708,20 @@ export default function RiderDeductionsPage() {
         <style>{`
           .hover-row:hover { background: #f8fafc !important; }
           @media print {
-            body * { visibility: hidden; }
-            #printable-deduction-slip, #printable-deduction-slip * { visibility: visible; }
-            #printable-deduction-slip { position: absolute; left: 0; top: 0; width: 100%; }
+            #root { display: none !important; }
             .no-print { display: none !important; }
+            .modal-overlay {
+              position: static !important;
+              background: none !important;
+              backdrop-filter: none !important;
+              padding: 0 !important;
+            }
+            .modal-shell {
+              position: static !important;
+              overflow: visible !important;
+              max-height: none !important;
+              box-shadow: none !important;
+            }
           }
         `}</style>
       </main>

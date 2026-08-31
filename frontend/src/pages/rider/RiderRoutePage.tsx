@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight, PackageX, PartyPopper } from 'lucide-react';
+import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight, PackageX, PartyPopper, MapPin, Package, Wallet, Zap } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
-import Map from '../../components/Map';
 import { useToast } from '../../contexts/ToastContext';
 import { PageLoader } from '../../components/Spinner';
 import api from '../../services/api';
@@ -11,6 +10,7 @@ import type { PodMethod, Shipment } from '../../types/models';
 
 interface RouteStop {
   id: string;
+  trackingCode: string;
   address: string;
   details: string;
   parcels: number;
@@ -23,6 +23,11 @@ interface RouteStop {
   pickupLocation: string;
   pickupRegion: string;
   dropoffRegion: string;
+  dropoffKumasiSubArea: string | null;
+  packageType: string;
+  speed: string;
+  priority: string;
+  deliveryFee: string;
 }
 
 function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
@@ -47,6 +52,7 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
 
     return {
       id: shipment.id,
+      trackingCode: shipment.trackingCode,
       address: shipment.dropoffLocation,
       details: shipment.additionalInstructions || shipment.pickupLocation || '',
       parcels: 1,
@@ -59,6 +65,11 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
       pickupLocation: shipment.pickupLocation,
       pickupRegion: shipment.pickupRegion,
       dropoffRegion: shipment.dropoffRegion,
+      dropoffKumasiSubArea: shipment.dropoffKumasiSubArea,
+      packageType: shipment.packageType,
+      speed: shipment.speed,
+      priority: shipment.priority,
+      deliveryFee: shipment.deliveryFee,
     };
   });
 }
@@ -203,104 +214,129 @@ export default function RiderRoutePage() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#e2e8f0', overflow: 'hidden' }}>
+    <div className="page-shell light-shell" style={{ minHeight: '100vh', paddingBottom: activeStop ? '120px' : '24px' }}>
 
-      {activeStop && (
-        <Map
-          className="route-map-fullscreen"
-          markers={[
-            { label: 'Pickup', address: `${activeStop.pickupLocation}, ${activeStop.pickupRegion}, Ghana` },
-            { label: 'Dropoff', address: `${activeStop.address}, ${activeStop.dropoffRegion}, Ghana` },
-          ]}
-          showRoute
-        />
-      )}
-
-      {/* Top HUD */}
-      <div style={{ position: 'absolute', top: '24px', left: '16px', right: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10 }}>
-        <button onClick={() => navigate('/rider-board')} style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <ChevronLeft size={22} />
+      {/* Top bar */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 10, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)',
+        padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0',
+      }}>
+        <button onClick={() => navigate('/rider-board')} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f1f5f9', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <ChevronLeft size={20} />
         </button>
-        <div style={{ background: '#fff', padding: '12px 24px', borderRadius: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontWeight: 800, color: '#0f172a' }}>
-          Today's Route
-        </div>
-        <button style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', cursor: 'pointer' }}>
-          <AlertOctagon size={20} />
+        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '16px' }}>Today's Route</div>
+        <button onClick={() => activeStop && setIssueOpen(true)} disabled={!activeStop} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fef2f2', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', cursor: activeStop ? 'pointer' : 'not-allowed', opacity: activeStop ? 1 : 0.5 }}>
+          <AlertOctagon size={18} />
         </button>
       </div>
 
-      {/* Inline error banner for action failures */}
       {error && (
-        <div style={{ position: 'absolute', top: '84px', left: '16px', right: '16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '16px', padding: '12px 16px', fontWeight: 700, fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', zIndex: 15, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <div style={{ margin: '16px 20px 0', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '16px', padding: '12px 16px', fontWeight: 700, fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <span>{error}</span>
           <button onClick={() => setError(null)} style={{ background: 'transparent', border: 'none', color: '#991b1b', fontWeight: 800, cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
         </div>
       )}
 
-      {/* Bottom Sheet - Active Stop */}
       {activeStop && (
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, background: '#fff',
-          borderTopLeftRadius: '32px', borderTopRightRadius: '32px',
-          padding: '24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
-          boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.1)', zIndex: 20,
-          display: 'flex', flexDirection: 'column', maxHeight: '85vh',
-          animation: 'slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
-          <div style={{ width: '40px', height: '6px', background: '#e2e8f0', borderRadius: '3px', margin: '0 auto 24px', flexShrink: 0 }} />
-
-          <div style={{ overflowY: 'auto', flex: 1, paddingBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-              <div>
-                <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px' }}>NEXT STOP</div>
-                <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>{activeStop.address}</h2>
-                <div style={{ color: '#64748b', fontSize: '15px', marginTop: '4px' }}>{activeStop.details}</div>
-              </div>
-              <div style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{activeStop.parcels}</div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Pkg</div>
-              </div>
+        <main style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div>
+              <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px', textTransform: 'uppercase' }}>Next Stop</div>
+              <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>{activeStop.address}</h2>
+              <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MapPin size={14} /> {activeStop.dropoffRegion}
+                {activeStop.dropoffKumasiSubArea && ` (${activeStop.dropoffKumasiSubArea === 'CampusAndEnvirons' ? 'KNUST Campus & Environs' : activeStop.dropoffKumasiSubArea})`}
+              </p>
             </div>
-
-            <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', marginBottom: '24px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '16px', marginTop: 0 }}>Order Contacts</h3>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Sender</div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.senderName}</div>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.senderNumber}</div>
-                </div>
-                <a href={`tel:${activeStop.senderNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
-                  <Phone size={18} />
-                </a>
-              </div>
-
-              <div style={{ height: '1px', background: '#e2e8f0', margin: '0 -16px 16px' }} />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Receiver</div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.receiverName}</div>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.receiverNumber}</div>
-                </div>
-                <a href={`tel:${activeStop.receiverNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
-                  <Phone size={18} />
-                </a>
-              </div>
+            <div style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '12px', textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{activeStop.parcels}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Pkg</div>
             </div>
-
-            <button onClick={() => setIssueOpen(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '16px', color: '#ef4444', fontWeight: 700, cursor: 'pointer', fontSize: '16px' }}>
-              <AlertTriangle size={18} /> Report Issue
-            </button>
           </div>
 
+          {/* Order Details */}
+          <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', marginBottom: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '4px', borderBottom: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{activeStop.trackingCode}</span>
+              {activeStop.priority === 'high' && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#854d0e', background: '#fef9c3', padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.03em' }}>
+                  <Zap size={11} /> HIGH PRIORITY
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Pickup</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.pickupLocation}, {activeStop.pickupRegion}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fef9c3', color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Package size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Package</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>{activeStop.packageType} · {activeStop.speed.replace('_', ' ')}</div>
+              </div>
+              <div style={{ marginLeft: 'auto', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Wallet size={14} /> GHS {Number(activeStop.deliveryFee).toFixed(2)}
+              </div>
+            </div>
+
+            {activeStop.details && (
+              <div style={{ fontSize: '13px', color: '#64748b', background: '#fff', borderRadius: '10px', padding: '10px 12px', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#0f172a' }}>Note:</strong> {activeStop.details}
+              </div>
+            )}
+          </div>
+
+          {/* Order Contacts */}
+          <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '16px', marginTop: 0 }}>Order Contacts</h3>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Sender</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.senderName}</div>
+                <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.senderNumber}</div>
+              </div>
+              <a href={`tel:${activeStop.senderNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
+                <Phone size={18} />
+              </a>
+            </div>
+
+            <div style={{ height: '1px', background: '#e2e8f0', margin: '0 -16px 16px' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '2px' }}>Receiver</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{activeStop.receiverName}</div>
+                <div style={{ fontSize: '14px', color: '#64748b' }}>{activeStop.receiverNumber}</div>
+              </div>
+              <a href={`tel:${activeStop.receiverNumber}`} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 2px 8px rgba(7, 140, 53, 0.1)' }}>
+                <Phone size={18} />
+              </a>
+            </div>
+          </div>
+
+          <button onClick={() => setIssueOpen(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '16px', color: '#ef4444', fontWeight: 700, cursor: 'pointer', fontSize: '16px' }}>
+            <AlertTriangle size={18} /> Report Issue
+          </button>
+        </main>
+      )}
+
+      {activeStop && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e2e8f0',
+          padding: '16px 20px', paddingBottom: 'max(16px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.08)', zIndex: 20,
+        }}>
           <button
             onClick={() => setPodOpen(true)}
-            style={{ width: '100%', flexShrink: 0, background: '#078c35', color: '#fff', padding: '20px', borderRadius: '16px', border: 'none', fontSize: '20px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer', marginTop: '12px' }}
+            style={{ width: '100%', background: '#078c35', color: '#fff', padding: '18px', borderRadius: '16px', border: 'none', fontSize: '18px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer' }}
           >
             Arrived &amp; Deliver
-            <ArrowRight size={22} />
+            <ArrowRight size={20} />
           </button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -112,6 +113,104 @@ router.patch('/password', requireAuth, async (req, res) => {
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   res.status(204).send();
+});
+
+const OTP_TTL_MS = 5 * 60 * 1000;
+
+const phoneSchema = z.object({ phone: z.string().min(7) });
+
+router.post('/phone/request-otp', async (req, res) => {
+  const parsed = phoneSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'A valid phone number is required' });
+  }
+  const { phone } = parsed.data;
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+  await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
+
+  // Stub: no SMS provider configured yet. Log the code server-side instead of
+  // sending a real SMS — swap in a provider (e.g. Twilio) here later.
+  console.log(`[phone-otp] Code for ${phone}: ${code} (expires in 5 minutes)`);
+
+  res.status(204).send();
+});
+
+async function findValidOtp(phone: string, code: string) {
+  return prisma.phoneOtp.findFirst({
+    where: { phone, code, consumedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+const verifyOtpSchema = z.object({ phone: z.string().min(7), code: z.string().length(6) });
+
+router.post('/phone/verify-otp', async (req, res) => {
+  const parsed = verifyOtpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'A valid phone number and code are required' });
+  }
+  const { phone, code } = parsed.data;
+
+  const otp = await findValidOtp(phone, code);
+  if (!otp) {
+    return res.status(400).json({ error: 'Invalid or expired code' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) {
+    // Leave the OTP unconsumed — /phone/signup consumes it once the profile is completed.
+    return res.json({ exists: false });
+  }
+
+  await prisma.phoneOtp.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
+  const token = signToken({ userId: user.id, role: user.role });
+  setSessionCookie(res, token);
+  res.json({ exists: true, user: toPublicUser(user) });
+});
+
+const phoneSignupSchema = z.object({
+  phone: z.string().min(7),
+  code: z.string().length(6),
+  name: z.string().min(1),
+  role: z.enum(['customer', 'operations', 'admin', 'rider']),
+});
+
+router.post('/phone/signup', async (req, res) => {
+  const parsed = phoneSignupSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+  const { phone, code, name, role } = parsed.data;
+
+  const otp = await findValidOtp(phone, code);
+  if (!otp) {
+    return res.status(400).json({ error: 'Invalid or expired code' });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { phone } });
+  if (existing) {
+    return res.status(409).json({ error: 'An account with this phone number already exists' });
+  }
+
+  await prisma.phoneOtp.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
+
+  const passwordHash = await bcrypt.hash(randomUUID() + randomUUID(), 10);
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email: `${phone.replace(/[^0-9]/g, '')}@phone.cps.local`,
+      passwordHash,
+      role,
+      phone,
+      ...(role === 'rider' ? { riderProfile: { create: {} } } : {}),
+    },
+  });
+
+  const token = signToken({ userId: user.id, role: user.role });
+  setSessionCookie(res, token);
+  res.status(201).json(toPublicUser(user));
 });
 
 export default router;

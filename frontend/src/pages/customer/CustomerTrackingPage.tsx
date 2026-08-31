@@ -188,7 +188,7 @@ export default function CustomerTrackingPage() {
       <div className="page-shell light-shell">
         <main className="container" style={{ paddingTop: '48px', paddingBottom: '120px', maxWidth: '1100px', margin: '0 auto' }}>
           <EmptyState
-            icon="🔍"
+            icon={<AlertCircle size={36} />}
             title="Shipment Not Found"
             message={error || "We couldn't find that shipment."}
             actionLabel="Back to Shipments"

@@ -98,91 +98,6 @@ export default function LiveOpsBoardPage() {
           border-radius: 16px;
         }
 
-        .radar-map {
-          background: #0f172a;
-          border-radius: 16px;
-          position: relative;
-          overflow: hidden;
-          box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 10px 30px rgba(15, 23, 42, 0.2);
-        }
-        .radar-grid {
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(rgba(131, 211, 20, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(131, 211, 20, 0.1) 1px, transparent 1px);
-          background-size: 30px 30px;
-          opacity: 0.5;
-        }
-        .radar-sweep {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 150%;
-          height: 150%;
-          background: conic-gradient(from 0deg, transparent 70%, rgba(131, 211, 20, 0.4) 100%);
-          transform-origin: 0 0;
-          animation: sweep 4s linear infinite;
-          pointer-events: none;
-        }
-        @keyframes sweep {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
-        .map-node {
-          position: absolute;
-          width: 12px;
-          height: 12px;
-          background: #83d314;
-          border-radius: 50%;
-          box-shadow: 0 0 10px #83d314, 0 0 20px #83d314;
-          transform: translate(-50%, -50%);
-        }
-        .map-node.warning {
-          background: #ef4444;
-          box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
-        }
-        .map-node::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          border-radius: 50%;
-          border: 1px solid #83d314;
-          animation: ripple 2s infinite ease-out;
-        }
-        .map-node.warning::after {
-          border-color: #ef4444;
-        }
-        @keyframes ripple {
-          0% { transform: scale(0.5); opacity: 1; }
-          100% { transform: scale(2.5); opacity: 0; }
-        }
-
-        .filter-pill {
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          border: 1px solid #e2e8f0;
-          background: #fff;
-          color: #64748b;
-          transition: all 0.2s;
-          white-space: nowrap;
-        }
-        .filter-pill:hover {
-          border-color: #cbd5e1;
-        }
-        .filter-pill.active {
-          background: #078c35;
-          color: #fff;
-          border-color: #078c35;
-        }
-
         .dashboard-main-grid {
           display: grid;
           grid-template-columns: 1fr;
@@ -205,9 +120,6 @@ export default function LiveOpsBoardPage() {
         @media (max-width: 1024px) {
           .dashboard-main-grid {
             grid-template-columns: 1fr;
-          }
-          .radar-map {
-            height: 400px !important;
           }
         }
         @media (max-width: 768px) {
