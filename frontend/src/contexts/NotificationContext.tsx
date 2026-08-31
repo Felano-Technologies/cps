@@ -18,7 +18,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const POLL_INTERVAL_MS = 30000;
 
-export function playNotificationAlertSound() {
+export function playNotificationAlertSound(volumeMultiplier = 0.9) {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
@@ -29,30 +29,33 @@ export function playNotificationAlertSound() {
     }
 
     const now = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(Math.min(1.0, Math.max(0.1, volumeMultiplier)), now);
+    masterGain.connect(ctx.destination);
 
-    // Harmonic chime tone 1 (G5 - 783.99 Hz)
+    // High-impact Harmonic chime tone 1 (G5 - 783.99 Hz)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'triangle';
     osc1.frequency.setValueAtTime(783.99, now);
-    gain1.gain.setValueAtTime(0.25, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    gain1.gain.setValueAtTime(0.6, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
     osc1.connect(gain1);
-    gain1.connect(ctx.destination);
+    gain1.connect(masterGain);
     osc1.start(now);
-    osc1.stop(now + 0.35);
+    osc1.stop(now + 0.4);
 
-    // Harmonic chime tone 2 (C6 - 1046.50 Hz)
+    // High-impact Harmonic chime tone 2 (C6 - 1046.50 Hz)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1046.50, now + 0.1);
-    gain2.gain.setValueAtTime(0.3, now + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.frequency.setValueAtTime(1046.50, now + 0.08);
+    gain2.gain.setValueAtTime(0.7, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
     osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.1);
-    osc2.stop(now + 0.55);
+    gain2.connect(masterGain);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.6);
   } catch {
     // AudioContext blocked or not supported
   }
@@ -90,12 +93,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const startAlertRinging = useCallback((durationMs = 60000) => {
     stopAlertRinging();
     setIsRinging(true);
-    playNotificationAlertSound();
+    playNotificationAlertSound(0.95);
 
-    // Re-play alert chime every 2.5 seconds during the 1-minute window
+    // Re-play alert chime every 1.5 seconds during the 1-minute window
     ringIntervalRef.current = setInterval(() => {
-      playNotificationAlertSound();
-    }, 2500);
+      playNotificationAlertSound(0.95);
+    }, 1500);
 
     // Automatically stop ringing after durationMs (default 60 seconds)
     ringTimeoutRef.current = setTimeout(() => {
