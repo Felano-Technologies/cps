@@ -20,7 +20,7 @@ function ensureConfigured(): boolean {
 
 export async function uploadImageBuffer(buffer: Buffer, folder: string): Promise<string> {
   if (!ensureConfigured()) {
-    throw new Error('Image uploads are not configured yet. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
+    return `data:image/jpeg;base64,${buffer.toString('base64')}`;
   }
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(

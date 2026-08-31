@@ -45,6 +45,7 @@ const shipmentInputSchema = z.object({
   productFee: z.number().optional(),
   weightKg: z.number().optional(),
   additionalInstructions: z.string().optional(),
+  packageImageUrl: z.string().optional(),
 });
 
 async function riderProfileIdFor(userId: string): Promise<string | null> {
@@ -88,6 +89,7 @@ function buildShipmentCreateData(
     productFee: input.productFee,
     weightKg: input.weightKg,
     additionalInstructions: input.additionalInstructions,
+    packageImageUrl: input.packageImageUrl,
     statusEvents: { create: { status: 'awaiting_price' as const } },
   };
 }
@@ -131,6 +133,7 @@ const bulkCreateSchema = z.object({
     pickupDate: true,
     productFee: true,
     additionalInstructions: true,
+    packageImageUrl: true,
   }),
   receivers: z
     .array(
