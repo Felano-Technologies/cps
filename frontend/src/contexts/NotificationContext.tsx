@@ -18,44 +18,84 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const POLL_INTERVAL_MS = 30000;
 
-export function playNotificationAlertSound(volumeMultiplier = 0.9) {
+let sharedAudioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    if (!sharedAudioCtx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        sharedAudioCtx = new AudioCtx();
+      }
+    }
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener('click', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
+}
+
+export function playNotificationAlertSound(volumeMultiplier = 1.0) {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
 
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
 
     const now = ctx.currentTime;
-    const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(Math.min(1.0, Math.max(0.1, volumeMultiplier)), now);
-    masterGain.connect(ctx.destination);
+    const vol = Math.min(1.0, Math.max(0.1, volumeMultiplier));
 
-    // High-impact Harmonic chime tone 1 (G5 - 783.99 Hz)
+    // Note 1: Clean, high-clarity crystal chime tone (G5 - 784 Hz)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
-    osc1.type = 'triangle';
+    osc1.type = 'sine';
     osc1.frequency.setValueAtTime(783.99, now);
-    gain1.gain.setValueAtTime(0.6, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    gain1.gain.setValueAtTime(0.5 * vol, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
     osc1.connect(gain1);
-    gain1.connect(masterGain);
+    gain1.connect(ctx.destination);
     osc1.start(now);
-    osc1.stop(now + 0.4);
+    osc1.stop(now + 0.35);
 
-    // High-impact Harmonic chime tone 2 (C6 - 1046.50 Hz)
+    // Note 2: Bright harmonic chime (C6 - 1046.5 Hz)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1046.50, now + 0.08);
-    gain2.gain.setValueAtTime(0.7, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.frequency.setValueAtTime(1046.50, now + 0.1);
+    gain2.gain.setValueAtTime(0.6 * vol, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
     osc2.connect(gain2);
-    gain2.connect(masterGain);
-    osc2.start(now + 0.08);
-    osc2.stop(now + 0.6);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.1);
+    osc2.stop(now + 0.55);
+
+    // Note 3: High bell overtone (E6 - 1318.5 Hz) for rich presence & audibility
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(1318.51, now + 0.2);
+    gain3.gain.setValueAtTime(0.5 * vol, now + 0.2);
+    gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+    osc3.connect(gain3);
+    gain3.connect(ctx.destination);
+    osc3.start(now + 0.2);
+    osc3.stop(now + 0.65);
   } catch {
     // AudioContext blocked or not supported
   }
