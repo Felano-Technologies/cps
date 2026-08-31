@@ -49,6 +49,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 // Rider Pages
 import RiderDashboardPage from './pages/rider/RiderDashboardPage';
 import RiderRoutePage from './pages/rider/RiderRoutePage';
+import RiderEarningsPage from './pages/rider/RiderEarningsPage';
 
 // 404
 import NotFoundPage from './pages/public/NotFoundPage';
@@ -209,6 +210,22 @@ function App() {
             element={
               <ProtectedRoute requiredRole="rider">
                 <RiderRoutePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rider/earnings"
+            element={
+              <ProtectedRoute requiredRole="rider">
+                <RiderEarningsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rider-earnings"
+            element={
+              <ProtectedRoute requiredRole="rider">
+                <RiderEarningsPage />
               </ProtectedRoute>
             }
           />

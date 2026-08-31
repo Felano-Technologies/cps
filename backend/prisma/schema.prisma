@@ -137,6 +137,7 @@ model Shipment {
   podRecipientName String?
   podSignatureData String?
   podPhotoUrl      String?
+  packageImageUrl  String?
 
   additionalInstructions String?
   opsRemarks             String?

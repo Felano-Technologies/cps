@@ -75,6 +75,7 @@ export interface Shipment {
   podRecipientName: string | null;
   podSignatureData: string | null;
   podPhotoUrl: string | null;
+  packageImageUrl?: string | null;
   additionalInstructions: string | null;
   opsRemarks?: string;
   createdAt: string;
@@ -112,6 +113,7 @@ export interface CreateShipmentInput {
   productFee?: number;
   weightKg?: number;
   additionalInstructions?: string;
+  packageImageUrl?: string;
 }
 
 export type DeductionCategory =

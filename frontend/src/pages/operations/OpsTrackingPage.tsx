@@ -23,6 +23,9 @@ import {
   ShieldCheck,
   Compass,
   ExternalLink,
+  Image as ImageIcon,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import OrderPrintModal from '../../components/OrderPrintModal';
@@ -99,6 +102,7 @@ export default function OpsTrackingPage() {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [newPrice, setNewPrice] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [processFee, setProcessFee] = useState('');
   const [processRiderId, setProcessRiderId] = useState('');
@@ -882,6 +886,58 @@ export default function OpsTrackingPage() {
                 </div>
               </div>
 
+              {/* Customer Uploaded Package Image */}
+              {shipment.packageImageUrl && (
+                <div style={{ marginTop: '8px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <ImageIcon size={16} color="#078c35" /> Customer Uploaded Package Image
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(shipment.packageImageUrl!)}
+                      style={{
+                        background: '#e0ffe0',
+                        color: '#078c35',
+                        border: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Maximize2 size={13} /> View Enlarge
+                    </button>
+                  </div>
+                  <div
+                    onClick={() => setPreviewImage(shipment.packageImageUrl!)}
+                    style={{
+                      position: 'relative',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      border: '1px solid #cbd5e1',
+                      background: '#0f172a',
+                      maxHeight: '260px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                    title="Click to view full image"
+                  >
+                    <img
+                      src={shipment.packageImageUrl}
+                      alt="Customer Package"
+                      style={{ maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', display: 'block' }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {shipment.opsRemarks && (
                 <div style={{ marginTop: '8px', padding: '12px 14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                   <span style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
@@ -1020,6 +1076,81 @@ export default function OpsTrackingPage() {
         </div>
 
       </main>
+
+      {/* Package Image Lightbox / Modal */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              background: '#fff',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>
+                <ImageIcon size={18} color="#078c35" /> Package Image Preview
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <a
+                  href={previewImage}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#078c35', fontWeight: 600, textDecoration: 'none' }}
+                >
+                  <ExternalLink size={14} /> Open in New Tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  style={{
+                    background: '#f1f5f9',
+                    border: 'none',
+                    borderRadius: '8px',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748b',
+                  }}
+                  title="Close preview"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: '16px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
+              <img
+                src={previewImage}
+                alt="Package Enlarged Preview"
+                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} shipment={shipment} />}
     </div>
