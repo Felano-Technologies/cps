@@ -27,12 +27,15 @@ const createDeductionSchema = z.object({
 });
 
 // GET /api/deductions - list deductions
-router.get('/', requireRole('operations', 'admin'), async (req, res) => {
+router.get('/', requireRole('rider', 'operations', 'admin'), async (req, res) => {
   const { riderId, category, search } = req.query as { riderId?: string; category?: string; search?: string };
 
   const where: Record<string, unknown> = {};
 
-  if (riderId) {
+  if (req.auth!.role === 'rider') {
+    const profile = await prisma.riderProfile.findUnique({ where: { userId: req.auth!.userId }, select: { id: true } });
+    where.riderId = profile?.id ?? '__none__';
+  } else if (riderId) {
     where.riderId = riderId;
   }
 

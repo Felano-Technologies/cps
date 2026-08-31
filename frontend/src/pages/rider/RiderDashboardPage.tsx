@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route } from 'lucide-react';
@@ -243,10 +243,44 @@ export default function RiderDashboardPage() {
         {isOnline && (
           <>
             <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Wallet size={14} /> Today's Earnings</div>
-                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>GHS {todaysEarnings.toFixed(2)}</div>
-              </div>
+              <Link
+                to="/rider/earnings"
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  border: '1px solid #e2e8f0',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  display: 'block',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.borderColor = '#078c35';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(7,140,53,0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.02)';
+                }}
+                title="Click to view full earnings history and breakdown"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700 }}>
+                    <Wallet size={14} color="#078c35" /> Today's Earnings
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#078c35', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+                    History &rarr;
+                  </span>
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
+                  GHS {todaysEarnings.toFixed(2)}
+                </div>
+              </Link>
               <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><PackageCheck size={14} /> Deliveries</div>
                 <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>{completedCount} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ {shipments.length}</span></div>
