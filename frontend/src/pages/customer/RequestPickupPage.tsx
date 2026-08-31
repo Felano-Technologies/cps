@@ -490,7 +490,7 @@ export default function RequestPickupPage() {
                 </div>
               </label>
               <label>
-                <span>Pickup Contact Name (Optional)</span>
+                <span>Pickup Contact (Optional)</span>
                 <div className="rp-input-wrap">
                   <Contact size={17} />
                   <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
