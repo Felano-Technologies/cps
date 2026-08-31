@@ -2,15 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route } from 'lucide-react';
+import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package, Banknote } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
-import Map from '../../components/Map';
+import Modal from '../../components/Modal';
+import EmptyState from '../../components/EmptyState';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton, SkeletonCircle, SkeletonStatCard, SkeletonListItem } from '../../components/Skeleton';
-import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus } from '../../types/models';
+import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus, RiderDeduction } from '../../types/models';
+
+const DEDUCTION_CATEGORY_LABELS: Record<string, string> = {
+  late_delivery: 'Late Delivery',
+  damaged_goods: 'Damaged / Lost Goods',
+  fuel_advance: 'Fuel Advance',
+  equipment: 'Uniform & Equipment',
+  disciplinary: 'Disciplinary Fine',
+  loan_repayment: 'Loan Repayment',
+  other: 'Other Adjustment',
+};
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
   awaiting_price: 'Awaiting Price',
@@ -25,7 +36,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; border: string }> = {
-  awaiting_price: { bg: '#fff7ed', text: '#c2410c', border: '#ffedd5' },
+  awaiting_price: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
   pending: { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' },
   picked_up: { bg: '#ecfccb', text: '#3f6212', border: '#bef264' },
   in_transit: { bg: '#fef9c3', text: '#854d0e', border: '#fde68a' },
@@ -54,22 +65,27 @@ export default function RiderDashboardPage() {
 
   const [profile, setProfile] = useState<RiderProfile | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [deductions, setDeductions] = useState<RiderDeduction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [podOpen, setPodOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
   const [interactingStopId, setInteractingStopId] = useState<string | null>(null);
+  const [detailsStopId, setDetailsStopId] = useState<string | null>(null);
+  const [isDeductionsModalOpen, setIsDeductionsModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, shipmentsRes] = await Promise.all([
+        const [profileRes, shipmentsRes, deductionsRes] = await Promise.all([
           api.get<RiderProfile>('/riders/me'),
           api.get<Shipment[]>('/shipments'),
+          api.get<RiderDeduction[]>('/deductions/me'),
         ]);
         setProfile(profileRes.data);
         setShipments(shipmentsRes.data);
+        setDeductions(deductionsRes.data);
       } catch {
         setError('Failed to load your dashboard.');
         toast.error('Failed to load your dashboard.');
@@ -108,6 +124,11 @@ export default function RiderDashboardPage() {
       .reduce((sum, s) => sum + Number(s.deliveryFee), 0);
   }, [shipments]);
 
+  const totalDeductions = useMemo(
+    () => deductions.reduce((sum, d) => sum + Number(d.amount), 0),
+    [deductions]
+  );
+
   const chartData = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
@@ -122,6 +143,7 @@ export default function RiderDashboardPage() {
   }, [shipments]);
 
   const interactingStop = shipments.find(s => s.id === interactingStopId) ?? null;
+  const detailsStop = shipments.find(s => s.id === detailsStopId) ?? null;
 
   const handlePodSubmit = async (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null) => {
     if (!interactingStopId) return;
@@ -242,7 +264,7 @@ export default function RiderDashboardPage() {
 
         {isOnline && (
           <>
-            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
               <Link
                 to="/rider/earnings"
                 style={{
@@ -289,6 +311,14 @@ export default function RiderDashboardPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Route size={14} /> Active Stops</div>
                 <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>{shipments.length - completedCount}</div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsDeductionsModalOpen(true)}
+                style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}><Banknote size={14} /> Deductions</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: totalDeductions > 0 ? '#dc2626' : '#0f172a' }}>GHS {totalDeductions.toFixed(2)}</div>
+              </button>
             </div>
 
             <div style={{ background: '#ffffff', borderRadius: '20px', padding: '20px', marginBottom: '24px', border: '1px solid #e2e8f0' }}>
@@ -311,18 +341,10 @@ export default function RiderDashboardPage() {
                 background: '#ffffff', borderRadius: '24px', overflow: 'hidden', marginBottom: '32px',
                 border: '1px solid #e2e8f0', boxShadow: '0 12px 32px rgba(15, 23, 42, 0.08)',
               }}>
-                <Map
-                  className="map-mini-surface"
-                  markers={[
-                    { label: 'Pickup', address: `${activeStop.pickupLocation}, ${activeStop.pickupRegion}, Ghana` },
-                    { label: 'Dropoff', address: `${activeStop.dropoffLocation}, ${activeStop.dropoffRegion}, Ghana` },
-                  ]}
-                  showRoute
-                />
-
                 <div style={{ padding: '20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                     <div>
+                      <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px', textTransform: 'uppercase' }}>Active Order</div>
                       <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em' }}>{activeStop.dropoffLocation}</h3>
                       <p style={{ margin: 0, fontSize: '14px', color: '#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <MapPin size={14} /> {activeStop.dropoffRegion}
@@ -332,6 +354,67 @@ export default function RiderDashboardPage() {
                       {STATUS_LABELS[activeStop.status]}
                     </span>
                   </div>
+
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '4px', borderBottom: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{activeStop.trackingCode}</span>
+                      {activeStop.priority === 'high' && (
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#854d0e', background: '#fef9c3', padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.03em' }}>HIGH PRIORITY</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Pickup</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.pickupLocation}, {activeStop.pickupRegion}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Sender</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.senderName}</div>
+                      </div>
+                      <a
+                        href={`tel:${activeStop.senderNumber}`}
+                        style={{ marginLeft: 'auto', width: '32px', height: '32px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
+                      >
+                        <Phone size={15} />
+                      </a>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Receiver</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{activeStop.receiverName}</div>
+                      </div>
+                      <a
+                        href={`tel:${activeStop.receiverNumber}`}
+                        style={{ marginLeft: 'auto', width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
+                      >
+                        <Phone size={15} />
+                      </a>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fef9c3', color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Package size={16} /></span>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Package</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>{activeStop.packageType} · {activeStop.speed.replace('_', ' ')}</div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>GHS {Number(activeStop.deliveryFee).toFixed(2)}</div>
+                    </div>
+
+                    {activeStop.additionalInstructions && (
+                      <div style={{ fontSize: '13px', color: '#64748b', background: '#fff', borderRadius: '10px', padding: '10px 12px', border: '1px solid #e2e8f0' }}>
+                        <strong style={{ color: '#0f172a' }}>Note:</strong> {activeStop.additionalInstructions}
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => navigate('/route')}
                     style={{ width: '100%', background: '#0f172a', color: '#fff', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: 800, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
@@ -356,11 +439,15 @@ export default function RiderDashboardPage() {
                     const isActive = stop.id === activeStop?.id;
                     const colors = STATUS_COLORS[stop.status];
                     return (
-                      <div key={stop.id} style={{
-                        background: '#ffffff', borderRadius: '20px', padding: '20px',
-                        border: '1px solid', borderColor: isActive ? '#078c35' : '#e2e8f0',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.03)', position: 'relative', overflow: 'hidden',
-                      }}>
+                      <div
+                        key={stop.id}
+                        onClick={() => setDetailsStopId(stop.id)}
+                        style={{
+                          background: '#ffffff', borderRadius: '20px', padding: '20px',
+                          border: '1px solid', borderColor: isActive ? '#078c35' : '#e2e8f0',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.03)', position: 'relative', overflow: 'hidden', cursor: 'pointer',
+                        }}
+                      >
                         {isActive && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: '#078c35' }} />}
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
@@ -378,13 +465,13 @@ export default function RiderDashboardPage() {
                         {isActive && (
                           <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
                             <button
-                              onClick={() => { setInteractingStopId(stop.id); setPodOpen(true); }}
+                              onClick={(e) => { e.stopPropagation(); setInteractingStopId(stop.id); setPodOpen(true); }}
                               style={{ flex: 1, padding: '10px 24px', background: '#078c35', border: 'none', borderRadius: '12px', fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                             >
                               <PackageCheck size={16} /> Deliver
                             </button>
                             <button
-                              onClick={() => { setInteractingStopId(stop.id); setIssueOpen(true); }}
+                              onClick={(e) => { e.stopPropagation(); setInteractingStopId(stop.id); setIssueOpen(true); }}
                               style={{ padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
                               <AlertTriangle size={16} />
@@ -407,6 +494,123 @@ export default function RiderDashboardPage() {
 
       {issueOpen && interactingStop && (
         <ReportIssueModal stopAddress={interactingStop.dropoffLocation} onClose={() => { setIssueOpen(false); setInteractingStopId(null); }} onSubmit={handleIssueSubmit} />
+      )}
+
+      {detailsStop && (
+        <Modal onClose={() => setDetailsStopId(null)} title="Order Details" maxWidth="480px">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>{detailsStop.trackingCode}</span>
+            <span style={{ padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STATUS_COLORS[detailsStop.status].bg, color: STATUS_COLORS[detailsStop.status].text, border: `1px solid ${STATUS_COLORS[detailsStop.status].border}` }}>
+              {STATUS_LABELS[detailsStop.status]}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Sender</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{detailsStop.senderName}</div>
+              </div>
+              <a href={`tel:${detailsStop.senderNumber}`} style={{ marginLeft: 'auto', width: '32px', height: '32px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}>
+                <Phone size={15} />
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Pickup</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{detailsStop.pickupLocation}, {detailsStop.pickupRegion}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Receiver</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{detailsStop.receiverName}</div>
+              </div>
+              <a href={`tel:${detailsStop.receiverNumber}`} style={{ marginLeft: 'auto', width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}>
+                <Phone size={15} />
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Dropoff</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                  {detailsStop.dropoffLocation}, {detailsStop.dropoffRegion}
+                  {detailsStop.dropoffKumasiSubArea && ` (${detailsStop.dropoffKumasiSubArea === 'CampusAndEnvirons' ? 'KNUST Campus & Environs' : detailsStop.dropoffKumasiSubArea})`}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fef9c3', color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Package size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Package</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>
+                  {detailsStop.packageType} · {detailsStop.speed.replace('_', ' ')}{detailsStop.priority === 'high' ? ' · High Priority' : ''}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Wallet size={16} /></span>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Delivery Fee</div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  GHS {Number(detailsStop.deliveryFee).toFixed(2)}
+                  {detailsStop.productFee && Number(detailsStop.productFee) > 0 && ` + GHS ${Number(detailsStop.productFee).toFixed(2)} product fee`}
+                </div>
+              </div>
+            </div>
+
+            {detailsStop.additionalInstructions && (
+              <div style={{ fontSize: '13px', color: '#64748b', background: '#f8fafc', borderRadius: '10px', padding: '10px 12px', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#0f172a' }}>Note:</strong> {detailsStop.additionalInstructions}
+              </div>
+            )}
+
+            {detailsStop.podMethod && (
+              <div style={{ fontSize: '13px', color: '#16a34a', background: '#f0fdf4', borderRadius: '10px', padding: '10px 12px', border: '1px solid #bbf7d0' }}>
+                <strong>Delivered</strong> — confirmed via {detailsStop.podMethod}{detailsStop.podRecipientName ? ` by ${detailsStop.podRecipientName}` : ''}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {isDeductionsModalOpen && (
+        <Modal onClose={() => setIsDeductionsModalOpen(false)} title="Earnings Deductions" maxWidth="480px">
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '-8px', marginBottom: '20px' }}>
+            Total deducted: <strong style={{ color: totalDeductions > 0 ? '#dc2626' : '#0f172a' }}>GHS {totalDeductions.toFixed(2)}</strong>
+          </p>
+          {deductions.length === 0 ? (
+            <EmptyState
+              icon={<Banknote size={36} />}
+              title="No Deductions"
+              message="You have no earnings deductions on record."
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
+              {deductions.map(d => (
+                <div key={d.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{DEDUCTION_CATEGORY_LABELS[d.category] ?? d.category}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 800, color: '#dc2626', flexShrink: 0 }}>-GHS {Number(d.amount).toFixed(2)}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>{d.reason}</p>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
+                    {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   );

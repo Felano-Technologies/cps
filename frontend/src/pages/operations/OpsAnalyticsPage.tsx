@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Radio, Wallet, PackageCheck, TrendingUp, Trophy } from 'lucide-react';
+import { Radio, Wallet, PackageCheck, TrendingUp, Trophy, ArrowRight } from 'lucide-react';
 import CustomSelect from '../../components/Form/CustomSelect';
+import Modal from '../../components/Modal';
+import EmptyState from '../../components/EmptyState';
 import api from '../../services/api';
 import type { Shipment } from '../../types/models';
 
@@ -24,6 +27,7 @@ export default function OpsAnalyticsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeliveriesModalOpen, setIsDeliveriesModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -155,13 +159,21 @@ export default function OpsAnalyticsPage() {
                 <div style={{ fontSize: '40px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>GHS {totalRevenue.toFixed(2)}</div>
               </div>
 
-              <div className="glass-panel">
+              <button
+                type="button"
+                onClick={() => setIsDeliveriesModalOpen(true)}
+                className="glass-panel"
+                style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.9)', font: 'inherit' }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Successful Deliveries</div>
                   <div style={{ width: '40px', height: '40px', background: '#e2e8f0', color: 'var(--navy)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PackageCheck size={20} /></div>
                 </div>
                 <div style={{ fontSize: '40px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>{delivered.length}</div>
-              </div>
+                <div style={{ fontSize: '13px', color: '#078c35', fontWeight: 700, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  View all <ArrowRight size={14} />
+                </div>
+              </button>
 
               <div className="glass-panel">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -213,6 +225,57 @@ export default function OpsAnalyticsPage() {
               </div>
             </div>
           </>
+        )}
+
+        {isDeliveriesModalOpen && (
+          <Modal onClose={() => setIsDeliveriesModalOpen(false)} title="Successful Deliveries" maxWidth="720px">
+            <p style={{ color: '#64748b', fontSize: '14px', marginTop: '-8px', marginBottom: '20px' }}>
+              {delivered.length} delivered order{delivered.length === 1 ? '' : 's'} in the selected period.
+            </p>
+            {delivered.length === 0 ? (
+              <EmptyState
+                icon={<PackageCheck size={36} />}
+                title="No Deliveries Yet"
+                message="No orders have been delivered in this period."
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
+                {delivered
+                  .slice()
+                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                  .map(shipment => (
+                    <Link
+                      key={shipment.id}
+                      to={`/ops/tracking/${shipment.trackingCode}`}
+                      onClick={() => setIsDeliveriesModalOpen(false)}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px',
+                        padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0',
+                        textDecoration: 'none', color: 'inherit',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{shipment.trackingCode}</div>
+                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                          Delivered to {shipment.receiverName} · {shipment.dropoffLocation}
+                        </div>
+                        {shipment.assignedRider && (
+                          <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                            Rider: {shipment.assignedRider.user.name}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontWeight: 800, color: '#078c35', fontSize: '15px' }}>GHS {Number(shipment.deliveryFee).toFixed(2)}</div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                          {new Date(shipment.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            )}
+          </Modal>
         )}
       </main>
     </div>

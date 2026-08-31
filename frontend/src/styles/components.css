@@ -468,7 +468,7 @@ th { color: #4f5457; font-size: .82rem; }
 .custom-select-chevron.open { transform: rotate(180deg); }
 
 .custom-select-menu {
-  z-index: 1000;
+  z-index: 2100;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -564,7 +564,7 @@ th { color: #4f5457; font-size: .82rem; }
 
 .date-picker { position: relative; }
 .date-picker-panel {
-  z-index: 1000;
+  z-index: 2100;
   width: 280px;
   padding: 14px;
   background: #fff;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import SharedPasswordView from './SharedPasswordView';
 import EmptyState from '../../components/EmptyState';
 import { SkeletonListItem } from '../../components/Skeleton';
@@ -74,7 +75,7 @@ function OrderHistoryView() {
         <p style={{ textAlign: 'center', padding: '32px', color: '#991b1b', fontWeight: 600 }}>{error}</p>
       ) : shipments.length === 0 ? (
         <EmptyState
-          icon="📦"
+          icon={<Package size={36} />}
           title="No Orders Yet"
           message="Your past shipments will show up here once you've made a pickup request."
         />

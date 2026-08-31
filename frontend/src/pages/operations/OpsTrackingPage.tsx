@@ -685,12 +685,12 @@ export default function OpsTrackingPage() {
           <div className="ops-card">
             <div className="ops-card-header">
               <h3 className="ops-card-title">
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <MapPin size={18} />
                 </div>
                 Recipient & Dropoff Details
               </h3>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb', background: '#dbeafe', padding: '4px 10px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', background: '#e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Compass size={14} /> Destination
               </span>
             </div>
@@ -726,7 +726,7 @@ export default function OpsTrackingPage() {
 
               {/* Destination / Dropoff Address Details */}
               <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                   <Compass size={15} /> Delivery Destination
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
@@ -817,12 +817,12 @@ export default function OpsTrackingPage() {
                         padding: '4px 10px',
                         borderRadius: '6px',
                         background: shipment.batchId
-                          ? '#f3e8ff'
+                          ? '#e2e8f0'
                           : shipment.speed === 'express' || shipment.priority === 'high'
                           ? '#fef9c3'
                           : '#e0ffe0',
                         color: shipment.batchId
-                          ? '#7e22ce'
+                          ? '#0f172a'
                           : shipment.speed === 'express' || shipment.priority === 'high'
                           ? '#854d0e'
                           : '#15803d',
@@ -953,7 +953,7 @@ export default function OpsTrackingPage() {
           <div className="ops-card">
             <div className="ops-card-header">
               <h3 className="ops-card-title">
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f3e8ff', color: '#9333ea', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bike size={18} />
                 </div>
                 Assigned Dispatch Rider
@@ -964,7 +964,7 @@ export default function OpsTrackingPage() {
               {shipment.assignedRider ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#f3e8ff', color: '#7e22ce', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px' }}>
+                    <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px' }}>
                       {shipment.assignedRider.user.name.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1 }}>
@@ -1032,7 +1032,7 @@ export default function OpsTrackingPage() {
         <div className="ops-card">
           <div className="ops-card-header">
             <h3 className="ops-card-title">
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Clock size={18} />
               </div>
               Live Status Events & Timeline
@@ -1152,7 +1152,7 @@ export default function OpsTrackingPage() {
         </div>
       )}
 
-      {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
+      {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} shipment={shipment} />}
     </div>
   );
 }

@@ -2,24 +2,15 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import type { UserRole } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import CustomSelect from '../../components/Form/CustomSelect';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
-
-const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: 'customer', label: 'Customer' },
-  { value: 'operations', label: 'Operations / Dispatch' },
-  { value: 'rider', label: 'Rider / Courier' },
-];
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -31,7 +22,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setLocalError('');
     try {
-      await signup(name, email, password, role);
+      await signup(name, email, password, 'customer');
       toast.success('Account created — sign in to continue.');
       navigate('/signin');
     } catch (err) {
@@ -110,16 +101,6 @@ export default function SignUpPage() {
                 </div>
               </label>
 
-              <label className="auth-field">
-                <span>Account Type</span>
-                <CustomSelect
-                  value={role}
-                  onChange={v => setRole(v as UserRole)}
-                  options={ROLE_OPTIONS}
-                  icon={<User size={17} />}
-                />
-              </label>
-
               <button type="submit" disabled={isLoading} className="primary-green auth-submit">
                 <UserPlus size={16} />
                 {isLoading ? 'Creating...' : 'Sign Up'}
@@ -129,6 +110,10 @@ export default function SignUpPage() {
             <div className="auth-switch">
               Already have an account? <Link to="/signin">Sign In</Link>
             </div>
+
+            <p style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', marginTop: '16px', lineHeight: 1.5 }}>
+              Signing up as a rider? Contact operations — they'll create and verify your account for you.
+            </p>
           </div>
         </div>
       </div>

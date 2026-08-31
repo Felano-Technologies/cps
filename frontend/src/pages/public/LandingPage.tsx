@@ -32,7 +32,7 @@ export default function LandingPage() {
         <div className="hero-copy">
           <h2 style={{ fontSize: 'clamp(2.8rem, 4.6vw, 4.2rem)', color: 'var(--navy)', fontWeight: 800, margin: '0 0 24px', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
             Welcome to <br />
-            <span style={{ color: 'forestgreen' }}>CPS</span> <br />
+            <span style={{ color: 'var(--green-dark, #078c35)' }}>CPS</span> <br />
             Delivery Services
           </h2>
 

@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck, Bike, Car, Settings2 } from 'lucide-react';
+import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
 import { SkeletonTableRows } from '../../components/Skeleton';
 import AssignVehicleModal from '../../components/AssignVehicleModal';
+import AddRiderModal from '../../components/AddRiderModal';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
@@ -34,6 +35,8 @@ export default function FleetManagementPage() {
   const [activeTab, setActiveTab] = useState<string>('All Vehicles');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [assigningRider, setAssigningRider] = useState<RiderProfile | null>(null);
+  const [isAddRiderOpen, setIsAddRiderOpen] = useState(false);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRiders = async () => {
@@ -65,12 +68,28 @@ export default function FleetManagementPage() {
     }
   };
 
+  const handleVerify = async (riderId: string) => {
+    setActionError(null);
+    setVerifyingId(riderId);
+    try {
+      const { data } = await api.patch<RiderProfile>(`/riders/${riderId}`, { isVerified: true });
+      setRiders(prev => prev.map(r => (r.id === riderId ? data : r)));
+      toast.success('Rider verified.');
+    } catch {
+      setActionError('Failed to verify rider.');
+      toast.error('Failed to verify rider.');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   const filteredFleet = useMemo(() => {
     return riders.filter(member => {
       let matchesTab = true;
       if (activeTab === 'Motorbikes') matchesTab = member.vehicleType === 'motorbike';
       if (activeTab === 'Vans') matchesTab = member.vehicleType === 'van';
       if (activeTab === 'Maintenance') matchesTab = member.currentStatus === 'maintenance';
+      if (activeTab === 'Unverified') matchesTab = !member.isVerified;
 
       const query = searchQuery.toLowerCase();
       const matchesSearch =
@@ -220,16 +239,25 @@ export default function FleetManagementPage() {
             <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>Real-time status for riders, bikes, vans, and active zones.</p>
           </div>
           
-          <div style={{ display: 'flex', gap: '12px', background: '#fff', padding: '6px', borderRadius: '12px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
-            {['All Vehicles', 'Motorbikes', 'Vans', 'Maintenance'].map(tab => (
-              <button 
-                key={tab} 
-                className={`filter-tab ${activeTab === tab ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '12px', background: '#fff', padding: '6px', borderRadius: '12px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+              {['All Vehicles', 'Motorbikes', 'Vans', 'Maintenance', 'Unverified'].map(tab => (
+                <button
+                  key={tab}
+                  className={`filter-tab ${activeTab === tab ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <button
+              className="primary-green"
+              style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, borderRadius: '12px' }}
+              onClick={() => setIsAddRiderOpen(true)}
+            >
+              <UserPlus size={16} /> Add Rider
+            </button>
           </div>
         </div>
 
@@ -307,7 +335,14 @@ export default function FleetManagementPage() {
                                 {getInitials(member.user.name)}
                               </div>
                               <div>
-                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.user.name}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.user.name}</span>
+                                  {member.isVerified ? (
+                                    <span title="Verified" style={{ display: 'inline-flex', color: '#078c35' }}><ShieldCheck size={14} /></span>
+                                  ) : (
+                                    <span title="Awaiting verification" style={{ display: 'inline-flex', color: '#c2410c' }}><ShieldAlert size={14} /></span>
+                                  )}
+                                </div>
                                 <div style={{ color: member.vehicleId ? '#64748b' : '#94a3b8', fontSize: '13px', marginTop: '2px', fontWeight: 600 }}>
                                   {member.vehicleId ?? 'Unassigned'}
                                 </div>
@@ -367,6 +402,23 @@ export default function FleetManagementPage() {
                               >
                                 <Settings2 size={16} />
                               </button>
+                              {!member.isVerified && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerify(member.id)}
+                                  disabled={verifyingId === member.id}
+                                  title="Verify rider"
+                                  style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    padding: '0 14px', height: '44px', flexShrink: 0,
+                                    border: '1px solid #bbf7d0', borderRadius: '10px', background: '#f0fdf4',
+                                    color: '#078c35', cursor: verifyingId === member.id ? 'not-allowed' : 'pointer',
+                                    fontWeight: 700, fontSize: '13px', opacity: verifyingId === member.id ? 0.6 : 1,
+                                  }}
+                                >
+                                  <ShieldCheck size={16} /> {verifyingId === member.id ? 'Verifying…' : 'Verify'}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -376,7 +428,7 @@ export default function FleetManagementPage() {
                     <tr>
                       <td colSpan={5} style={{ padding: 0 }}>
                         <EmptyState
-                          icon="🚐"
+                          icon={<PackageSearch size={36} />}
                           title="No Fleet Found"
                           message="There are no riders or vehicles matching your current filters."
                           actionLabel="Clear Filters"
@@ -427,6 +479,13 @@ export default function FleetManagementPage() {
             setRiders(prev => prev.map(r => (r.id === updated.id ? updated : r)));
             setAssigningRider(null);
           }}
+        />
+      )}
+
+      {isAddRiderOpen && (
+        <AddRiderModal
+          onClose={() => setIsAddRiderOpen(false)}
+          onCreate={(rider) => setRiders(prev => [...prev, rider])}
         />
       )}
     </div>

@@ -71,7 +71,7 @@ model User {
   email        String   @unique
   passwordHash String
   role         UserRole
-  phone        String?
+  phone        String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -90,6 +90,7 @@ model RiderProfile {
   vehicleType     VehicleType?
   currentStatus   RiderStatus @default(offline)
   currentLocation String?
+  isVerified      Boolean     @default(false)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -186,6 +187,18 @@ model Notification {
   @@map("notifications")
 }
 
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  code       String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+  @@map("phone_otps")
+}
+
 model RiderDeduction {
   id          String       @id @default(cuid())
   riderId     String
@@ -200,4 +213,3 @@ model RiderDeduction {
 
   @@map("rider_deductions")
 }
-
