@@ -42,9 +42,7 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
       if (method === 'photo' && photoFile) {
         const formData = new FormData();
         formData.append('photo', photoFile);
-        const { data } = await api.post<{ url: string }>('/uploads', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const { data } = await api.post<{ url: string }>('/uploads', formData);
         photoUrl = data.url;
       }
       await onSubmit(method, name, method === 'signature' ? signatureData : null, photoUrl);

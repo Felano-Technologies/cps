@@ -8,4 +8,15 @@ const api = axios.create({
   },
 });
 
+// The instance-level default Content-Type above is only correct for JSON
+// bodies. For multipart uploads (FormData), it must be removed so the
+// browser can set its own 'multipart/form-data; boundary=...' header —
+// otherwise the boundary is missing and the backend can't parse the file.
+api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+  return config;
+});
+
 export default api;
