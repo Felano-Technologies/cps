@@ -21,7 +21,7 @@ export interface User {
   role: UserRole;
   phone?: string;
   phoneVerified?: boolean;
-  avatar?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {

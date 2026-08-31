@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { KeyRound, ShieldCheck, AlertCircle, RotateCw } from 'lucide-react';
+import { ShieldCheck, AlertCircle, RotateCw } from 'lucide-react';
 import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import OtpInput from '../../components/OtpInput';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
@@ -17,8 +18,9 @@ export default function VerifyPhonePage() {
   const [isResending, setIsResending] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  const handleConfirm = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirm = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (code.length !== 6 || isSubmitting) return;
     setLocalError('');
     setIsSubmitting(true);
     try {
@@ -27,10 +29,18 @@ export default function VerifyPhonePage() {
       navigate(getRoleDashboard(updated.role));
     } catch {
       setLocalError('Invalid or expired code. Please try again.');
+      setCode('');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (code.length === 6) {
+      handleConfirm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   const handleResend = async () => {
     setLocalError('');
@@ -87,22 +97,9 @@ export default function VerifyPhonePage() {
             )}
 
             <form onSubmit={handleConfirm}>
-              <label className="auth-field">
-                <span>Verification Code</span>
-                <div className="auth-input-wrap">
-                  <KeyRound size={17} className="leading-icon" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    maxLength={6}
-                    value={code}
-                    onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    autoFocus
-                  />
-                </div>
-              </label>
+              <div style={{ marginBottom: '24px' }}>
+                <OtpInput value={code} onChange={setCode} autoFocus />
+              </div>
 
               <button type="submit" disabled={isSubmitting || code.length !== 6} className="primary-green auth-submit">
                 <ShieldCheck size={16} />

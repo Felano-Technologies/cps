@@ -135,15 +135,24 @@ export default function Topbar() {
                 style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', padding: 0 }}
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
-                <div className="user-box" style={{
-                  width: '40px', height: '40px', cursor: 'pointer', flexShrink: 0,
-                  background: 'linear-gradient(135deg, var(--lime) 0%, #34d399 100%)',
-                  color: '#0f172a', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%', boxShadow: '0 4px 10px rgba(131, 211, 20, 0.3)',
-                  border: '2px solid #fff', transition: 'transform 0.2s var(--ease-out)'
-                }}>
-                  {user?.name.charAt(0)}
-                </div>
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="user-box"
+                    style={{ width: '40px', height: '40px', cursor: 'pointer', flexShrink: 0, borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff', boxShadow: '0 4px 10px rgba(131, 211, 20, 0.3)' }}
+                  />
+                ) : (
+                  <div className="user-box" style={{
+                    width: '40px', height: '40px', cursor: 'pointer', flexShrink: 0,
+                    background: 'linear-gradient(135deg, var(--lime) 0%, #34d399 100%)',
+                    color: '#0f172a', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '50%', boxShadow: '0 4px 10px rgba(131, 211, 20, 0.3)',
+                    border: '2px solid #fff', transition: 'transform 0.2s var(--ease-out)'
+                  }}>
+                    {user?.name.charAt(0)}
+                  </div>
+                )}
                 <span style={{
                   fontWeight: 600, color: '#fff', fontSize: '0.88rem',
                   maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'

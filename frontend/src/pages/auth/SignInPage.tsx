@@ -21,6 +21,11 @@ export default function SignInPage() {
     setLocalError('');
     try {
       const user = await login(identifier, password);
+      if (user.phone && !user.phoneVerified) {
+        toast.info('Please verify your phone number to continue.');
+        navigate('/verify-phone');
+        return;
+      }
       toast.success(`Welcome back, ${user.name}.`);
       navigate(getRoleDashboard(user.role));
     } catch (err) {

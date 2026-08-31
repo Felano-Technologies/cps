@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageLoader } from '../../components/Spinner';
+import AvatarUpload from '../../components/AvatarUpload';
 
 // Import role-specific settings components
 import CustomerSettings from './CustomerSettings';
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   return (
     <div className="page-shell light-shell">
       <main className="container billing-screen">
+        <AvatarUpload />
         {user.role === 'customer' && <CustomerSettings />}
         {user.role === 'operations' && <OpsSettings />}
         {user.role === 'rider' && <RiderSettings />}

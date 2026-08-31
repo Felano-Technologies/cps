@@ -1,13 +1,27 @@
 import { randomUUID } from 'crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { clearSessionCookie, setSessionCookie, signToken } from '../lib/auth';
 import { requireAuth } from '../middleware/auth';
 import { sendSms } from '../lib/sms';
+import { uploadImageBuffer } from '../lib/cloudinary';
 
 const router = Router();
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image uploads are allowed'));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -15,8 +29,16 @@ const registerSchema = z.object({
   password: z.string().min(8),
 });
 
-function toPublicUser(user: { id: string; name: string; email: string; role: string; phone: string | null; phoneVerified: boolean }) {
-  return { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone ?? undefined, phoneVerified: user.phoneVerified };
+function toPublicUser(user: { id: string; name: string; email: string; role: string; phone: string | null; phoneVerified: boolean; avatarUrl: string | null }) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone ?? undefined,
+    phoneVerified: user.phoneVerified,
+    avatarUrl: user.avatarUrl ?? undefined,
+  };
 }
 
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -25,7 +47,8 @@ async function issueOtp(phone: string) {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
   await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
-  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+  console.log(`[otp] Code for ${phone}: ${code} (visible here until MNOTIFY_SENDER_ID is set)`);
+  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`, { isOtp: true }).catch(() => {});
 }
 
 async function findValidOtp(phone: string, code: string) {
@@ -131,6 +154,25 @@ router.patch('/password', requireAuth, async (req, res) => {
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   res.status(204).send();
+});
+
+router.patch('/avatar', requireAuth, (req, res) => {
+  avatarUpload.single('avatar')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : 'Upload failed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+    try {
+      const url = await uploadImageBuffer(req.file.buffer, 'cps-delivery/avatars');
+      const user = await prisma.user.update({ where: { id: req.auth!.userId }, data: { avatarUrl: url } });
+      res.json(toPublicUser(user));
+    } catch (uploadErr) {
+      const message = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
+      res.status(503).json({ error: message });
+    }
+  });
 });
 
 router.post('/phone/verify/request', requireAuth, async (req, res) => {
