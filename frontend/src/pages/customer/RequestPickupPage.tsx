@@ -107,6 +107,7 @@ export default function RequestPickupPage() {
   const [packageType, setPackageType] = useState('');
   const [productFee, setProductFee] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [additionalInstructions, setAdditionalInstructions] = useState('');
 
   // Bulk Delivery State
@@ -213,6 +214,24 @@ export default function RequestPickupPage() {
     setSubmitSuccess(false);
     setIsSubmitting(true);
     try {
+      let uploadedImageUrl: string | undefined;
+      if (imageFile) {
+        try {
+          const formData = new FormData();
+          formData.append('photo', imageFile);
+          const { data } = await api.post<{ url: string }>('/uploads', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          uploadedImageUrl = data.url;
+        } catch {
+          uploadedImageUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(imageFile);
+          });
+        }
+      }
+
       const payload: CreateShipmentInput = {
         vehicleType: pickupMode as VehicleType,
         priority: mapPriority(deliveryPriority),
@@ -232,6 +251,7 @@ export default function RequestPickupPage() {
       if (dropoffRegion === 'Kumasi') payload.dropoffKumasiSubArea = dropoffKumasiSubArea;
       if (productFee.trim() !== '') payload.productFee = Number(productFee);
       if (additionalInstructions.trim()) payload.additionalInstructions = additionalInstructions;
+      if (uploadedImageUrl) payload.packageImageUrl = uploadedImageUrl;
 
       await api.post('/shipments', payload);
       setSubmitSuccess(true);
@@ -490,7 +510,7 @@ export default function RequestPickupPage() {
                 </div>
               </label>
               <label>
-                <span>Pickup Contact Name (Optional)</span>
+                <span>Pickup Contact (Optional)</span>
                 <div className="rp-input-wrap">
                   <Contact size={17} />
                   <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
@@ -592,8 +612,16 @@ export default function RequestPickupPage() {
                     <FileUpload
                       label="Upload Package Image"
                       previews={imagePreview ? [imagePreview] : []}
-                      onFilesSelected={(files) => setImagePreview(URL.createObjectURL(files[0]))}
-                      onRemove={() => setImagePreview(null)}
+                      onFilesSelected={(files) => {
+                        if (files[0]) {
+                          setImageFile(files[0]);
+                          setImagePreview(URL.createObjectURL(files[0]));
+                        }
+                      }}
+                      onRemove={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                      }}
                       icon={<ImagePlus size={18} />}
                     />
                   </label>

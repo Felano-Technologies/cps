@@ -7,6 +7,8 @@ import CreateOrderModal from '../../components/CreateOrderModal';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, RiderProfile } from '../../types/models';
 
+const AUTO_REFRESH_INTERVAL_MS = 60000; // 1 minute
+
 export default function LiveOpsBoardPage() {
   const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -18,48 +20,52 @@ export default function LiveOpsBoardPage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchOrders() {
-      setError(null);
+    async function fetchOrders(isInitial = false) {
       try {
         const response = await api.get<Shipment[]>('/shipments');
         if (isMounted) {
           setOrders(response.data);
+          setError(null);
         }
       } catch {
-        if (isMounted) {
+        if (isMounted && isInitial) {
           setError('Failed to load orders. Please try again later.');
           toast.error('Failed to load orders.');
         }
       }
     }
 
-    fetchOrders();
+    fetchOrders(true);
+    const interval = setInterval(() => fetchOrders(false), AUTO_REFRESH_INTERVAL_MS);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchRiders() {
+    async function fetchRiders(isInitial = false) {
       try {
         const response = await api.get<RiderProfile[]>('/riders');
         if (isMounted) {
           setRiders(response.data);
         }
       } catch {
-        if (isMounted) {
+        if (isMounted && isInitial) {
           toast.error('Failed to load fleet.');
         }
       }
     }
 
-    fetchRiders();
+    fetchRiders(true);
+    const interval = setInterval(() => fetchRiders(false), AUTO_REFRESH_INTERVAL_MS);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 

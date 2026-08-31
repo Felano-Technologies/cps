@@ -35,6 +35,7 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   rider: [
     { path: '/rider-board', label: 'Dashboard' },
     { path: '/route', label: 'Active Route' },
+    { path: '/rider/earnings', label: 'Earnings' },
     { path: '/settings', label: 'Settings' },
   ],
 };

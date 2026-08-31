@@ -45,6 +45,7 @@ const shipmentInputSchema = z.object({
   productFee: z.number().optional(),
   weightKg: z.number().optional(),
   additionalInstructions: z.string().optional(),
+  packageImageUrl: z.string().optional(),
 });
 
 async function riderProfileIdFor(userId: string): Promise<string | null> {
@@ -88,6 +89,7 @@ function buildShipmentCreateData(
     productFee: input.productFee,
     weightKg: input.weightKg,
     additionalInstructions: input.additionalInstructions,
+    packageImageUrl: input.packageImageUrl,
     statusEvents: { create: { status: 'awaiting_price' as const } },
   };
 }
@@ -113,6 +115,14 @@ router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res
         shipment.id
       ).catch(() => {});
     }
+    // Notify operations & admin team of new incoming order
+    notifyRoles(
+      ['operations', 'admin'],
+      'new_order',
+      'New Pickup Order Placed',
+      `New order ${shipment.trackingCode} from ${shipment.senderName} (${shipment.pickupLocation} -> ${shipment.dropoffLocation}) is awaiting review.`,
+      shipment.id
+    ).catch(() => {});
     res.status(201).json(shipment);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipment' });
@@ -131,6 +141,7 @@ const bulkCreateSchema = z.object({
     pickupDate: true,
     productFee: true,
     additionalInstructions: true,
+    packageImageUrl: true,
   }),
   receivers: z
     .array(
@@ -176,6 +187,14 @@ router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req,
         `Your bulk pickup request with ${created.length} package(s) has been received and is being processed.`
       ).catch(() => {});
     }
+    // Notify operations & admin team of new incoming bulk order
+    notifyRoles(
+      ['operations', 'admin'],
+      'new_order',
+      'New Bulk Order Placed',
+      `New bulk pickup request with ${created.length} package(s) from ${parsed.data.pickup.senderName} is awaiting review.`,
+      created[0]?.id
+    ).catch(() => {});
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create shipments' });
