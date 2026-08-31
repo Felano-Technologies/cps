@@ -17,6 +17,7 @@ import { PageLoader } from './components/Spinner';
 import LandingPage from './pages/public/LandingPage';
 import SignInPage from './pages/auth/SignInPage';
 import SignUpPage from './pages/auth/SignUpPage';
+import VerifyPhonePage from './pages/auth/VerifyPhonePage';
 
 // Public Static Pages
 import AboutPage from './pages/public/AboutPage';
@@ -61,7 +62,10 @@ import NotFoundPage from './pages/public/NotFoundPage';
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const toast = useToast();
+  const location = useLocation();
   const wrongRole = !isLoading && isAuthenticated && !!requiredRole && user?.role !== requiredRole;
+  const needsPhoneVerification =
+    !isLoading && isAuthenticated && !!user?.phone && !user?.phoneVerified && location.pathname !== '/verify-phone';
 
   useEffect(() => {
     if (wrongRole) {
@@ -74,6 +78,10 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace />;
+  }
+
+  if (needsPhoneVerification) {
+    return <Navigate to="/verify-phone" replace />;
   }
 
   if (wrongRole) {
@@ -91,7 +99,7 @@ function App() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   const isStaff = !isLoading && user && ['rider', 'operations', 'admin'].includes(user.role);
-  const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup';
+  const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/verify-phone';
 
   return (
     <div className="app-shell">
@@ -103,6 +111,14 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+          <Route
+            path="/verify-phone"
+            element={
+              <ProtectedRoute>
+                <VerifyPhonePage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faq" element={<FAQPage />} />

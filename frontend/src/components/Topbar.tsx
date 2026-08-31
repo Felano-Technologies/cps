@@ -4,7 +4,6 @@ import { Menu, X, ChevronDown, LogOut, Settings } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
-import VerifyPhoneBanner from './VerifyPhoneBanner';
 
 const PUBLIC_LINKS: { path: string; label: string }[] = [
   { path: '/', label: 'Home' },
@@ -201,7 +200,6 @@ export default function Topbar() {
         </div>
       </div>
     </header>
-    {isAuthenticated && <VerifyPhoneBanner />}
     </>
   );
 }

@@ -13,10 +13,6 @@ import deductionsRoutes from './routes/deductions';
 
 const app = express();
 const port = process.env.PORT || 3000;
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map(origin => origin.trim().replace(/\/$/, ''))
-  .filter(Boolean);
 
 // Logs every request that actually reaches this process — placed before CORS
 // so even rejected/blocked requests show up, not just successful ones.
@@ -29,14 +25,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// CORS fully open: reflect whatever Origin sent the request. Can't use
+// origin: '*' together with credentials: true (browsers reject that
+// combination), so this reflects the caller's own origin instead —
+// functionally "allow everyone" while keeping cookies working.
 app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: (origin, callback) => callback(null, origin ?? true),
   credentials: true,
 }));
 app.use(cookieParser());

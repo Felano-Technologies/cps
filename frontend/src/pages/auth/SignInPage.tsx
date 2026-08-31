@@ -24,8 +24,8 @@ export default function SignInPage() {
       toast.success(`Welcome back, ${user.name}.`);
       navigate(getRoleDashboard(user.role));
     } catch (err) {
-      setLocalError('Invalid phone/email or password');
-      toast.error('Invalid phone/email or password');
+      setLocalError('Invalid phone number or password');
+      toast.error('Invalid phone number or password');
     }
   };
 
@@ -62,11 +62,11 @@ export default function SignInPage() {
 
             <form onSubmit={handleSubmit}>
               <label className="auth-field">
-                <span>Phone Number or Email</span>
+                <span>Phone Number</span>
                 <div className="auth-input-wrap">
                   <Phone size={17} className="leading-icon" />
                   <input
-                    type="text"
+                    type="tel"
                     required
                     value={identifier}
                     onChange={e => setIdentifier(e.target.value)}

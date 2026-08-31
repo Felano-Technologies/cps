@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Phone, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { User, AtSign, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
+import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
@@ -9,7 +9,7 @@ import '../../styles/auth.css';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -22,9 +22,14 @@ export default function SignUpPage() {
     e.preventDefault();
     setLocalError('');
     try {
-      await signup(name, phone, password);
-      toast.success('Account created — sign in to continue.');
-      navigate('/signin');
+      const user = await signup(name, identifier, password);
+      if (user.phone) {
+        toast.success('Account created — verify your phone to continue.');
+        navigate('/verify-phone');
+      } else {
+        toast.success(`Welcome, ${user.name}.`);
+        navigate(getRoleDashboard(user.role));
+      }
     } catch (err) {
       setLocalError('Failed to create account');
       toast.error('Failed to create account');
@@ -72,10 +77,10 @@ export default function SignUpPage() {
               </label>
 
               <label className="auth-field">
-                <span>Phone Number</span>
+                <span>Phone Number or Email</span>
                 <div className="auth-input-wrap">
-                  <Phone size={17} className="leading-icon" />
-                  <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="0241234567" />
+                  <AtSign size={17} className="leading-icon" />
+                  <input type="text" required value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="0241234567 or name@company.com" />
                 </div>
               </label>
 

@@ -11,7 +11,7 @@ const router = Router();
 
 const registerSchema = z.object({
   name: z.string().min(1),
-  phone: z.string().min(7),
+  identifier: z.string().min(3),
   password: z.string().min(8),
 });
 
@@ -19,29 +19,54 @@ function toPublicUser(user: { id: string; name: string; email: string; role: str
   return { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone ?? undefined, phoneVerified: user.phoneVerified };
 }
 
+const OTP_TTL_MS = 5 * 60 * 1000;
+
+async function issueOtp(phone: string) {
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+  await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
+  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+}
+
+async function findValidOtp(phone: string, code: string) {
+  return prisma.phoneOtp.findFirst({
+    where: { phone, code, consumedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
-  const { name, phone, password } = parsed.data;
+  const { name, identifier, password } = parsed.data;
+  const isEmail = identifier.includes('@');
 
-  const existing = await prisma.user.findUnique({ where: { phone } });
+  const existing = await prisma.user.findFirst({
+    where: isEmail ? { email: identifier } : { phone: identifier },
+  });
   if (existing) {
-    return res.status(409).json({ error: 'An account with this phone number already exists' });
+    return res.status(409).json({ error: `An account with this ${isEmail ? 'email' : 'phone number'} already exists` });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
       name,
-      email: `${phone.replace(/[^0-9]/g, '')}@phone.cps.local`,
-      phone,
+      email: isEmail ? identifier : `${identifier.replace(/[^0-9]/g, '')}@phone.cps.local`,
+      phone: isEmail ? null : identifier,
       passwordHash,
       role: 'customer',
     },
   });
 
+  if (!isEmail) {
+    await issueOtp(identifier);
+  }
+
+  const token = signToken({ userId: user.id, role: user.role });
+  setSessionCookie(res, token);
   res.status(201).json(toPublicUser(user));
 });
 
@@ -113,8 +138,6 @@ router.patch('/password', requireAuth, async (req, res) => {
   res.status(204).send();
 });
 
-const OTP_TTL_MS = 5 * 60 * 1000;
-
 router.post('/phone/verify/request', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
   if (!user) {
@@ -127,11 +150,7 @@ router.post('/phone/verify/request', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Phone number is already verified' });
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-  await prisma.phoneOtp.create({ data: { phone: user.phone, code, expiresAt } });
-
-  sendSms(user.phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+  await issueOtp(user.phone);
 
   res.status(204).send();
 });
@@ -172,21 +191,10 @@ router.post('/phone/request-otp', async (req, res) => {
   }
   const { phone } = parsed.data;
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-  await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
-
-  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+  await issueOtp(phone);
 
   res.status(204).send();
 });
-
-async function findValidOtp(phone: string, code: string) {
-  return prisma.phoneOtp.findFirst({
-    where: { phone, code, consumedAt: null, expiresAt: { gt: new Date() } },
-    orderBy: { createdAt: 'desc' },
-  });
-}
 
 const verifyOtpSchema = z.object({ phone: z.string().min(7), code: z.string().length(6) });
 
