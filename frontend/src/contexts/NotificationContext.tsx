@@ -177,8 +177,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       );
 
       if (!isInitialFetchRef.current && hasNewUnread) {
-        // Operations & Admin side rings continuously for 1 minute (60s); other roles get single chime
-        if (user?.role === 'operations' || user?.role === 'admin') {
+        // Operations, Admin, and Rider sides ring continuously for 1 minute (60s); customer role gets single chime
+        if (user?.role === 'operations' || user?.role === 'admin' || user?.role === 'rider') {
           startAlertRinging(60000);
         } else {
           playNotificationAlertSound();
@@ -225,6 +225,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const payload = JSON.parse(event.data);
           if (payload.type === 'notification' && payload.notification) {
             const incoming: Notification = payload.notification;
+            if (!knownNotificationIdsRef.current.has(incoming.id)) {
+              knownNotificationIdsRef.current.add(incoming.id);
+              if (user?.role === 'operations' || user?.role === 'admin' || user?.role === 'rider') {
+                startAlertRinging(60000);
+              } else {
+                playNotificationAlertSound();
+              }
+            }
             setNotifications(prev => [incoming, ...prev.filter(n => n.id !== incoming.id)]);
             setUnreadCount(prev => prev + 1);
           }
@@ -247,7 +255,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role, startAlertRinging]);
 
   const markRead = useCallback(async (id: string) => {
     stopAlertRinging();
