@@ -285,6 +285,16 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     ).catch(() => {});
   }
 
+  if (updated.assignedRider) {
+    notify(
+      updated.assignedRider.userId,
+      'shipment_status',
+      `Shipment ${updated.trackingCode} update`,
+      `Status updated to: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
+      updated.id
+    ).catch(() => {});
+  }
+
   if (parsed.data.status === 'delayed') {
     notifyRoles(
       ['operations', 'admin'],

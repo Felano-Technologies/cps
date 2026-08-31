@@ -4,6 +4,7 @@ import { Menu, X, ChevronDown, LogOut, Settings } from 'lucide-react';
 import cpsLogo from '../assets/logo2.png';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
+import VerifyPhoneBanner from './VerifyPhoneBanner';
 
 const PUBLIC_LINKS: { path: string; label: string }[] = [
   { path: '/', label: 'Home' },
@@ -59,6 +60,7 @@ export default function Topbar() {
   const links = isAuthenticated && user ? ROLE_LINKS[user.role] || [] : PUBLIC_LINKS;
 
   return (
+    <>
     <header className="topbar">
       <div className="topbar-inner">
       <div className="brand-title">
@@ -101,7 +103,7 @@ export default function Topbar() {
               <div className="mobile-profile-section">
                 <div className="mobile-user-info">
                   <div className="m-name">{user?.name}</div>
-                  <div className="m-email">{user?.email}</div>
+                  <div className="m-email">{user?.phone ?? user?.email}</div>
                   <div className="m-role">{user?.role}</div>
                 </div>
                 <NavLink to="/settings" className="mobile-menu-item" onClick={() => setMobileMenuOpen(false)}>
@@ -176,7 +178,7 @@ export default function Topbar() {
                   `}</style>
                   <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: '1.1rem' }}>{user?.name}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{user?.email}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{user?.phone ?? user?.email}</div>
                     <div style={{
                       display: 'inline-block', fontSize: '0.7rem', marginTop: '8px', padding: '4px 8px', borderRadius: 'var(--radius-xs)',
                       textTransform: 'uppercase', background: 'var(--success-bg)', color: 'var(--green-dark)', fontWeight: 800, letterSpacing: '0.05em'
@@ -198,5 +200,7 @@ export default function Topbar() {
         </div>
       </div>
     </header>
+    {isAuthenticated && <VerifyPhoneBanner />}
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import type { UserRole } from '@prisma/client';
 import { prisma } from './prisma';
 import { sendEmail } from './mailer';
+import { sendSms } from './sms';
 import { pushToUser } from './ws';
 
 export async function notify(
@@ -16,9 +17,12 @@ export async function notify(
 
   pushToUser(userId, { type: 'notification', notification });
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, phone: true } });
   if (user) {
     sendEmail(user.email, title, message).catch(() => {});
+    if (user.phone) {
+      sendSms(user.phone, `${title}: ${message}`).catch(() => {});
+    }
   }
 
   return notification;

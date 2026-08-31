@@ -20,6 +20,7 @@ export interface User {
   email: string;
   role: UserRole;
   phone?: string;
+  phoneVerified?: boolean;
   avatar?: string;
 }
 
@@ -28,11 +29,13 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<User>;
-  signup: (name: string, email: string, password: string, role: UserRole) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User>;
+  signup: (name: string, phone: string, password: string) => Promise<User>;
   requestPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, code: string) => Promise<{ exists: boolean; user?: User }>;
   completePhoneSignup: (phone: string, code: string, name: string, role: UserRole) => Promise<User>;
+  requestPhoneVerification: () => Promise<void>;
+  confirmPhoneVerification: (code: string) => Promise<User>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -70,12 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.post<User>('/auth/login', { email, password });
+      const { data } = await api.post<User>('/auth/login', { identifier, password });
       setUser(data);
       return data;
     } catch (err) {
@@ -87,12 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (name: string, email: string, password: string, role: UserRole) => {
+  const signup = async (name: string, phone: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.post<User>('/auth/register', { name, email, password, role });
+      const { data } = await api.post<User>('/auth/register', { name, phone, password });
       return data;
     } catch (err) {
       const message = extractErrorMessage(err, 'Signup failed');
@@ -142,6 +145,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const requestPhoneVerification = async () => {
+    setError(null);
+    try {
+      await api.post('/auth/phone/verify/request');
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to send verification code');
+      setError(message);
+      throw err;
+    }
+  };
+
+  const confirmPhoneVerification = async (code: string) => {
+    setError(null);
+    try {
+      const { data } = await api.post<User>('/auth/phone/verify/confirm', { code });
+      setUser(data);
+      return data;
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Invalid or expired code');
+      setError(message);
+      throw err;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setError(null);
@@ -162,6 +189,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     requestPhoneOtp,
     verifyPhoneOtp,
     completePhoneSignup,
+    requestPhoneVerification,
+    confirmPhoneVerification,
     logout,
     updateUser,
   };

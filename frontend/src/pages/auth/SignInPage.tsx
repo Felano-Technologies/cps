@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
@@ -8,7 +8,7 @@ import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
 
 export default function SignInPage() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -20,12 +20,12 @@ export default function SignInPage() {
     e.preventDefault();
     setLocalError('');
     try {
-      const user = await login(email, password);
+      const user = await login(identifier, password);
       toast.success(`Welcome back, ${user.name}.`);
       navigate(getRoleDashboard(user.role));
     } catch (err) {
-      setLocalError('Invalid email or password');
-      toast.error('Invalid email or password');
+      setLocalError('Invalid phone/email or password');
+      toast.error('Invalid phone/email or password');
     }
   };
 
@@ -62,15 +62,15 @@ export default function SignInPage() {
 
             <form onSubmit={handleSubmit}>
               <label className="auth-field">
-                <span>Email</span>
+                <span>Phone Number or Email</span>
                 <div className="auth-input-wrap">
-                  <Mail size={17} className="leading-icon" />
+                  <Phone size={17} className="leading-icon" />
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="name@company.com"
+                    value={identifier}
+                    onChange={e => setIdentifier(e.target.value)}
+                    placeholder="0241234567"
                   />
                 </div>
               </label>

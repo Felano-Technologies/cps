@@ -18,6 +18,17 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .map(origin => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
+// Logs every request that actually reaches this process — placed before CORS
+// so even rejected/blocked requests show up, not just successful ones.
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms — origin: ${req.headers.origin ?? 'none'} ip: ${req.ip}`);
+  });
+  next();
+});
+
 app.use(cors({
   origin(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {

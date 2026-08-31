@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
+import { User, Phone, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
@@ -9,7 +9,7 @@ import '../../styles/auth.css';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -22,7 +22,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setLocalError('');
     try {
-      await signup(name, email, password, 'customer');
+      await signup(name, phone, password);
       toast.success('Account created — sign in to continue.');
       navigate('/signin');
     } catch (err) {
@@ -72,10 +72,10 @@ export default function SignUpPage() {
               </label>
 
               <label className="auth-field">
-                <span>Email</span>
+                <span>Phone Number</span>
                 <div className="auth-input-wrap">
-                  <Mail size={17} className="leading-icon" />
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" />
+                  <Phone size={17} className="leading-icon" />
+                  <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="0241234567" />
                 </div>
               </label>
 
