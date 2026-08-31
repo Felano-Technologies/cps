@@ -11,7 +11,7 @@ const router = Router();
 
 const registerSchema = z.object({
   name: z.string().min(1),
-  identifier: z.string().min(3),
+  phone: z.string().min(7),
   password: z.string().min(8),
 });
 
@@ -40,30 +40,25 @@ router.post('/register', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
-  const { name, identifier, password } = parsed.data;
-  const isEmail = identifier.includes('@');
+  const { name, phone, password } = parsed.data;
 
-  const existing = await prisma.user.findFirst({
-    where: isEmail ? { email: identifier } : { phone: identifier },
-  });
+  const existing = await prisma.user.findUnique({ where: { phone } });
   if (existing) {
-    return res.status(409).json({ error: `An account with this ${isEmail ? 'email' : 'phone number'} already exists` });
+    return res.status(409).json({ error: 'An account with this phone number already exists' });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
       name,
-      email: isEmail ? identifier : `${identifier.replace(/[^0-9]/g, '')}@phone.cps.local`,
-      phone: isEmail ? null : identifier,
+      email: `${phone.replace(/[^0-9]/g, '')}@phone.cps.local`,
+      phone,
       passwordHash,
       role: 'customer',
     },
   });
 
-  if (!isEmail) {
-    await issueOtp(identifier);
-  }
+  await issueOtp(phone);
 
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);

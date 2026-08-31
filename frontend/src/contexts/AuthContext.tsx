@@ -30,7 +30,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   login: (identifier: string, password: string) => Promise<User>;
-  signup: (name: string, identifier: string, password: string) => Promise<User>;
+  signup: (name: string, phone: string, password: string) => Promise<User>;
   requestPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, code: string) => Promise<{ exists: boolean; user?: User }>;
   completePhoneSignup: (phone: string, code: string, name: string, role: UserRole) => Promise<User>;
@@ -90,12 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (name: string, identifier: string, password: string) => {
+  const signup = async (name: string, phone: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.post<User>('/auth/register', { name, identifier, password });
+      const { data } = await api.post<User>('/auth/register', { name, phone, password });
       setUser(data);
       return data;
     } catch (err) {
