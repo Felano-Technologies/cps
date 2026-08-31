@@ -15,4 +15,4 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD npx prisma migrate deploy && npm start
+CMD npx prisma migrate deploy && npm run prisma:seed && npm start
