@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Search,
   ArrowRight,
@@ -12,6 +13,7 @@ import {
   Pill,
   UtensilsCrossed,
   FileText,
+  PackageCheck,
 } from 'lucide-react';
 import { useReveal } from '../../hooks/useReveal';
 import samedayImg from '../../assets/sameday.png';
@@ -19,11 +21,24 @@ import coverageImg from '../../assets/coverage.jpg';
 import '../../styles/landing.css';
 
 export default function LandingPage() {
+  const [trackingQuery, setTrackingQuery] = useState('');
+  const navigate = useNavigate();
+
   const { ref: trustRef, className: trustClass } = useReveal<HTMLDivElement>();
   const { ref: headingRef, className: headingClass } = useReveal<HTMLDivElement>();
   const { ref: samedayRef, className: samedayClass } = useReveal<HTMLElement>();
-  const { ref: dispatchRef, className: dispatchClass } = useReveal<HTMLElement>();
+  const { ref: customerPickupRef, className: customerPickupClass } = useReveal<HTMLElement>();
   const { ref: coverageRef, className: coverageClass } = useReveal<HTMLElement>();
+
+  const handleTrackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = trackingQuery.trim();
+    if (query) {
+      navigate(`/tracking/${encodeURIComponent(query)}`);
+    } else {
+      navigate('/shipments');
+    }
+  };
 
   return (
     <div className="page-shell light-shell">
@@ -38,37 +53,41 @@ export default function LandingPage() {
 
           <span className="hero-eyebrow">
             <Radar size={14} />
-            Local courier network
+            Express &amp; Same-Day Courier Network
           </span>
 
           <div style={{ margin: '8px 0 24px' }}>
-            <Link to="/request-pickup" className="dark-btn" style={{ display: 'inline-flex', padding: '14px 28px', fontSize: '1.05rem', borderRadius: '8px' }}>
-              <PackagePlus size={18} /> Request Pickup
+            <Link to="/request-pickup" className="dark-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', padding: '14px 28px', fontSize: '1.05rem', borderRadius: '8px' }}>
+              <PackagePlus size={18} />
+              <span>Request Pickup</span>
             </Link>
           </div>
           <p className="lede">
-            Professional motorbike and van courier operations for same-day pickups, urgent drops, and
-            time-sensitive deliveries across the city.
+            Professional motorbike and van courier services for same-day doorstep pickups, urgent drops, and
+            reliable parcel deliveries across the city.
           </p>
 
-          <div className="hero-search-row">
+          <form onSubmit={handleTrackSubmit} className="hero-search-row">
             <div className="search-field">
               <Search size={18} />
-              <input placeholder="Enter tracking ID or pickup code" />
+              <input
+                type="text"
+                placeholder="Enter tracking ID or pickup code"
+                value={trackingQuery}
+                onChange={(e) => setTrackingQuery(e.target.value)}
+              />
             </div>
-            <Link to="/shipments" className="primary-green track-btn">
+            <button type="submit" className="primary-green track-btn" style={{ border: 'none', cursor: 'pointer' }}>
               Track <ArrowRight size={16} />
-            </Link>
-          </div>
+            </button>
+          </form>
 
           <ul className="hero-capabilities">
             <li><Truck size={16} /> Motorbike &amp; van fleet</li>
-            <li><Clock size={16} /> Same-day dispatch</li>
+            <li><Clock size={16} /> Same-day pickup</li>
             <li><ShieldCheck size={16} /> Proof of delivery</li>
           </ul>
         </div>
-
-
       </main>
 
       <div ref={trustRef} className={`trust-strip ${trustClass}`}>
@@ -83,8 +102,8 @@ export default function LandingPage() {
 
       <section className="landing-services container">
         <div ref={headingRef} className={`section-heading ${headingClass}`}>
-          <h2>Built for Couriers</h2>
-          <p>Simple tools for dispatching riders, monitoring live orders, and keeping every delivery on time.</p>
+          <h2>Fast, Reliable Delivery Solutions</h2>
+          <p>Convenient door-to-door courier pickups, instant parcel deliveries, and live tracking for personal and business orders.</p>
         </div>
 
         <div className="services-top">
@@ -94,17 +113,17 @@ export default function LandingPage() {
             </div>
             <div className="service-tile-body">
               <h3>Same-Day Delivery</h3>
-              <p>Fast point-to-point courier runs for urgent parcels, documents, and small goods. Vans and motorbikes available.</p>
+              <p>Fast point-to-point courier runs for urgent parcels, documents, gifts, and small goods. Vans and motorbikes available.</p>
             </div>
           </article>
 
-          <article ref={dispatchRef} className={`service-tile dark ${dispatchClass}`}>
+          <article ref={customerPickupRef} className={`service-tile dark ${customerPickupClass}`}>
             <div className="service-tile-body">
-              <span className="service-tile-icon"><Radar size={20} /></span>
-              <h3>Rider Dispatch</h3>
-              <p>Assign the nearest rider, track progress, and manage exceptions in real time.</p>
-              <Link to="/ops-board" className="service-tile-link">
-                View Dispatch Board <ArrowRight size={15} />
+              <span className="service-tile-icon"><PackageCheck size={20} /></span>
+              <h3>Doorstep Pickup &amp; Tracking</h3>
+              <p>Schedule an instant pickup from your home or store. Receive real-time progress updates, SMS notifications, and photo proof of delivery.</p>
+              <Link to="/request-pickup" className="service-tile-link">
+                Request a Pickup <ArrowRight size={15} />
               </Link>
             </div>
           </article>
@@ -116,10 +135,10 @@ export default function LandingPage() {
           </div>
           <div className="service-tile-body">
             <span className="service-tile-icon"><MapPinned size={20} /></span>
-            <h3>Coverage by Area</h3>
-            <p>Urban courier coverage tuned for rider zones, peak-hour demand, and fast handoffs.</p>
+            <h3>Coverage &amp; Regional Rates</h3>
+            <p>Urban courier coverage tuned for rapid pickups, reliable transit times, and seamless customer handoffs.</p>
             <Link to="/services" className="service-tile-link">
-              View Coverage <ArrowRight size={15} />
+              View Coverage &amp; Services <ArrowRight size={15} />
             </Link>
           </div>
         </article>

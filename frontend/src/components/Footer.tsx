@@ -62,10 +62,10 @@ export default function Footer() {
               <div className="footer-section">
                 <h4>Support</h4>
                 <div className="support-list">
-                  <a href="tel:+233506514687" className="support-pill"><Phone size={16} /> Call: +233 50 651 4687</a>
+                  <a href="tel:+233534583364" className="support-pill"><Phone size={16} /> Call: +233 53 458 3364</a>
                   <a href="https://wa.me/233534583364" target="_blank" rel="noopener noreferrer" className="support-pill"><MessageCircle size={16} /> WhatsApp: +233 53 458 3364</a>
                   <a href="mailto:cpsdeliverygh@gmail.com" className="support-pill"><Mail size={16} /> cpsdeliverygh@gmail.com</a>
-                  <div className="support-pill"><Clock size={16} /> Mon - Fri: 8am - 5pm</div>
+                  <div className="support-pill"><Clock size={16} /> Mon - Sat: 8:00am - 7:30pm</div>
                 </div>
               </div>
             </div>

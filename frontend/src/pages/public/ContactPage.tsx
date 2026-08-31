@@ -150,7 +150,7 @@ export default function ContactPage() {
               <span className="contact-info-icon"><Clock size={18} /></span>
               <div>
                 <strong>Operating Hours</strong>
-                <span>Monday – Friday: 8:00 AM – 5:00 PM</span>
+                <span>Monday – Saturday: 8:00 AM – 7:30 PM</span>
               </div>
             </div>
           </div>
