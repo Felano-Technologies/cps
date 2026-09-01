@@ -21,6 +21,13 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function formatFee(value: string | number | undefined | null): string {
+  if (value === '' || value === undefined || value === null) return '0.00';
+  const num = Number(value);
+  if (isNaN(num)) return String(value);
+  return num.toFixed(2);
+}
+
 function formDataFromShipment(shipment: Shipment) {
   return {
     senderName: shipment.senderName,
@@ -31,7 +38,7 @@ function formDataFromShipment(shipment: Shipment) {
     dropoffLocation: shipment.dropoffLocation,
     packageType: capitalize(shipment.packageType),
     priority: shipment.priority === 'high' ? 'High' : 'Standard',
-    cost: shipment.deliveryFee,
+    cost: formatFee(shipment.deliveryFee),
   };
 }
 
@@ -254,7 +261,7 @@ export default function OrderPrintModal({ onClose, shipment }: OrderPrintModalPr
               </div>
 
               <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginTop: '16px' }}>
-                TOTAL: GHS {formData.cost || '0.00'}
+                TOTAL: GHS {formatFee(formData.cost)}
               </div>
 
               <div style={{ textAlign: 'center', marginTop: '20px', borderTop: '1px dashed #000', paddingTop: '12px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
