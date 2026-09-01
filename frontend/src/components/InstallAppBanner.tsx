@@ -136,7 +136,7 @@ export default function InstallAppBanner({
             <div className="mobile-installed-badge">
               <CheckCircle2 size={18} color="#22c55e" />
               <span>App Installed on Home Screen</span>
-              <Link to="/login" className="mobile-signin-btn">
+              <Link to="/signin" className="mobile-signin-btn">
                 <LogIn size={15} /> Sign In
               </Link>
             </div>
@@ -209,11 +209,6 @@ export default function InstallAppBanner({
                 <Link to="/request-pickup" className="hero-pickup-secondary-btn">
                   <PackagePlus size={19} />
                   <span>Request Pickup</span>
-                </Link>
-
-                <Link to="/login" className="hero-login-ghost-btn">
-                  <LogIn size={17} />
-                  <span>Sign In</span>
                 </Link>
               </div>
 
@@ -409,22 +404,6 @@ export default function InstallAppBanner({
               )}
             </div>
 
-            <div className="install-modal-footer">
-              <Link
-                to="/login"
-                onClick={() => setShowGuideModal(false)}
-                className="modal-login-btn"
-              >
-                <LogIn size={16} /> Go to Sign In
-              </Link>
-              <button
-                type="button"
-                className="modal-gotit-btn"
-                onClick={() => setShowGuideModal(false)}
-              >
-                Got It!
-              </button>
-            </div>
           </div>
         </div>
       )}
