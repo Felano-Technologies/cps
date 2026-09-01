@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setError(null);
-    api.post('/auth/logout').catch(() => {});
+    api.post('/auth/logout').catch(() => { });
   };
 
   const updateUser = (updatedUser: User) => {

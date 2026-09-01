@@ -276,7 +276,7 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      
+
       {/* Dynamic Bottom Navigation / Footer */}
       {isStaff ? (
         <>

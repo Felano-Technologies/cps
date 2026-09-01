@@ -4,9 +4,6 @@ import {
   ArrowLeft,
   Search,
   Zap,
-  Car,
-  Bike,
-  Truck,
   PackageSearch,
   DollarSign,
   Check,
@@ -15,24 +12,20 @@ import {
   AlertTriangle,
   Ban,
   Package,
+  Truck,
+  MapPin,
+  Phone,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus, VehicleType } from '../../types/models';
+import type { Shipment, ShipmentStatus } from '../../types/models';
 
 interface OpsOrdersListPageProps {
   filterType: 'new' | 'active' | 'delayed' | 'cancelled';
 }
-
-const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
-  motorbike: Bike,
-  van: Car,
-  truck: Truck,
-};
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
   awaiting_price: 'Awaiting Price',
@@ -339,19 +332,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
-                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer & Route</th>
-                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service</th>
+                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</th>
+                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pickup Location</th>
+                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dropoff Location</th>
                   {filterType === 'new' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimated Fee</th>
                   )}
-                  {filterType === 'active' && (
-                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider</th>
-                  )}
                   {filterType === 'delayed' && (
-                    <>
-                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider</th>
-                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delay Reason & Note</th>
-                    </>
+                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delay Reason & Note</th>
                   )}
                   {filterType === 'cancelled' && (
                     <>
@@ -368,13 +356,16 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="80px" /></td>
-                      <td style={{ padding: '16px' }}>
-                        <Skeleton height="1.2em" width="120px" style={{ marginBottom: '4px' }} />
-                        <Skeleton height="1em" width="100px" />
-                      </td>
-                      <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="90px" /></td>
                       <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="110px" /></td>
-                      <td style={{ padding: '16px' }}><Skeleton height="1.5em" width="100px" radius="20px" /></td>
+                      <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="130px" /></td>
+                      <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="130px" /></td>
+                      {(filterType === 'new' || filterType === 'delayed' || filterType === 'cancelled') && (
+                        <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="100px" /></td>
+                      )}
+                      {filterType === 'cancelled' && (
+                        <td style={{ padding: '16px' }}><Skeleton height="1.2em" width="120px" /></td>
+                      )}
+                      <td style={{ padding: '16px' }}><Skeleton height="1.5em" width="90px" radius="20px" /></td>
                       <td style={{ padding: '16px' }}><Skeleton height="2em" width="80px" radius="8px" /></td>
                     </tr>
                   ))
@@ -382,7 +373,6 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   filteredOrders.map((order) => {
                     const colors = STATUS_COLORS[order.status];
                     const isUrgent = order.priority === 'high';
-                    const VehicleIcon = VEHICLE_ICONS[order.vehicleType];
                     const cancelReason = getCancellationReason(order);
                     const cancelTime = getCancellationTime(order);
                     const delayReason = getDelayReason(order);
@@ -390,34 +380,51 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
                     return (
                       <tr key={order.id} style={{ borderBottom: '1px solid #e2e8f0', background: isUrgent ? '#fffbeb' : '#fff', transition: 'background 0.2s' }} className="hover-row">
+                        {/* Order ID & Date */}
                         <td style={{ padding: '16px' }}>
                           <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.trackingCode}</div>
                           <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
                             {new Date(order.createdAt).toLocaleDateString()}
                           </div>
                         </td>
+
+                        {/* Customer / Sender */}
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0f172a' }}></span>
-                            {order.senderName} ({order.pickupLocation})
+                          <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 700 }}>
+                            {order.senderName}
                           </div>
-                          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#078c35' }}></span>
-                            → {order.receiverName} ({order.dropoffLocation})
-                          </div>
-                        </td>
-                        <td style={{ padding: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#475569', textTransform: 'capitalize' }}>
-                            <VehicleIcon size={16} /> {order.vehicleType}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', textTransform: 'capitalize' }}>
-                            {order.batchId ? 'Bulk' : order.speed.replace('_', ' ')}
-                          </div>
-                          {isUrgent && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fef9c3', color: '#854d0e', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em', marginTop: '4px' }}>
-                              <Zap size={12} /> URGENT
+                          {order.senderNumber && (
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Phone size={12} /> {order.senderNumber}
                             </div>
                           )}
+                          {isUrgent && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fef9c3', color: '#854d0e', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.03em', marginTop: '4px' }}>
+                              <Zap size={11} /> URGENT
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Pickup Location */}
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <MapPin size={15} color="#0f172a" style={{ flexShrink: 0 }} />
+                            <span>{order.pickupLocation}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', marginLeft: '21px' }}>
+                            {order.pickupRegion}
+                          </div>
+                        </td>
+
+                        {/* Dropoff Location */}
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <MapPin size={15} color="#078c35" style={{ flexShrink: 0 }} />
+                            <span>{order.dropoffLocation}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', marginLeft: '21px' }}>
+                            {order.dropoffRegion} {order.receiverName ? `· To: ${order.receiverName}` : ''}
+                          </div>
                         </td>
 
                         {/* Mode Specific Columns */}
@@ -432,33 +439,18 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           </td>
                         )}
 
-                        {filterType === 'active' && (
+                        {filterType === 'delayed' && (
                           <td style={{ padding: '16px' }}>
-                            <div style={{ fontSize: '14px', color: '#475569' }}>
-                              {order.assignedRider?.user.name ?? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Unassigned</span>}
+                            <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '8px 12px', maxWidth: '340px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+                                <AlertTriangle size={14} color="#d97706" style={{ flexShrink: 0 }} />
+                                <span>{delayReason}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                                Reported: {delayTime}
+                              </div>
                             </div>
                           </td>
-                        )}
-
-                        {filterType === 'delayed' && (
-                          <>
-                            <td style={{ padding: '16px' }}>
-                              <div style={{ fontSize: '14px', color: '#475569' }}>
-                                {order.assignedRider?.user.name ?? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Unassigned</span>}
-                              </div>
-                            </td>
-                            <td style={{ padding: '16px' }}>
-                              <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '8px 12px', maxWidth: '340px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
-                                  <AlertTriangle size={14} color="#d97706" style={{ flexShrink: 0 }} />
-                                  <span>{delayReason}</span>
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                                  Reported: {delayTime}
-                                </div>
-                              </div>
-                            </td>
-                          </>
                         )}
 
                         {filterType === 'cancelled' && (

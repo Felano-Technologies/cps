@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
-import Map from '../../components/Map';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton, SkeletonCircle } from '../../components/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
@@ -92,16 +91,6 @@ function formatEventTime(value: string): string {
   return date.toLocaleString();
 }
 
-function mapCaption(status: ShipmentStatus): string {
-  switch (status) {
-    case 'delivered': return 'Package delivered';
-    case 'cancelled': return 'Shipment cancelled';
-    case 'failed': return 'Delivery attempt failed';
-    case 'pending': return 'Awaiting pickup';
-    default: return 'In transit';
-  }
-}
-
 export default function CustomerTrackingPage() {
   const { parcelId } = useParams();
   const navigate = useNavigate();
@@ -163,9 +152,6 @@ export default function CustomerTrackingPage() {
             <Skeleton height="2.5em" width="120px" radius="var(--radius-sm)" />
           </div>
           <div className="tracking-content" style={{ marginTop: 24 }}>
-            <div className="map-card">
-              <Skeleton height={280} radius="var(--radius-lg)" />
-            </div>
             <div className="history-panel">
               <Skeleton height="1.2em" width="50%" style={{ marginBottom: 16 }} />
               {Array.from({ length: 4 }).map((_, i) => (
@@ -201,7 +187,6 @@ export default function CustomerTrackingPage() {
   }
 
   const statusEvents = shipment.statusEvents ?? [];
-  const CaptionIcon = STATUS_ICONS[shipment.status] ?? Navigation;
   const ServiceIcon = VEHICLE_ICONS[shipment.vehicleType] ?? Truck;
 
   return (
@@ -211,7 +196,6 @@ export default function CustomerTrackingPage() {
           @media (max-width: 768px) {
             .tracking-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
             .tracking-h1 { font-size: 24px !important; }
-            .tracking-map-card { height: 200px !important; }
             .tracking-details-card,
             .tracking-timeline-card { padding: 20px !important; }
             .tracking-service-row { flex-wrap: wrap !important; gap: 12px !important; }
@@ -272,24 +256,8 @@ export default function CustomerTrackingPage() {
           alignItems: 'start'
         }}>
 
-          {/* LEFT COLUMN: Map & Shipment Details */}
+          {/* LEFT COLUMN: Shipment Details */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-            {/* Live Map */}
-            <div className="card-style tracking-map-card" style={{ padding: '0', overflow: 'hidden', height: '240px', position: 'relative' }}>
-              <Map
-                className="tracking-map-surface"
-                markers={[
-                  { label: 'Pickup', address: `${shipment.pickupLocation}, ${shipment.pickupRegion}, Ghana` },
-                  { label: 'Dropoff', address: `${shipment.dropoffLocation}, ${shipment.dropoffRegion}, Ghana` },
-                ]}
-                showRoute
-              />
-              <div style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 500, display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: '#0f172a', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                <CaptionIcon size={14} color="#078c35" />
-                {mapCaption(shipment.status)}
-              </div>
-            </div>
 
             {/* Shipment Details Card */}
             <div className="card-style tracking-details-card" style={{ padding: '24px' }}>

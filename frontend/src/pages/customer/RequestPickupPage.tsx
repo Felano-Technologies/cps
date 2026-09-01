@@ -33,11 +33,6 @@ const REGION_OPTIONS = [
   { value: 'Tamale', label: 'Tamale' },
 ];
 
-const KUMASI_SUB_AREA_OPTIONS = [
-  { value: 'CampusAndEnvirons', label: 'KNUST Campus, Ayeduase, Ayigya, Bomso, Kotei' },
-  { value: 'Other', label: 'Other Kumasi Areas' },
-];
-
 const SPEED_OPTIONS = [
   { value: 'Same day', label: 'Same day' },
   { value: 'Next day', label: 'Next day' },
@@ -109,7 +104,6 @@ export default function RequestPickupPage() {
   const [receiverName, setReceiverName] = useState('');
   const [receiverNumber, setReceiverNumber] = useState('');
   const [dropoffRegion, setDropoffRegion] = useState('Kumasi');
-  const [dropoffKumasiSubArea, setDropoffKumasiSubArea] = useState<'CampusAndEnvirons' | 'Other'>('Other');
   const [dropoffLocation, setDropoffLocation] = useState('');
   const [deliverySpeed, setDeliverySpeed] = useState('');
   const [packageType, setPackageType] = useState('');
@@ -162,7 +156,6 @@ export default function RequestPickupPage() {
     if (activeTab === 'single') {
       const cost = calculateDeliveryCost({
         region: dropoffRegion,
-        kumasiSubArea: dropoffRegion === 'Kumasi' ? dropoffKumasiSubArea : undefined
       });
       return cost ?? 0;
     } else {
@@ -176,7 +169,7 @@ export default function RequestPickupPage() {
         return count * 35;
       }
     }
-  }, [isFormComplete, activeTab, dropoffRegion, dropoffKumasiSubArea, bulkReceiverMode, bulkReceivers, numberOfPackages]);
+  }, [isFormComplete, activeTab, dropoffRegion, bulkReceiverMode, bulkReceivers, numberOfPackages]);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -256,7 +249,6 @@ export default function RequestPickupPage() {
       };
       if (senderContact.trim()) payload.senderContact = senderContact;
       if (pickupDate.trim()) payload.pickupDate = pickupDate;
-      if (dropoffRegion === 'Kumasi') payload.dropoffKumasiSubArea = dropoffKumasiSubArea;
       if (productFee.trim() !== '') payload.productFee = Number(productFee);
       if (additionalInstructions.trim()) payload.additionalInstructions = additionalInstructions;
       if (uploadedImageUrl) payload.packageImageUrl = uploadedImageUrl;
@@ -532,7 +524,7 @@ export default function RequestPickupPage() {
                 <span>Pickup Location</span>
                 <div className="rp-input-wrap">
                   <MapPinned size={17} />
-                  <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Specific area or landmark" />
+                  <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Where exactly are you? (e.g. Ayeduase Gate, Adum, KNUST, etc.)" />
                 </div>
               </label>
             </div>
@@ -556,21 +548,15 @@ export default function RequestPickupPage() {
                       <input value={receiverNumber} onChange={e => setReceiverNumber(e.target.value)} placeholder="024XXXXXXX" />
                     </div>
                   </label>
-                  <label>
+                  <label style={{ gridColumn: '1 / -1' }}>
                     <span>Dropoff Region</span>
                     <CustomSelect value={dropoffRegion} onChange={v => setDropoffRegion(v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                   </label>
-                  {dropoffRegion === 'Kumasi' && (
-                    <label>
-                      <span>Kumasi Area</span>
-                      <CustomSelect value={dropoffKumasiSubArea} onChange={v => setDropoffKumasiSubArea(v as 'CampusAndEnvirons' | 'Other')} options={KUMASI_SUB_AREA_OPTIONS} icon={<MapPin size={17} />} />
-                    </label>
-                  )}
                   <label style={{ gridColumn: '1 / -1' }}>
                     <span>Dropoff Location</span>
                     <div className="rp-input-wrap">
                       <MapPinned size={17} />
-                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Specific landmark or street" />
+                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
                     </div>
                   </label>
                 </div>

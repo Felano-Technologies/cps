@@ -170,7 +170,7 @@ export default function InstallAppBanner({
         {/* DESKTOP VIEW: Full Hero Section Replaced by Install Showcase & Brand Actions */}
         <div className="hero-install-desktop-only">
           <div className="desktop-hero-grid">
-            
+
             {/* Left Hero Column */}
             <div className="desktop-hero-left">
               <div className="desktop-hero-eyebrow">
