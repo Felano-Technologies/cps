@@ -490,12 +490,10 @@
 }
 
 @media (max-width: 768px) {
+  .hero-visual { display: none; }
   .hero-search-row { flex-direction: column; align-items: stretch; }
   .search-field { flex: none; width: 100%; box-sizing: border-box; }
   .hero-search-row .primary-green, .hero-search-row .dark-btn { justify-content: center; }
-  .hero-visual-badge.tracking { left: 12px; }
-  .hero-visual-badge.verified { top: -12px; right: 4px; padding: 10px 12px; }
-  .hero-visual-badge.verified span { display: none; }
   .service-tile.wide { flex-direction: column; }
   .service-tile.wide .service-tile-media { width: 100%; aspect-ratio: 16 / 10; }
   .trust-strip { justify-content: flex-start; text-align: left; }
