@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import appIcon from '../assets/logo2.png';
+import '../styles/landing.css';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -73,12 +74,20 @@ export default function InstallAppBanner({
       toast.success('CPS App installed successfully! You can now launch it from your home screen.');
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowGuideModal(false);
+      }
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [toast]);
 
@@ -404,6 +413,16 @@ export default function InstallAppBanner({
               )}
             </div>
 
+            <div className="install-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+              <button
+                type="button"
+                className="modal-gotit-btn primary-green"
+                onClick={() => setShowGuideModal(false)}
+                style={{ padding: '10px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
+              >
+                Got It
+              </button>
+            </div>
           </div>
         </div>
       )}
