@@ -53,12 +53,19 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 async function issueOtp(phone: string) {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-  await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
-  console.log(`[otp] Code for ${phone}: ${code}`);
+
+  // Fire the SMS the instant the code exists, before awaiting the DB write
+  // — the outbound HTTP request to mNotify starts synchronously the moment
+  // sendSms() is called, so kicking it off first (not awaited — it finishes
+  // in the background) shaves the DB round-trip off its start time, without
+  // making the caller's response wait on mNotify's response either.
   // Not tagged sms_type: "otp" — that bills from mNotify's separate OTP
   // wallet (currently unfunded), while regular sends use the normal SMS
   // credit balance, which is funded. Revisit once the wallet is topped up.
   sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+
+  await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
+  console.log(`[otp] Code for ${phone}: ${code}`);
 }
 
 async function findValidOtp(phone: string, code: string) {

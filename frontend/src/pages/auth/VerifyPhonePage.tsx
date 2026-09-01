@@ -8,6 +8,8 @@ import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
 
+const RESEND_COOLDOWN_SECONDS = 30;
+
 export default function VerifyPhonePage() {
   const { user, requestPhoneVerification, confirmPhoneVerification, logout } = useAuth();
   const toast = useToast();
@@ -17,6 +19,17 @@ export default function VerifyPhonePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [localError, setLocalError] = useState('');
+  // A code is already sent as part of signup/login, so the cooldown starts
+  // right away rather than only after a manual resend.
+  const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN_SECONDS);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown > 0]);
 
   const handleConfirm = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -43,11 +56,13 @@ export default function VerifyPhonePage() {
   }, [code]);
 
   const handleResend = async () => {
+    if (resendCooldown > 0 || isResending) return;
     setLocalError('');
     setIsResending(true);
     try {
       await requestPhoneVerification();
       toast.success('New code sent.');
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
       setLocalError('Failed to resend code. Please try again.');
     } finally {
@@ -110,12 +125,16 @@ export default function VerifyPhonePage() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={isResending}
+              disabled={isResending || resendCooldown > 0}
               className="auth-switch"
-              style={{ background: 'none', border: 'none', cursor: isResending ? 'not-allowed' : 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '16px' }}
+              style={{
+                background: 'none', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '16px',
+                cursor: (isResending || resendCooldown > 0) ? 'not-allowed' : 'pointer',
+                opacity: resendCooldown > 0 ? 0.6 : 1,
+              }}
             >
               <RotateCw size={14} />
-              {isResending ? 'Sending...' : "Didn't get a code? Resend"}
+              {isResending ? 'Sending...' : resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't get a code? Resend"}
             </button>
 
             <div className="auth-switch" style={{ marginTop: '16px' }}>
