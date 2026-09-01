@@ -427,6 +427,7 @@ export default function CustomerTrackingPage() {
             </div>
           </div>
 
+
           {/* RIGHT COLUMN: Vertical Timeline */}
           <div className="card-style tracking-timeline-card" style={{ padding: '32px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '32px' }}>Tracking History</h3>
