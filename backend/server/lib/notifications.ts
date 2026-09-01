@@ -21,7 +21,10 @@ export async function notify(
   if (user) {
     sendEmail(user.email, title, message).catch(() => {});
     if (user.phone) {
-      sendSms(user.phone, `${title}: ${message}`).catch(() => {});
+      // Tagged sms_type: "otp" — mNotify only delivers non-tagged "quick"
+      // SMS at low priority (observed ~10min delay); OTP-tagged sends go
+      // out near-instantly. Billed from the OTP wallet like verification codes.
+      sendSms(user.phone, `${title}: ${message}`, { isOtp: true }).catch(() => {});
     }
   }
 

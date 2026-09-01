@@ -239,8 +239,11 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/:trackingCode', async (req, res) => {
-  const shipment = await prisma.shipment.findUnique({
-    where: { trackingCode: req.params.trackingCode },
+  // Notifications store the shipment's id, while shipment lists/search use
+  // the human-facing trackingCode — accept either so links from either
+  // source resolve to the right shipment.
+  const shipment = await prisma.shipment.findFirst({
+    where: { OR: [{ trackingCode: req.params.trackingCode }, { id: req.params.trackingCode }] },
     include: {
       statusEvents: { orderBy: { createdAt: 'asc' } },
       assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
