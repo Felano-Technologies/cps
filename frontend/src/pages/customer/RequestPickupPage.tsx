@@ -81,6 +81,14 @@ function mapSpeed(value: string): ShipmentSpeed {
   }
 }
 
+function getTodayIsoString(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function RequestPickupPage() {
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const navigate = useNavigate();
@@ -88,7 +96,7 @@ export default function RequestPickupPage() {
   const { user } = useAuth();
 
   // Shared Sender State
-  const [pickupDate, setPickupDate] = useState('');
+  const [pickupDate, setPickupDate] = useState(getTodayIsoString);
   const [pickupMode, setPickupMode] = useState('motorbike');
   const [deliveryPriority, setDeliveryPriority] = useState('Standard');
   const [senderContact, setSenderContact] = useState('');
@@ -464,7 +472,7 @@ export default function RequestPickupPage() {
                   value={pickupDate}
                   onChange={setPickupDate}
                   placeholder="Select Preferred Date"
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={getTodayIsoString()}
                   icon={<Calendar size={17} />}
                 />
               </label>

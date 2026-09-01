@@ -620,5 +620,6 @@ th { color: #4f5457; font-size: .82rem; }
   cursor: pointer;
 }
 .date-picker-day:hover:not(:disabled) { background: var(--bg); }
+.date-picker-day.today:not(.selected) { border: 1.5px solid var(--navy); font-weight: 700; }
 .date-picker-day.selected { background: var(--lime); color: var(--navy); font-weight: 700; }
 .date-picker-day:disabled { color: #cbd5e1; cursor: not-allowed; }

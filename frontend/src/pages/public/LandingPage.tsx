@@ -1,13 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Search,
   ArrowRight,
-  PackagePlus,
-  Truck,
-  Clock,
-  ShieldCheck,
-  Radar,
   MapPinned,
   ShoppingBag,
   Pill,
@@ -16,9 +10,9 @@ import {
   PackageCheck,
 } from 'lucide-react';
 import { useReveal } from '../../hooks/useReveal';
-import heroImg from '../../assets/hero.png';
 import samedayImg from '../../assets/sameday.png';
 import coverageImg from '../../assets/coverage.jpg';
+import InstallAppBanner from '../../components/InstallAppBanner';
 import '../../styles/landing.css';
 
 export default function LandingPage() {
@@ -44,87 +38,12 @@ export default function LandingPage() {
   return (
     <div className="page-shell light-shell">
 
-      <main className="landing-hero container">
-        <div className="hero-copy">
-          <h2 style={{ fontSize: 'clamp(2.8rem, 4.6vw, 4.2rem)', color: 'var(--navy)', fontWeight: 800, margin: '0 0 24px', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
-            Welcome to <br />
-            <span style={{ color: 'var(--green-dark, #078c35)' }}>CPS</span> <br />
-            Delivery Services
-          </h2>
-
-          <span className="hero-eyebrow">
-            <Radar size={14} />
-            Express &amp; Same-Day Courier Network
-          </span>
-
-          <div style={{ margin: '8px 0 24px' }}>
-            <Link to="/request-pickup" className="dark-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', padding: '14px 28px', fontSize: '1.05rem', borderRadius: '8px' }}>
-              <PackagePlus size={18} />
-              <span>Request Pickup</span>
-            </Link>
-          </div>
-          <p className="lede">
-            Professional motorbike and van courier services for same-day doorstep pickups, urgent drops, and
-            reliable parcel deliveries across the city.
-          </p>
-
-          <form onSubmit={handleTrackSubmit} className="hero-search-row">
-            <div className="search-field">
-              <Search size={18} />
-              <input
-                type="text"
-                placeholder="Enter tracking ID or pickup code"
-                value={trackingQuery}
-                onChange={(e) => setTrackingQuery(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="primary-green track-btn" style={{ border: 'none', cursor: 'pointer' }}>
-              Track <ArrowRight size={16} />
-            </button>
-          </form>
-
-          <ul className="hero-capabilities">
-            <li><Truck size={16} /> Motorbike &amp; van fleet</li>
-            <li><Clock size={16} /> Same-day pickup</li>
-            <li><ShieldCheck size={16} /> Proof of delivery</li>
-          </ul>
-        </div>
-
-        <div className="hero-visual">
-          <div className="hero-visual-glow" />
-          <div className="hero-visual-frame">
-            <img
-              src={heroImg}
-              alt="CPS Courier Dispatch and Parcel Delivery Operations"
-              width={600}
-              height={750}
-              loading="eager"
-            />
-          </div>
-
-          <div className="hero-visual-badge tracking">
-            <div className="icon-chip">
-              <MapPinned size={18} />
-              <span className="live-dot" />
-            </div>
-            <div>
-              <strong>Live Tracking Active</strong>
-              <span>GPS dispatched rider</span>
-            </div>
-          </div>
-
-          <div className="hero-visual-badge verified">
-            <div className="icon-chip">
-              <PackageCheck size={18} />
-            </div>
-            <div>
-              <strong>100% Verified Delivery</strong>
-              <span>Recipient signature &amp; POD</span>
-            </div>
-          </div>
-        </div>
-      </main>
-
+      {/* Hero Section: Replaced by Install Showcase on Desktop & Install CTA Button on Mobile */}
+      <InstallAppBanner
+        trackingQuery={trackingQuery}
+        setTrackingQuery={setTrackingQuery}
+        onTrackSubmit={handleTrackSubmit}
+      />
 
       <div ref={trustRef} className={`trust-strip ${trustClass}`}>
         <span className="label">Trusted by local businesses that need fast courier coverage</span>

@@ -62,6 +62,9 @@ export default function DatePicker({
 
   useEffect(() => {
     if (!open) return;
+    const current = parseISO(value) ?? new Date();
+    setViewYear(current.getFullYear());
+    setViewMonth(current.getMonth());
     updatePosition();
 
     const handleClickOutside = (e: MouseEvent) => {
@@ -114,6 +117,8 @@ export default function DatePicker({
 
   const monthLabel = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
+  const todayIso = toISO(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
   return (
     <div className="custom-select date-picker" ref={rootRef}>
       <button
@@ -151,13 +156,14 @@ export default function DatePicker({
               if (day === null) return <span key={i} />;
               const iso = toISO(viewYear, viewMonth, day);
               const isSelected = iso === value;
+              const isToday = iso === todayIso;
               const isDisabled = minDate ? new Date(viewYear, viewMonth, day) < minDate : false;
               return (
                 <button
                   key={i}
                   type="button"
                   disabled={isDisabled}
-                  className={`date-picker-day${isSelected ? ' selected' : ''}`}
+                  className={`date-picker-day${isSelected ? ' selected' : ''}${isToday ? ' today' : ''}`}
                   onClick={(e) => {
                     e.preventDefault();
                     onChange(iso);
