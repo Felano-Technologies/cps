@@ -59,10 +59,8 @@ async function issueOtp(phone: string) {
   // sendSms() is called, so kicking it off first (not awaited — it finishes
   // in the background) shaves the DB round-trip off its start time, without
   // making the caller's response wait on mNotify's response either.
-  // Not tagged sms_type: "otp" — that bills from mNotify's separate OTP
-  // wallet (currently unfunded), while regular sends use the normal SMS
-  // credit balance, which is funded. Revisit once the wallet is topped up.
-  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`).catch(() => {});
+  // Tagged sms_type: "otp" — billed from mNotify's separate OTP wallet.
+  sendSms(phone, `Your CPS Delivery verification code is ${code}. It expires in 5 minutes.`, { isOtp: true }).catch(() => {});
 
   await prisma.phoneOtp.create({ data: { phone, code, expiresAt } });
   console.log(`[otp] Code for ${phone}: ${code}`);
