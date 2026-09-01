@@ -16,6 +16,7 @@ import {
   PackageCheck,
 } from 'lucide-react';
 import { useReveal } from '../../hooks/useReveal';
+import heroImg from '../../assets/hero.png';
 import samedayImg from '../../assets/sameday.png';
 import coverageImg from '../../assets/coverage.jpg';
 import '../../styles/landing.css';
@@ -89,73 +90,41 @@ export default function LandingPage() {
           </ul>
         </div>
 
-        {/* Desktop Showcase Panel */}
-        <div className="desktop-hero-showcase">
-          <div className="hero-showcase-glow" />
-          <div className="hero-showcase-panel">
-            <div className="showcase-header">
-              <div className="showcase-live-tag">
-                <span className="live-pulse-dot" /> Live Courier Operations
-              </div>
-              <span className="showcase-hub-badge">Kumasi &rarr; 5 Regions</span>
+        <div className="hero-visual">
+          <div className="hero-visual-glow" />
+          <div className="hero-visual-frame">
+            <img
+              src={heroImg}
+              alt="CPS Courier Dispatch and Parcel Delivery Operations"
+              width={600}
+              height={750}
+              loading="eager"
+            />
+          </div>
+
+          <div className="hero-visual-badge tracking">
+            <div className="icon-chip">
+              <MapPinned size={18} />
+              <span className="live-dot" />
             </div>
-
-            <div className="showcase-title-area">
-              <h3>Fast, Insured Doorstep Delivery</h3>
-              <p>Reliable local courier runs in Kumasi and daily express dispatches to all major regional capitals.</p>
+            <div>
+              <strong>Live Tracking Active</strong>
+              <span>GPS dispatched rider</span>
             </div>
+          </div>
 
-            <div className="showcase-cards-list">
-              <div className="showcase-card-item">
-                <div className="showcase-card-icon green">
-                  <PackageCheck size={20} />
-                </div>
-                <div>
-                  <h4>1. Doorstep Pickup in Kumasi</h4>
-                  <p>Book online &mdash; our dispatchers assign the nearest rider to collect directly from your location.</p>
-                </div>
-              </div>
-
-              <div className="showcase-card-item">
-                <div className="showcase-card-icon blue">
-                  <Truck size={20} />
-                </div>
-                <div>
-                  <h4>2. Express Same-Day &amp; Regional Transit</h4>
-                  <p>1&ndash;3 hr local deliveries, plus daily scheduled runs to Accra, Sunyani, Takoradi, &amp; Tamale.</p>
-                </div>
-              </div>
-
-              <div className="showcase-card-item">
-                <div className="showcase-card-icon amber">
-                  <ShieldCheck size={20} />
-                </div>
-                <div>
-                  <h4>3. Photo Proof &amp; Live Tracking</h4>
-                  <p>Real-time SMS notifications, live order tracking, and verified photo signature proof of delivery.</p>
-                </div>
-              </div>
+          <div className="hero-visual-badge verified">
+            <div className="icon-chip">
+              <PackageCheck size={18} />
             </div>
-
-            <div className="showcase-footer-stats">
-              <div className="stat-box">
-                <strong>1 &ndash; 3 Hrs</strong>
-                <span>Kumasi Local Drops</span>
-              </div>
-              <div className="stat-divider" />
-              <div className="stat-box">
-                <strong>5 Regions</strong>
-                <span>Connected Daily</span>
-              </div>
-              <div className="stat-divider" />
-              <div className="stat-box">
-                <strong>100% Insured</strong>
-                <span>Verified Photo POD</span>
-              </div>
+            <div>
+              <strong>100% Verified Delivery</strong>
+              <span>Recipient signature &amp; POD</span>
             </div>
           </div>
         </div>
       </main>
+
 
       <div ref={trustRef} className={`trust-strip ${trustClass}`}>
         <span className="label">Trusted by local businesses that need fast courier coverage</span>
