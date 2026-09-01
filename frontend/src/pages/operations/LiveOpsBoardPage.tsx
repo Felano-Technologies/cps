@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Printer, Plus, Package, Bike, Truck, AlertTriangle } from 'lucide-react';
+import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Ban } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
@@ -85,6 +85,10 @@ export default function LiveOpsBoardPage() {
     () => orders.filter(o => o.status === 'delayed').length,
     [orders]
   );
+  const cancelledOrderCount = useMemo(
+    () => orders.filter(o => o.status === 'cancelled').length,
+    [orders]
+  );
 
   return (
     <div className="page-shell light-shell">
@@ -162,7 +166,7 @@ export default function LiveOpsBoardPage() {
         )}
 
         {/* KPI Row */}
-        <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '32px', padding: '0 24px' }}>
+        <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px', padding: '0 24px' }}>
           
           <Link to="/ops/new-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -184,26 +188,37 @@ export default function LiveOpsBoardPage() {
             </div>
           </Link>
 
+          <Link to="/ops/delayed-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: delayedOrderCount > 0 ? '#dc2626' : '#0f172a', marginTop: '8px' }}>{delayedOrderCount}</div>
+            </div>
+            <div style={{ width: '48px', height: '48px', background: '#fee2e2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+              <AlertTriangle size={22} />
+            </div>
+          </Link>
+
+          <Link to="/ops/cancelled-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cancelled Orders</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: cancelledOrderCount > 0 ? '#64748b' : '#0f172a', marginTop: '8px' }}>{cancelledOrderCount}</div>
+            </div>
+            <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+              <Ban size={22} />
+            </div>
+          </Link>
+
           <Link to="/fleet" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available Fleet</div>
               <div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{availableRiderCount}</div>
             </div>
-            <div style={{ width: '48px', height: '48px', background: '#e0ffe0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#078c35' }}>
+            <div style={{ width: '48px', height: '48px', background: '#e0f2fe', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
               <Bike size={22} />
             </div>
           </Link>
-
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delayed Orders</div>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: delayedOrderCount > 0 ? 'var(--warning)' : '#0f172a', marginTop: '8px' }}>{delayedOrderCount}</div>
-            </div>
-            <div style={{ width: '48px', height: '48px', background: 'var(--warning-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}>
-              <AlertTriangle size={22} />
-            </div>
-          </div>
         </div>
+
 
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
         {isCreateModalOpen && (
