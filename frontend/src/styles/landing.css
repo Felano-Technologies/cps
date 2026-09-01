@@ -1082,30 +1082,81 @@
     font-weight: 500;
   }
 
-  .mobile-installed-badge {
+  .mobile-installed-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 12px 16px;
-    color: #166534;
-    font-size: 0.88rem;
-    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08);
   }
 
-  .mobile-signin-btn {
+  .mobile-installed-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .installed-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #dcfce7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-installed-texts {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .installed-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #14532d;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .installed-sub {
+    font-size: 0.78rem;
+    color: #15803d;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-installed-signin-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: #166534;
-    color: #ffffff;
+    gap: 6px;
+    background: #15803d;
+    color: #ffffff !important;
     text-decoration: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 0.86rem;
     font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(21, 128, 61, 0.25);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .mobile-installed-signin-btn:active {
+    transform: scale(0.96);
+    background: #166534;
   }
 
   .mobile-quick-actions {
@@ -1197,38 +1248,40 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(6px);
-  z-index: 9999;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.2s ease-out;
+  padding: 16px;
+  animation: fadeIn 0.18s ease-out;
 }
 
 .install-modal-card {
   background: #ffffff;
   border-radius: 20px;
   width: 100%;
-  max-width: 520px;
-  padding: 32px;
+  max-width: 440px;
+  padding: 22px 24px;
   position: relative;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  animation: slideUp 0.25s ease-out;
+  gap: 16px;
+  animation: slideUp 0.2s ease-out;
+  box-sizing: border-box;
 }
 
 .install-modal-close {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 16px;
+  right: 16px;
   background: #f1f5f9;
   border: none;
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1242,114 +1295,107 @@
   color: #0f172a;
 }
 
-.install-modal-header {
+.install-modal-header-compact {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  padding-right: 32px;
 }
 
-.install-modal-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.modal-logo-mini {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
-.install-steps-list {
+.modal-title-compact {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.modal-subtitle-compact {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.install-steps-list-compact {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
-.install-step-item {
+.install-step-compact {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  align-items: center;
+  gap: 12px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 10px 14px;
 }
 
-.step-number {
-  width: 28px;
-  height: 28px;
+.step-badge-mini {
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #0f172a;
   color: #86efac;
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.step-text strong {
-  display: block;
-  font-size: 0.92rem;
-  color: #0f172a;
-  margin-bottom: 3px;
-}
-
-.step-text span {
+.step-info-mini {
   font-size: 0.84rem;
-  color: #64748b;
-  line-height: 1.45;
+  color: #334155;
+  line-height: 1.4;
+  flex: 1;
 }
 
-.install-modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.modal-login-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.step-info-mini strong {
   color: #0f172a;
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: #f1f5f9;
-}
-
-.modal-login-btn:hover {
-  background: #e2e8f0;
-}
-
-.modal-gotit-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 22px;
   font-weight: 700;
+}
+
+.inline-step-icon {
+  display: inline-block;
+  vertical-align: middle;
+  color: #078c35;
+  margin: 0 2px;
+}
+
+.install-modal-footer-compact {
+  display: flex;
+  justify-content: stretch;
+  padding-top: 4px;
+}
+
+.modal-gotit-btn-compact {
+  width: 100%;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 800;
   font-size: 0.92rem;
   cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.modal-gotit-btn:hover {
-  background: #1e293b;
+  border: none;
+  box-shadow: 0 4px 14px rgba(7, 140, 53, 0.3);
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
   }
-
   to {
     opacity: 1;
   }
@@ -1360,7 +1406,6 @@
     opacity: 0;
     transform: translateY(16px) scale(0.98);
   }
-
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1368,7 +1413,20 @@
 }
 
 @media (max-width: 768px) {
+  .install-modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
   .install-modal-card {
-    padding: 24px 18px;
+    max-width: 100%;
+    padding: 18px 16px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    gap: 14px;
+  }
+
+  .ios-safari-modal {
+    border: 1.5px solid #bbf7d0;
   }
 }
