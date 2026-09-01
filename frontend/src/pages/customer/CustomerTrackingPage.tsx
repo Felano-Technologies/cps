@@ -15,6 +15,7 @@ import {
   Bike,
   Package,
   AlertCircle,
+  Banknote,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
@@ -224,14 +225,34 @@ export default function CustomerTrackingPage() {
             <h1 className="tracking-h1" style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>
               Tracking Details
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 500 }}>Shipment ID:</span>
-              <span style={{
-                background: '#e2e8f0', color: '#0f172a', padding: '4px 10px',
-                borderRadius: '6px', fontWeight: 700, fontSize: '14px', letterSpacing: '0.05em'
-              }}>
-                {shipment.trackingCode}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 500 }}>Shipment ID:</span>
+                <span style={{
+                  background: '#e2e8f0', color: '#0f172a', padding: '4px 10px',
+                  borderRadius: '6px', fontWeight: 700, fontSize: '14px', letterSpacing: '0.05em'
+                }}>
+                  {shipment.trackingCode}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 500 }}>Accepted Price:</span>
+                {shipment.status === 'awaiting_price' ? (
+                  <span style={{
+                    background: '#fef3c7', color: '#b45309', padding: '4px 10px',
+                    borderRadius: '6px', fontWeight: 700, fontSize: '14px'
+                  }}>
+                    Awaiting Price
+                  </span>
+                ) : (
+                  <span style={{
+                    background: '#e0f3cb', color: '#078c35', padding: '4px 10px',
+                    borderRadius: '6px', fontWeight: 800, fontSize: '14px'
+                  }}>
+                    GHS {Number(shipment.deliveryFee).toFixed(2)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -309,8 +330,67 @@ export default function CustomerTrackingPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Order Price / Cost Section */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', marginTop: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <Banknote size={15} color="#078c35" />
+                    Accepted Price
+                  </div>
+                  {shipment.status === 'awaiting_price' ? (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: '#b45309',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      backgroundColor: '#fef3c7',
+                      padding: '4px 10px',
+                      borderRadius: '6px'
+                    }}>
+                      <AlertCircle size={13} />
+                      Awaiting Price Confirmation
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      color: '#078c35',
+                      letterSpacing: '-0.01em'
+                    }}>
+                      GHS {Number(shipment.deliveryFee).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                {shipment.status === 'awaiting_price' ? (
+                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b', background: '#fffbeb', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fef3c7' }}>
+                    Operations is reviewing this order and will confirm the final delivery price shortly.
+                  </p>
+                ) : (
+                  shipment.productFee != null && Number(shipment.productFee) > 0 ? (
+                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#64748b' }}>
+                        <span>Delivery Fee</span>
+                        <span style={{ fontWeight: 600, color: '#0f172a' }}>GHS {Number(shipment.deliveryFee).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#64748b' }}>
+                        <span>Item / Product Value (COD)</span>
+                        <span style={{ fontWeight: 600, color: '#0f172a' }}>GHS {Number(shipment.productFee).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 700, color: '#0f172a', paddingTop: '8px', borderTop: '1px dashed #cbd5e1' }}>
+                        <span>Total Order Value</span>
+                        <span style={{ color: '#078c35', fontWeight: 800 }}>GHS {(Number(shipment.deliveryFee) + Number(shipment.productFee)).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ) : null
+                )}
+              </div>
             </div>
           </div>
+
 
           {/* RIGHT COLUMN: Vertical Timeline */}
           <div className="card-style tracking-timeline-card" style={{ padding: '32px' }}>

@@ -234,9 +234,32 @@
   color: #9f1239;
 }
 
+.badge-awaiting-price {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 .badge-cancelled {
   background-color: #e2e8f0;
   color: #475569;
+}
+
+.shipment-price-badge {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.shipment-price-awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 600;
+  background-color: #fef3c7;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 @media (max-width: 768px) {
