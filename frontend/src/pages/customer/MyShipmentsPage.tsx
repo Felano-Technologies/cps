@@ -21,6 +21,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import EmptyState from '../../components/EmptyState';
 import { SkeletonTableRows } from '../../components/Skeleton';
+import CancelShipmentModal from '../../components/CancelShipmentModal';
 import type { Shipment, ShipmentStatus, VehicleType, ShipmentSpeed } from '../../types/models';
 import '../../styles/MyShipmentsPage.css';
 
@@ -96,6 +97,7 @@ export default function MyShipmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'All Shipments' | ShipmentStatus>('All Shipments');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedShipmentForCancel, setSelectedShipmentForCancel] = useState<Shipment | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -227,20 +229,32 @@ export default function MyShipmentsPage() {
                         </span>
                       </td>
                       <td data-label="Action" style={{ padding: '20px 24px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                        <button
-                          onClick={() => navigate(`/tracking/${shipment.trackingCode}`)}
-                          className="shipment-track-btn"
-                        >
-                          Track
-                          <ArrowUpRight size={14} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => navigate(`/tracking/${shipment.trackingCode}`)}
+                            className="shipment-track-btn"
+                          >
+                            Track
+                            <ArrowUpRight size={14} />
+                          </button>
+                          {(shipment.status === 'awaiting_price' || shipment.status === 'pending') && (
+                            <button
+                              onClick={() => setSelectedShipmentForCancel(shipment)}
+                              className="shipment-cancel-btn"
+                              title="Cancel order before pickup"
+                            >
+                              <Ban size={13} />
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} style={{ padding: 0 }}>
+                  <td colSpan={7} style={{ padding: 0 }}>
                     <EmptyState
                       icon="📦"
                       title="No Shipments Found"
@@ -254,7 +268,19 @@ export default function MyShipmentsPage() {
             </tbody>
           </table>
         </div>
+
+        <CancelShipmentModal
+          isOpen={!!selectedShipmentForCancel}
+          onClose={() => setSelectedShipmentForCancel(null)}
+          shipment={selectedShipmentForCancel}
+          onSuccess={(cancelledShipment) => {
+            setShipments((prev) =>
+              prev.map((s) => (s.id === cancelledShipment.id ? cancelledShipment : s))
+            );
+          }}
+        />
       </main>
     </div>
   );
 }
+
