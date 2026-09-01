@@ -193,6 +193,7 @@ export default function MyShipmentsPage() {
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Destination</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service</th>
+                <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accepted Price</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ETA / Time</th>
                 <th style={{ padding: '20px 24px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Action</th>
@@ -200,7 +201,7 @@ export default function MyShipmentsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <SkeletonTableRows rows={6} cols={6} />
+                <SkeletonTableRows rows={6} cols={7} />
               ) : filteredShipments.length > 0 ? (
                 filteredShipments.map((shipment) => {
                   const StatusIcon = STATUS_ICONS[shipment.status];
@@ -214,6 +215,18 @@ export default function MyShipmentsPage() {
                         </span>
                       </td>
                       <td data-label="Service" style={{ padding: '20px 24px', color: '#64748b', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>{formatService(shipment)}</td>
+                      <td data-label="Accepted Price" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                        {shipment.status === 'awaiting_price' ? (
+                          <span className="shipment-price-awaiting">
+                            <Clock size={12} />
+                            Awaiting Price
+                          </span>
+                        ) : (
+                          <span className="shipment-price-badge">
+                            GHS {Number(shipment.deliveryFee).toFixed(2)}
+                          </span>
+                        )}
+                      </td>
                       <td data-label="Status" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
                         <span className={`status-badge badge-${shipment.status.replace(/_/g, '-')}`}>
                           <StatusIcon size={12} />
@@ -240,7 +253,7 @@ export default function MyShipmentsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} style={{ padding: 0 }}>
+                  <td colSpan={7} style={{ padding: 0 }}>
                     <EmptyState
                       icon="📦"
                       title="No Shipments Found"
