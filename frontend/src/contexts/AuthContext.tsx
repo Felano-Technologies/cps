@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import api from '../services/api';
+import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
 
 export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
@@ -20,7 +20,8 @@ export interface User {
   email: string;
   role: UserRole;
   phone?: string;
-  avatar?: string;
+  phoneVerified?: boolean;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -28,11 +29,13 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<User>;
-  signup: (name: string, email: string, password: string, role: UserRole) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User>;
+  signup: (name: string, phone: string, password: string) => Promise<User>;
   requestPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, code: string) => Promise<{ exists: boolean; user?: User }>;
   completePhoneSignup: (phone: string, code: string, name: string, role: UserRole) => Promise<User>;
+  requestPhoneVerification: () => Promise<void>;
+  confirmPhoneVerification: (code: string) => Promise<User>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -44,6 +47,16 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     return err.response.data.error;
   }
   return err instanceof Error ? err.message : fallback;
+}
+
+/** Auth endpoints return { ...user, token? }. Persist the token as a cross-site cookie fallback. */
+function persistAuthToken(data: User & { token?: string }) {
+  if (!data.token) return;
+  try {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, data.token);
+  } catch {
+    // localStorage unavailable — cookie-based auth still applies where it works.
+  }
 }
 
 /**
@@ -70,12 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.post<User>('/auth/login', { email, password });
+      const { data } = await api.post<User>('/auth/login', { identifier, password });
+      persistAuthToken(data);
       setUser(data);
       return data;
     } catch (err) {
@@ -87,12 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (name: string, email: string, password: string, role: UserRole) => {
+  const signup = async (name: string, phone: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.post<User>('/auth/register', { name, email, password, role });
+      const { data } = await api.post<User>('/auth/register', { name, phone, password });
+      persistAuthToken(data);
+      setUser(data);
       return data;
     } catch (err) {
       const message = extractErrorMessage(err, 'Signup failed');
@@ -119,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await api.post<{ exists: boolean; user?: User }>('/auth/phone/verify-otp', { phone, code });
       if (data.exists && data.user) {
+        persistAuthToken(data.user);
         setUser(data.user);
       }
       return data;
@@ -133,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const { data } = await api.post<User>('/auth/phone/signup', { phone, code, name, role });
+      persistAuthToken(data);
       setUser(data);
       return data;
     } catch (err) {
@@ -142,10 +160,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const requestPhoneVerification = async () => {
+    setError(null);
+    try {
+      await api.post('/auth/phone/verify/request');
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to send verification code');
+      setError(message);
+      throw err;
+    }
+  };
+
+  const confirmPhoneVerification = async (code: string) => {
+    setError(null);
+    try {
+      const { data } = await api.post<User>('/auth/phone/verify/confirm', { code });
+      setUser(data);
+      return data;
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Invalid or expired code');
+      setError(message);
+      throw err;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setError(null);
-    api.post('/auth/logout').catch(() => { });
+    try {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    } catch {
+      // localStorage unavailable — nothing to clear
+    }
+    api.post('/auth/logout').catch(() => {});
   };
 
   const updateUser = (updatedUser: User) => {
@@ -162,6 +209,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     requestPhoneOtp,
     verifyPhoneOtp,
     completePhoneSignup,
+    requestPhoneVerification,
+    confirmPhoneVerification,
     logout,
     updateUser,
   };

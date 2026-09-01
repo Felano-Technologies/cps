@@ -239,8 +239,11 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/:trackingCode', async (req, res) => {
-  const shipment = await prisma.shipment.findUnique({
-    where: { trackingCode: req.params.trackingCode },
+  // Notifications store the shipment's id, while shipment lists/search use
+  // the human-facing trackingCode — accept either so links from either
+  // source resolve to the right shipment.
+  const shipment = await prisma.shipment.findFirst({
+    where: { OR: [{ trackingCode: req.params.trackingCode }, { id: req.params.trackingCode }] },
     include: {
       statusEvents: { orderBy: { createdAt: 'asc' } },
       assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
@@ -301,6 +304,16 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
       'shipment_status',
       `Shipment ${updated.trackingCode} update`,
       `Your shipment is now: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  if (updated.assignedRider) {
+    notify(
+      updated.assignedRider.userId,
+      'shipment_status',
+      `Shipment ${updated.trackingCode} update`,
+      `Status updated to: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
       updated.id
     ).catch(() => {});
   }
@@ -530,6 +543,108 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
       'shipment_assigned',
       'New delivery assigned',
       `You've been assigned a delivery to ${updated.dropoffLocation}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  res.json(updated);
+});
+
+const cancelSchema = z.object({
+  reason: z.string().optional(),
+});
+
+router.patch('/:id/cancel', async (req, res) => {
+  const parsed = cancelSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({
+    where: { id: req.params.id as string },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+    },
+  });
+
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  // Check authorization for customer
+  if (req.auth!.role === 'customer' && shipment.customerId !== req.auth!.userId) {
+    return res.status(403).json({ error: 'Not authorized to cancel this shipment' });
+  }
+
+  // Only allow cancellation if order has not been picked up yet
+  const nonCancellableStatuses: (typeof STATUSES)[number][] = [
+    'picked_up',
+    'in_transit',
+    'out_for_delivery',
+    'delivered',
+    'failed',
+    'cancelled',
+  ];
+
+  if (nonCancellableStatuses.includes(shipment.status)) {
+    if (shipment.status === 'cancelled') {
+      return res.status(400).json({ error: 'Order is already cancelled' });
+    }
+    return res.status(400).json({
+      error: `Cannot cancel order because it is already ${shipment.status.replace(/_/g, ' ')}. Orders can only be cancelled before rider pickup.`,
+    });
+  }
+
+  const cancelReason = parsed.data.reason?.trim() || (req.auth!.role === 'customer' ? 'Cancelled by customer' : 'Cancelled by operations');
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      status: 'cancelled',
+      statusEvents: {
+        create: {
+          status: 'cancelled',
+          note: cancelReason,
+        },
+      },
+    },
+    include: {
+      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
+    },
+  });
+
+  // Notify customer
+  if (updated.customerId) {
+    notify(
+      updated.customerId,
+      'shipment_cancelled',
+      `Shipment ${updated.trackingCode} Cancelled`,
+      `Order ${updated.trackingCode} has been cancelled.${cancelReason ? ` Note: ${cancelReason}` : ''}`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  // Notify assigned rider if one was assigned
+  if (updated.assignedRider) {
+    notify(
+      updated.assignedRider.userId,
+      'shipment_cancelled',
+      `Delivery ${updated.trackingCode} Cancelled`,
+      `The assigned delivery for ${updated.dropoffLocation} was cancelled.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  // Notify operations & admin team
+  if (req.auth!.role === 'customer') {
+    notifyRoles(
+      ['operations', 'admin'],
+      'shipment_cancelled',
+      `Order ${updated.trackingCode} Cancelled by Customer`,
+      `Customer cancelled order ${updated.trackingCode}. Reason: ${cancelReason}`,
       updated.id
     ).catch(() => {});
   }

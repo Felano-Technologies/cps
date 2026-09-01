@@ -165,6 +165,28 @@
   background-color: #ccebb1;
 }
 
+.shipment-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shipment-cancel-btn:hover {
+  background-color: #fca5a5;
+  color: #991b1b;
+  border-color: #f87171;
+}
+
 .shipments-loading-cell {
   padding: 48px 24px;
   text-align: center;

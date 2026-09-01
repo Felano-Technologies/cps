@@ -20,8 +20,12 @@ export function initWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws, req) => {
+    // Browsers can't set custom headers on a WebSocket handshake, so cookies
+    // are the default path — but cross-site cookies are unreliable on some
+    // mobile browsers, so also accept a token passed as a query param.
     const cookies = parseCookies(req.headers.cookie ?? '');
-    const token = cookies[COOKIE_NAME];
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const token = cookies[COOKIE_NAME] ?? url.searchParams.get('token') ?? undefined;
     if (!token) {
       ws.close(1008, 'Unauthorized');
       return;

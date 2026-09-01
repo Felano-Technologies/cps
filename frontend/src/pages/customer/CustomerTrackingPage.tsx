@@ -21,6 +21,7 @@ import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton, SkeletonCircle } from '../../components/Skeleton';
+import CancelShipmentModal from '../../components/CancelShipmentModal';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, ShipmentSpeed, VehicleType } from '../../types/models';
 
@@ -98,6 +99,7 @@ export default function CustomerTrackingPage() {
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -239,13 +241,47 @@ export default function CustomerTrackingPage() {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/shipments')}
-            className="neutral-btn"
-            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '10px' }}
-          >
-            ← Back to Shipments
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {(shipment.status === 'awaiting_price' || shipment.status === 'pending') && (
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '10px 18px',
+                  fontSize: '14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626',
+                  border: '1px solid #fca5a5',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fca5a5';
+                  e.currentTarget.style.color = '#991b1b';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fee2e2';
+                  e.currentTarget.style.color = '#dc2626';
+                }}
+              >
+                <Ban size={15} />
+                Cancel Order
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/shipments')}
+              className="neutral-btn"
+              style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '10px' }}
+            >
+              ← Back to Shipments
+            </button>
+          </div>
         </div>
 
         {/* Two-Column Grid */}
@@ -402,6 +438,12 @@ export default function CustomerTrackingPage() {
 
         </div>
 
+        <CancelShipmentModal
+          isOpen={isCancelModalOpen}
+          onClose={() => setIsCancelModalOpen(false)}
+          shipment={shipment}
+          onSuccess={(updated) => setShipment(updated)}
+        />
       </main>
     </div>
   );

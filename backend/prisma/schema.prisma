@@ -72,6 +72,8 @@ model User {
   passwordHash String
   role         UserRole
   phone        String? @unique
+  phoneVerified Boolean @default(false)
+  avatarUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

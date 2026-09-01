@@ -220,9 +220,7 @@ export default function RequestPickupPage() {
         try {
           const formData = new FormData();
           formData.append('photo', imageFile);
-          const { data } = await api.post<{ url: string }>('/uploads', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+          const { data } = await api.post<{ url: string }>('/uploads', formData);
           uploadedImageUrl = data.url;
         } catch {
           uploadedImageUrl = await new Promise<string>((resolve) => {

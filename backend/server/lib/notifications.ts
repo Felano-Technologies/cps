@@ -1,6 +1,7 @@
 import type { UserRole } from '@prisma/client';
 import { prisma } from './prisma';
 import { sendEmail } from './mailer';
+import { sendSms } from './sms';
 import { pushToUser } from './ws';
 
 export async function notify(
@@ -16,9 +17,15 @@ export async function notify(
 
   pushToUser(userId, { type: 'notification', notification });
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, phone: true } });
   if (user) {
     sendEmail(user.email, title, message).catch(() => {});
+    if (user.phone) {
+      // Tagged sms_type: "otp" — mNotify only delivers non-tagged "quick"
+      // SMS at low priority (observed ~10min delay); OTP-tagged sends go
+      // out near-instantly. Billed from the OTP wallet like verification codes.
+      sendSms(user.phone, `${title}: ${message}`, { isOtp: true }).catch(() => {});
+    }
   }
 
   return notification;
