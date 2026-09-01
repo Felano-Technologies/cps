@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import api from '../services/api';
+import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
 import { useAuth } from './AuthContext';
 import type { Notification } from '../types/models';
 
@@ -118,7 +118,16 @@ export function playNotificationAlertSound(volumeMultiplier = 1.0) {
 function resolveWebSocketUrl(): string {
   const apiUrl = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
   const base = apiUrl.replace(/\/api\/?$/, '').replace(/^http/, 'ws');
-  return `${base}/ws`;
+  // Cross-site cookies aren't reliable on some mobile browsers, and a
+  // WebSocket handshake can't carry a custom Authorization header — so pass
+  // the fallback Bearer token as a query param instead.
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    // localStorage unavailable — connect cookie-only.
+  }
+  return `${base}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 }
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {

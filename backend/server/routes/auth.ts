@@ -29,7 +29,10 @@ const registerSchema = z.object({
   password: z.string().min(8),
 });
 
-function toPublicUser(user: { id: string; name: string; email: string; role: string; phone: string | null; phoneVerified: boolean; avatarUrl: string | null }) {
+function toPublicUser(
+  user: { id: string; name: string; email: string; role: string; phone: string | null; phoneVerified: boolean; avatarUrl: string | null },
+  token?: string
+) {
   return {
     id: user.id,
     name: user.name,
@@ -38,6 +41,10 @@ function toPublicUser(user: { id: string; name: string; email: string; role: str
     phone: user.phone ?? undefined,
     phoneVerified: user.phoneVerified,
     avatarUrl: user.avatarUrl ?? undefined,
+    // Included alongside the httpOnly cookie so cross-site clients (mobile
+    // browsers that block SameSite=None cookies) can fall back to sending
+    // this as an Authorization: Bearer header instead.
+    ...(token ? { token } : {}),
   };
 }
 
@@ -88,7 +95,7 @@ router.post('/register', async (req, res) => {
 
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);
-  res.status(201).json(toPublicUser(user));
+  res.status(201).json(toPublicUser(user, token));
 });
 
 const loginSchema = z.object({
@@ -115,7 +122,7 @@ router.post('/login', async (req, res) => {
 
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);
-  res.json(toPublicUser(user));
+  res.json(toPublicUser(user, token));
 });
 
 router.post('/logout', (_req, res) => {
@@ -259,7 +266,7 @@ router.post('/phone/verify-otp', async (req, res) => {
   await prisma.phoneOtp.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);
-  res.json({ exists: true, user: toPublicUser(user) });
+  res.json({ exists: true, user: toPublicUser(user, token) });
 });
 
 const phoneSignupSchema = z.object({
@@ -302,7 +309,7 @@ router.post('/phone/signup', async (req, res) => {
 
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);
-  res.status(201).json(toPublicUser(user));
+  res.status(201).json(toPublicUser(user, token));
 });
 
 export default router;

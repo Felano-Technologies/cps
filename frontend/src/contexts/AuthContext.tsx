@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import api from '../services/api';
+import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
 
 export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
@@ -49,6 +49,16 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+/** Auth endpoints return { ...user, token? }. Persist the token as a cross-site cookie fallback. */
+function persistAuthToken(data: User & { token?: string }) {
+  if (!data.token) return;
+  try {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, data.token);
+  } catch {
+    // localStorage unavailable — cookie-based auth still applies where it works.
+  }
+}
+
 /**
  * AuthProvider Component
  * Wraps the entire app to provide authentication state globally.
@@ -79,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { data } = await api.post<User>('/auth/login', { identifier, password });
+      persistAuthToken(data);
       setUser(data);
       return data;
     } catch (err) {
@@ -96,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { data } = await api.post<User>('/auth/register', { name, phone, password });
+      persistAuthToken(data);
       setUser(data);
       return data;
     } catch (err) {
@@ -123,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await api.post<{ exists: boolean; user?: User }>('/auth/phone/verify-otp', { phone, code });
       if (data.exists && data.user) {
+        persistAuthToken(data.user);
         setUser(data.user);
       }
       return data;
@@ -137,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const { data } = await api.post<User>('/auth/phone/signup', { phone, code, name, role });
+      persistAuthToken(data);
       setUser(data);
       return data;
     } catch (err) {
@@ -173,6 +187,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setError(null);
+    try {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    } catch {
+      // localStorage unavailable — nothing to clear
+    }
     api.post('/auth/logout').catch(() => {});
   };
 

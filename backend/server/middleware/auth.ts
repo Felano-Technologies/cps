@@ -9,8 +9,16 @@ declare global {
   }
 }
 
+function extractToken(req: Request): string | undefined {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length);
+  }
+  return req.cookies?.[COOKIE_NAME];
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const token = req.cookies?.[COOKIE_NAME];
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
