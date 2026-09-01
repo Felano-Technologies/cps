@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   FileText,
   PackageCheck,
 } from 'lucide-react';
+import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
 import { useReveal } from '../../hooks/useReveal';
 import samedayImg from '../../assets/sameday.png';
 import coverageImg from '../../assets/coverage.jpg';
@@ -18,6 +19,13 @@ import '../../styles/landing.css';
 export default function LandingPage() {
   const [trackingQuery, setTrackingQuery] = useState('');
   const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      navigate(getRoleDashboard(user.role), { replace: true });
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const { ref: trustRef, className: trustClass } = useReveal<HTMLDivElement>();
   const { ref: headingRef, className: headingClass } = useReveal<HTMLDivElement>();

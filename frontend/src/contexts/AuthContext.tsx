@@ -71,7 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data } = await api.get<User>('/auth/me');
+        const { data } = await api.get<User & { token?: string }>('/auth/me');
+        persistAuthToken(data);
         setUser(data);
       } catch {
         setUser(null);

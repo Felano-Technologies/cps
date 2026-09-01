@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Phone, Lock, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
@@ -14,9 +14,15 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  const { signup, isLoading, error } = useAuth();
+  const { user, isAuthenticated, signup, isLoading, error } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      navigate(getRoleDashboard(user.role), { replace: true });
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

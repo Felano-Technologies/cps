@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Phone, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth, getRoleDashboard } from '../../contexts/AuthContext';
@@ -12,22 +12,28 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
-  const { login, isLoading, error } = useAuth();
+  const { user, isAuthenticated, login, isLoading, error } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      navigate(getRoleDashboard(user.role), { replace: true });
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
     try {
-      const user = await login(identifier, password);
-      if (user.phone && !user.phoneVerified) {
+      const loggedUser = await login(identifier, password);
+      if (loggedUser.phone && !loggedUser.phoneVerified) {
         toast.info('Please verify your phone number to continue.');
         navigate('/verify-phone');
         return;
       }
-      toast.success(`Welcome back, ${user.name}.`);
-      navigate(getRoleDashboard(user.role));
+      toast.success(`Welcome back, ${loggedUser.name}.`);
+      navigate(getRoleDashboard(loggedUser.role));
     } catch (err) {
       setLocalError('Invalid phone/email or password');
       toast.error('Invalid phone/email or password');
