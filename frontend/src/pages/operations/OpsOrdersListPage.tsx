@@ -1,6 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Zap, Car, Bike, Truck, PackageSearch, DollarSign, Check, Edit3, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Search,
+  Zap,
+  Car,
+  Bike,
+  Truck,
+  PackageSearch,
+  DollarSign,
+  Check,
+  Edit3,
+  X,
+  AlertTriangle,
+  Ban,
+  Package,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
@@ -10,7 +25,7 @@ import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, VehicleType } from '../../types/models';
 
 interface OpsOrdersListPageProps {
-  filterType: 'new' | 'active';
+  filterType: 'new' | 'active' | 'delayed' | 'cancelled';
 }
 
 const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
@@ -43,6 +58,39 @@ const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: str
   cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
 };
 
+function getCancellationReason(order: Shipment): string {
+  const cancelEvents = order.statusEvents?.filter((e) => e.status === 'cancelled');
+  const lastCancel = cancelEvents && cancelEvents.length > 0 ? cancelEvents[cancelEvents.length - 1] : null;
+  if (lastCancel?.note) return lastCancel.note;
+  if (order.opsRemarks) return order.opsRemarks;
+  return 'Cancelled by customer';
+}
+
+function getCancellationTime(order: Shipment): string {
+  const cancelEvents = order.statusEvents?.filter((e) => e.status === 'cancelled');
+  const lastCancel = cancelEvents && cancelEvents.length > 0 ? cancelEvents[cancelEvents.length - 1] : null;
+  if (lastCancel?.createdAt) {
+    return new Date(lastCancel.createdAt).toLocaleString();
+  }
+  return new Date(order.updatedAt).toLocaleString();
+}
+
+function getDelayReason(order: Shipment): string {
+  const delayEvents = order.statusEvents?.filter((e) => e.status === 'delayed');
+  const lastDelay = delayEvents && delayEvents.length > 0 ? delayEvents[delayEvents.length - 1] : null;
+  if (lastDelay?.note) return lastDelay.note;
+  return 'Rider reported fulfillment delay';
+}
+
+function getDelayTime(order: Shipment): string {
+  const delayEvents = order.statusEvents?.filter((e) => e.status === 'delayed');
+  const lastDelay = delayEvents && delayEvents.length > 0 ? delayEvents[delayEvents.length - 1] : null;
+  if (lastDelay?.createdAt) {
+    return new Date(lastDelay.createdAt).toLocaleString();
+  }
+  return new Date(order.updatedAt).toLocaleString();
+}
+
 export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -58,10 +106,22 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [opsRemarks, setOpsRemarks] = useState('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
 
-  const title = filterType === 'new' ? 'New Orders' : 'Active Orders';
-  const subtitle = filterType === 'new'
-    ? 'Review orders, set or accept prices, and dispatch riders to the active queue.'
-    : 'Orders currently being fulfilled by riders.';
+  const titleMap = {
+    new: 'New Orders',
+    active: 'Active Orders',
+    delayed: 'Delayed Orders',
+    cancelled: 'Cancelled Orders',
+  };
+
+  const subtitleMap = {
+    new: 'Review orders, set or accept prices, and dispatch riders to the active queue.',
+    active: 'Orders currently being fulfilled by riders.',
+    delayed: 'Shipments currently experiencing delays. Review delay notes and assist riders.',
+    cancelled: 'All orders cancelled by customers or operations and their cancellation reasons.',
+  };
+
+  const title = titleMap[filterType];
+  const subtitle = subtitleMap[filterType];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,24 +138,46 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     fetchData();
   }, [filterType, toast]);
 
+  const counts = useMemo(
+    () => ({
+      new: orders.filter((o) => o.status === 'awaiting_price').length,
+      active: orders.filter((o) => ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(o.status)).length,
+      delayed: orders.filter((o) => o.status === 'delayed').length,
+      cancelled: orders.filter((o) => o.status === 'cancelled').length,
+    }),
+    [orders]
+  );
+
   const filteredOrders = useMemo(() => {
-    let filtered = orders.filter(order => {
+    let filtered = orders.filter((order) => {
       if (filterType === 'new') {
         return order.status === 'awaiting_price';
-      } else {
+      } else if (filterType === 'active') {
         return ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(order.status);
+      } else if (filterType === 'delayed') {
+        return order.status === 'delayed';
+      } else if (filterType === 'cancelled') {
+        return order.status === 'cancelled';
       }
+      return true;
     });
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(order =>
-        order.trackingCode.toLowerCase().includes(q) ||
-        order.receiverName.toLowerCase().includes(q) ||
-        order.senderName.toLowerCase().includes(q) ||
-        order.pickupLocation.toLowerCase().includes(q) ||
-        order.dropoffLocation.toLowerCase().includes(q)
-      );
+      filtered = filtered.filter((order) => {
+        const cancelReason = getCancellationReason(order).toLowerCase();
+        const delayReason = getDelayReason(order).toLowerCase();
+        return (
+          order.trackingCode.toLowerCase().includes(q) ||
+          order.receiverName.toLowerCase().includes(q) ||
+          order.senderName.toLowerCase().includes(q) ||
+          order.pickupLocation.toLowerCase().includes(q) ||
+          order.dropoffLocation.toLowerCase().includes(q) ||
+          cancelReason.includes(q) ||
+          delayReason.includes(q) ||
+          (order.assignedRider?.user.name && order.assignedRider.user.name.toLowerCase().includes(q))
+        );
+      });
     }
     return filtered;
   }, [orders, filterType, searchQuery]);
@@ -125,8 +207,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
         opsRemarks: opsRemarks || undefined,
       });
 
-      // Update orders list
-      setOrders(prev => prev.map(o => o.id === data.id ? data : o));
+      setOrders((prev) => prev.map((o) => (o.id === data.id ? data : o)));
       setSelectedOrderForPricing(null);
       toast.success(`Order ${data.trackingCode} price confirmed (GHS ${finalFee.toFixed(2)}) and moved to active queue.`);
     } catch {
@@ -140,7 +221,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     <div className="page-shell light-shell">
       <main className="container" style={{ padding: '32px 24px', maxWidth: '1400px', marginBottom: '80px' }}>
 
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <button
             onClick={() => navigate('/ops-board')}
             className="neutral-btn"
@@ -148,6 +229,86 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           >
             <ArrowLeft size={16} /> Back to Dashboard
           </button>
+
+          {/* Quick Tab Switcher */}
+          <div style={{ display: 'flex', gap: '8px', background: '#e2e8f0', padding: '4px', borderRadius: '10px' }}>
+            <button
+              onClick={() => navigate('/ops/new-orders')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: filterType === 'new' ? '#078c35' : 'transparent',
+                color: filterType === 'new' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Package size={14} />
+              New ({counts.new})
+            </button>
+            <button
+              onClick={() => navigate('/ops/active-orders')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: filterType === 'active' ? '#078c35' : 'transparent',
+                color: filterType === 'active' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Truck size={14} />
+              Active ({counts.active})
+            </button>
+            <button
+              onClick={() => navigate('/ops/delayed-orders')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: filterType === 'delayed' ? '#dc2626' : 'transparent',
+                color: filterType === 'delayed' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <AlertTriangle size={14} />
+              Delayed ({counts.delayed})
+            </button>
+            <button
+              onClick={() => navigate('/ops/cancelled-orders')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: filterType === 'cancelled' ? '#475569' : 'transparent',
+                color: filterType === 'cancelled' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Ban size={14} />
+              Cancelled ({counts.cancelled})
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
@@ -160,14 +321,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
             </p>
           </div>
 
-          <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search by code, sender, receiver, area..."
+              placeholder="Search by code, route, reason..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+              style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
         </div>
@@ -180,9 +341,24 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer & Route</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service</th>
-                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {filterType === 'new' ? 'Estimated Fee' : 'Rider'}
-                  </th>
+                  {filterType === 'new' && (
+                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimated Fee</th>
+                  )}
+                  {filterType === 'active' && (
+                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider</th>
+                  )}
+                  {filterType === 'delayed' && (
+                    <>
+                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rider</th>
+                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delay Reason & Note</th>
+                    </>
+                  )}
+                  {filterType === 'cancelled' && (
+                    <>
+                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accepted Price</th>
+                      <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cancellation Reason & Time</th>
+                    </>
+                  )}
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                 </tr>
@@ -203,10 +379,15 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                     </tr>
                   ))
                 ) : filteredOrders.length > 0 ? (
-                  filteredOrders.map(order => {
+                  filteredOrders.map((order) => {
                     const colors = STATUS_COLORS[order.status];
                     const isUrgent = order.priority === 'high';
                     const VehicleIcon = VEHICLE_ICONS[order.vehicleType];
+                    const cancelReason = getCancellationReason(order);
+                    const cancelTime = getCancellationTime(order);
+                    const delayReason = getDelayReason(order);
+                    const delayTime = getDelayTime(order);
+
                     return (
                       <tr key={order.id} style={{ borderBottom: '1px solid #e2e8f0', background: isUrgent ? '#fffbeb' : '#fff', transition: 'background 0.2s' }} className="hover-row">
                         <td style={{ padding: '16px' }}>
@@ -238,20 +419,69 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: '16px' }}>
-                          {filterType === 'new' ? (
+
+                        {/* Mode Specific Columns */}
+                        {filterType === 'new' && (
+                          <td style={{ padding: '16px' }}>
                             <div>
                               <strong style={{ fontSize: '15px', color: '#0f172a' }}>
                                 GHS {Number(order.deliveryFee).toFixed(2)}
                               </strong>
                               <div style={{ fontSize: '11px', color: '#64748b' }}>Initial estimate</div>
                             </div>
-                          ) : (
+                          </td>
+                        )}
+
+                        {filterType === 'active' && (
+                          <td style={{ padding: '16px' }}>
                             <div style={{ fontSize: '14px', color: '#475569' }}>
                               {order.assignedRider?.user.name ?? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Unassigned</span>}
                             </div>
-                          )}
-                        </td>
+                          </td>
+                        )}
+
+                        {filterType === 'delayed' && (
+                          <>
+                            <td style={{ padding: '16px' }}>
+                              <div style={{ fontSize: '14px', color: '#475569' }}>
+                                {order.assignedRider?.user.name ?? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Unassigned</span>}
+                              </div>
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '8px 12px', maxWidth: '340px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+                                  <AlertTriangle size={14} color="#d97706" style={{ flexShrink: 0 }} />
+                                  <span>{delayReason}</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                                  Reported: {delayTime}
+                                </div>
+                              </div>
+                            </td>
+                          </>
+                        )}
+
+                        {filterType === 'cancelled' && (
+                          <>
+                            <td style={{ padding: '16px' }}>
+                              <strong style={{ fontSize: '15px', color: '#0f172a' }}>
+                                GHS {Number(order.deliveryFee).toFixed(2)}
+                              </strong>
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '8px', padding: '8px 12px', maxWidth: '340px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#991b1b' }}>
+                                  <Ban size={14} color="#ef4444" style={{ flexShrink: 0 }} />
+                                  <span>{cancelReason}</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                                  Cancelled: {cancelTime}
+                                </div>
+                              </div>
+                            </td>
+                          </>
+                        )}
+
                         <td style={{ padding: '16px' }}>
                           <span style={{
                             background: colors.bg, color: colors.text,
@@ -262,6 +492,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                             {STATUS_LABELS[order.status]}
                           </span>
                         </td>
+
                         <td style={{ padding: '16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {filterType === 'new' ? (
@@ -296,7 +527,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6} style={{ padding: '32px' }}>
+                    <td colSpan={7} style={{ padding: '32px' }}>
                       <EmptyState
                         icon={<PackageSearch size={36} />}
                         title={`No ${title} Found`}
@@ -309,6 +540,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
             </table>
           </div>
         </div>
+
 
         {/* REVIEW & SET PRICE MODAL */}
         {selectedOrderForPricing && (

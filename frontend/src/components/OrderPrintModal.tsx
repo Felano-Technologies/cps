@@ -257,8 +257,10 @@ export default function OrderPrintModal({ onClose, shipment }: OrderPrintModalPr
                 TOTAL: GHS {formData.cost || '0.00'}
               </div>
 
-              <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '10px' }}>
-                Thank you for using CPS!
+              <div style={{ textAlign: 'center', marginTop: '20px', borderTop: '1px dashed #000', paddingTop: '12px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '12px' }}>Thank you for using CPS!</div>
+                <div>Visit our site and place your order <br/>www.cpsdeliverygh.com</div>
+                <div>Call us at <br/>+233 53 458 3364</div>
               </div>
             </div>
 

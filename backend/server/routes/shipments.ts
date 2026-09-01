@@ -231,6 +231,7 @@ router.get('/', async (req, res) => {
     include: {
       assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
       customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+      statusEvents: { orderBy: { createdAt: 'asc' } },
     },
   });
 

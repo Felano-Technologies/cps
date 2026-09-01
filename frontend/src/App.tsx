@@ -172,6 +172,22 @@ function App() {
             }
           />
           <Route
+            path="/ops/delayed-orders"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsOrdersListPage filterType="delayed" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops/cancelled-orders"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsOrdersListPage filterType="cancelled" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/fleet"
             element={
               <ProtectedRoute requiredRole="operations">
