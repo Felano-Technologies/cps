@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package, Banknote } from 'lucide-react';
+import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package, Banknote, Zap } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Modal from '../../components/Modal';
@@ -11,7 +11,7 @@ import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton, SkeletonCircle, SkeletonStatCard, SkeletonListItem } from '../../components/Skeleton';
-import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus, RiderDeduction } from '../../types/models';
+import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus, RiderDeduction, RiderBonus } from '../../types/models';
 
 const DEDUCTION_CATEGORY_LABELS: Record<string, string> = {
   late_delivery: 'Late Delivery',
@@ -74,18 +74,21 @@ export default function RiderDashboardPage() {
   const [interactingStopId, setInteractingStopId] = useState<string | null>(null);
   const [detailsStopId, setDetailsStopId] = useState<string | null>(null);
   const [isDeductionsModalOpen, setIsDeductionsModalOpen] = useState(false);
+  const [bonuses, setBonuses] = useState<RiderBonus[]>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, shipmentsRes, deductionsRes] = await Promise.all([
+        const [profileRes, shipmentsRes, deductionsRes, bonusesRes] = await Promise.all([
           api.get<RiderProfile>('/riders/me'),
           api.get<Shipment[]>('/shipments'),
-          api.get<RiderDeduction[]>('/deductions/me'),
+          api.get<RiderDeduction[]>('/deductions/me').catch(() => ({ data: [] })),
+          api.get<{ bonuses: RiderBonus[] }>('/bonuses/my-bonuses').catch(() => ({ data: { bonuses: [] } })),
         ]);
         setProfile(profileRes.data);
         setShipments(shipmentsRes.data);
         setDeductions(deductionsRes.data);
+        setBonuses(bonusesRes.data.bonuses || []);
       } catch {
         setError('Failed to load your dashboard.');
         toast.error('Failed to load your dashboard.');
@@ -118,11 +121,18 @@ export default function RiderDashboardPage() {
   const completedCount = shipments.filter(s => isTerminal(s.status)).length;
 
   const todaysEarnings = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
     return shipments
-      .filter(s => s.status === 'delivered' && s.updatedAt.slice(0, 10) === todayStr)
-      .reduce((sum, s) => sum + Number(s.deliveryFee), 0);
+      .filter(s => s.status === 'delivered' && s.updatedAt.slice(0, 10) === today)
+      .reduce((sum, s) => sum + Number(s.deliveryFee || 0), 0);
   }, [shipments]);
+
+  const todaysBonuses = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return bonuses
+      .filter(b => b.createdAt.slice(0, 10) === today)
+      .reduce((sum, b) => sum + Number(b.amount || 1.00), 0);
+  }, [bonuses]);
 
   const totalDeductions = useMemo(
     () => deductions.reduce((sum, d) => sum + Number(d.amount), 0),
@@ -264,43 +274,28 @@ export default function RiderDashboardPage() {
 
         {isOnline && (
           <>
-            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
-              <Link
-                to="/rider/earnings"
-                style={{
-                  background: '#ffffff',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  border: '1px solid #e2e8f0',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  display: 'block',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.borderColor = '#078c35';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(7,140,53,0.12)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.02)';
-                }}
-                title="Click to view full earnings history and breakdown"
-              >
+            <div className="rd-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+              <Link to="/rider/earnings" style={{ textDecoration: 'none', color: 'inherit', background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', display: 'block' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 700 }}>
-                    <Wallet size={14} color="#078c35" /> Today's Earnings
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#078c35', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
-                    History &rarr;
+                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Wallet size={14} /> Earnings
                   </span>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
                   GHS {todaysEarnings.toFixed(2)}
+                </div>
+              </Link>
+              <Link to="/rider/earnings" style={{ textDecoration: 'none', color: 'inherit', background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', display: 'block' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Zap size={14} /> Bonuses
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 5px', borderRadius: '4px' }}>
+                    +1 GHS
+                  </span>
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em', color: '#7c3aed' }}>
+                  GHS {todaysBonuses.toFixed(2)}
                 </div>
               </Link>
               <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>

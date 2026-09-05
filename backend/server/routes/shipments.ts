@@ -6,6 +6,7 @@ import { calculateDeliveryCost } from '../lib/pricing';
 import { generateTrackingCode } from '../lib/trackingCode';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { notify, notifyRoles } from '../lib/notifications';
+import { sendSms } from '../lib/sms';
 
 const router = Router();
 router.use(requireAuth);
@@ -58,8 +59,102 @@ const shipmentInclude = {
   assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
   pickupRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
   dropoffRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+  bonuses: true,
   customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
 };
+
+async function notifyReceiverOfStatus(
+  shipment: {
+    trackingCode: string;
+    receiverNumber: string;
+    deliveryFee: any;
+    productFee?: any;
+    dropoffLocation: string;
+    dropoffRider?: { user?: { name: string; phone?: string | null } } | null;
+  },
+  status: string,
+  note?: string
+) {
+  if (!shipment.receiverNumber) return;
+
+  const fee = Number(shipment.deliveryFee || 0).toFixed(2);
+  const cod = shipment.productFee && Number(shipment.productFee) > 0 
+    ? ` + COD: GHS ${Number(shipment.productFee).toFixed(2)}` 
+    : '';
+  const total = (Number(shipment.deliveryFee || 0) + Number(shipment.productFee || 0)).toFixed(2);
+
+  let message = '';
+  switch (status) {
+    case 'pending':
+      message = `CPS Logistics: Your package #${shipment.trackingCode} is confirmed! Delivery Fee: GHS ${fee}${cod}. Track: https://cpslogistics.com/track/${shipment.trackingCode}`;
+      break;
+    case 'picked_up':
+      message = `CPS Logistics: Package #${shipment.trackingCode} has been picked up from sender and is heading to our hub. Total to pay: GHS ${total}.`;
+      break;
+    case 'in_transit':
+      message = `CPS Logistics: Package #${shipment.trackingCode} is in transit towards ${shipment.dropoffLocation}.`;
+      break;
+    case 'out_for_delivery': {
+      const riderName = shipment.dropoffRider?.user?.name || 'our rider';
+      const riderPhone = shipment.dropoffRider?.user?.phone ? ` (${shipment.dropoffRider.user.phone})` : '';
+      message = `CPS Logistics: Package #${shipment.trackingCode} is OUT FOR DELIVERY by ${riderName}${riderPhone}. Amount to pay: GHS ${total}.`;
+      break;
+    }
+    case 'delivered':
+      message = `CPS Logistics: Package #${shipment.trackingCode} was delivered successfully. Thank you for choosing CPS!`;
+      break;
+    case 'delayed':
+      message = `CPS Logistics: Package #${shipment.trackingCode} has encountered a temporary delay${note ? `: ${note}` : ''}. Our dispatch team is working on it.`;
+      break;
+    default:
+      return;
+  }
+
+  try {
+    await sendSms(shipment.receiverNumber, message);
+  } catch (err) {
+    console.error('[sms] Failed to send receiver status SMS:', err);
+  }
+}
+
+async function creditRiderBonus(
+  shipmentId: string,
+  riderId: string,
+  type: 'pickup' | 'dropoff',
+  trackingCode: string,
+  riderUserId?: string
+) {
+  try {
+    await prisma.riderBonus.upsert({
+      where: {
+        shipmentId_type: {
+          shipmentId,
+          type,
+        },
+      },
+      update: {},
+      create: {
+        riderId,
+        shipmentId,
+        type,
+        amount: 1.00,
+      },
+    });
+
+    if (riderUserId) {
+      const typeLabel = type === 'pickup' ? 'Pickup' : 'Dropoff';
+      notify(
+        riderUserId,
+        'bonus_earned',
+        `GHS 1.00 ${typeLabel} Bonus Earned!`,
+        `You earned a GHS 1.00 bonus for ${typeLabel.toLowerCase()} on order #${trackingCode}.`,
+        shipmentId
+      ).catch(() => {});
+    }
+  } catch (err) {
+    console.error(`[bonus] Failed to credit ${type} bonus:`, err);
+  }
+}
 
 function buildShipmentCreateData(
   input: z.infer<typeof shipmentInputSchema>,
@@ -341,6 +436,37 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     ).catch(() => {});
   }
 
+  // Credit 1 Cedi pickup bonus when order is picked up
+  if (parsed.data.status === 'picked_up') {
+    const pRiderId = updated.pickupRiderId || updated.assignedRiderId;
+    if (pRiderId) {
+      creditRiderBonus(
+        updated.id,
+        pRiderId,
+        'pickup',
+        updated.trackingCode,
+        updated.pickupRider?.userId || updated.assignedRider?.userId
+      );
+    }
+  }
+
+  // Credit 1 Cedi dropoff bonus when order is delivered
+  if (parsed.data.status === 'delivered') {
+    const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
+    if (dRiderId) {
+      creditRiderBonus(
+        updated.id,
+        dRiderId,
+        'dropoff',
+        updated.trackingCode,
+        updated.dropoffRider?.userId || updated.assignedRider?.userId
+      );
+    }
+  }
+
+  // Send real-time SMS to package receiver
+  notifyReceiverOfStatus(updated, parsed.data.status, parsed.data.note);
+
   res.json(updated);
 });
 
@@ -411,6 +537,21 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
       updated.id
     ).catch(() => {});
   }
+
+  // Credit 1 Cedi dropoff bonus on successful POD delivery
+  const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
+  if (dRiderId) {
+    creditRiderBonus(
+      updated.id,
+      dRiderId,
+      'dropoff',
+      updated.trackingCode,
+      updated.dropoffRider?.userId || updated.assignedRider?.userId
+    );
+  }
+
+  // Notify package receiver via SMS
+  notifyReceiverOfStatus(updated, 'delivered');
 
   res.json(updated);
 });
@@ -627,6 +768,9 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
       updated.id
     ).catch(() => {});
   }
+
+  // Notify receiver via SMS of confirmed price
+  notifyReceiverOfStatus(updated, 'pending');
 
   res.json(updated);
 });

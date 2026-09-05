@@ -149,3 +149,46 @@ export interface DeductionSummary {
   categoryBreakdown: Record<string, number>;
 }
 
+export type BonusType = 'pickup' | 'dropoff';
+
+export interface RiderBonus {
+  id: string;
+  riderId: string;
+  rider?: RiderProfile;
+  shipmentId: string;
+  shipment?: {
+    id: string;
+    trackingCode: string;
+    pickupLocation: string;
+    dropoffLocation: string;
+    status?: string;
+    deliveryFee?: string | number;
+    productFee?: string | number | null;
+  };
+  type: BonusType;
+  amount: string | number;
+  createdAt: string;
+}
+
+export interface BonusSummary {
+  totalCount: number;
+  totalAmount: number;
+  pickupCount: number;
+  pickupAmount: number;
+  dropoffCount: number;
+  dropoffAmount: number;
+}
+
+export interface RiderBonusAggregate {
+  riderId: string;
+  riderName: string;
+  phone: string | null;
+  vehicleId: string | null;
+  vehicleType: string | null;
+  pickupCount: number;
+  dropoffCount: number;
+  totalBonusCount: number;
+  totalBonusAmount: number;
+}
+
+
