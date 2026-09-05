@@ -16,12 +16,14 @@ import {
   MapPin,
   Phone,
   User,
+  Printer,
 } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
 import CustomSelect from '../../components/Form/CustomSelect';
+import RiderManifestModal from '../../components/RiderManifestModal';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
 
@@ -103,6 +105,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [modalDropoffRiderId, setModalDropoffRiderId] = useState('');
   const [opsRemarks, setOpsRemarks] = useState('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
+  const [isManifestOpen, setIsManifestOpen] = useState(false);
 
   const titleMap = {
     new: 'New Orders',
@@ -334,15 +337,24 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
             </p>
           </div>
 
-          <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Search by code, route, reason..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-            />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="neutral-btn"
+              style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, borderRadius: '12px', height: '46px', whiteSpace: 'nowrap' }}
+              onClick={() => setIsManifestOpen(true)}
+            >
+              <Printer size={16} /> Print Rider Sheet
+            </button>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search by code, route, reason..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -752,6 +764,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
             </div>
           </Modal>
+        )}
+
+        {isManifestOpen && (
+          <RiderManifestModal
+            onClose={() => setIsManifestOpen(false)}
+            initialShipments={orders}
+            initialRiders={riders}
+          />
         )}
 
         <style>{`
