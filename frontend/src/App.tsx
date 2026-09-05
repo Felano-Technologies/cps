@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 
 
 // Contexts
@@ -103,6 +104,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <Analytics />
       <ScrollToTop />
       {!isAuthPage && <Topbar />}
       <main className="app-main">

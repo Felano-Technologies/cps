@@ -17,8 +17,10 @@ import {
   Truck,
   Clock,
   MapPinned,
-  PackageCheck
+  PackageCheck,
+  LayoutDashboard
 } from 'lucide-react';
+import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import appIcon from '../assets/logo2.png';
 import '../styles/landing.css';
@@ -44,6 +46,7 @@ export default function InstallAppBanner({
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const { user, isAuthenticated } = useAuth();
   const toast = useToast();
 
   useEffect(() => {
@@ -111,6 +114,8 @@ export default function InstallAppBanner({
     }
   };
 
+  const dashboardPath = isAuthenticated && user ? getRoleDashboard(user.role) : '/signin';
+
   return (
     <>
       <main className="hero-install-main container">
@@ -154,17 +159,17 @@ export default function InstallAppBanner({
                   <span className="installed-sub">Ready on your home screen</span>
                 </div>
               </div>
-              <Link to="/signin" className="mobile-installed-signin-btn">
-                <LogIn size={14} />
-                <span>Sign In</span>
+              <Link to={dashboardPath} className="mobile-installed-signin-btn">
+                {isAuthenticated ? <LayoutDashboard size={14} /> : <LogIn size={14} />}
+                <span>{isAuthenticated ? 'Dashboard' : 'Sign In'}</span>
               </Link>
             </div>
           )}
 
           <div className="mobile-quick-actions">
-            <Link to="/request-pickup" className="dark-btn mobile-pickup-btn">
+            <Link to={isAuthenticated ? dashboardPath : "/request-pickup"} className="dark-btn mobile-pickup-btn">
               <PackagePlus size={18} />
-              <span>Request Pickup</span>
+              <span>{isAuthenticated ? 'My Dashboard' : 'Request Pickup'}</span>
             </Link>
           </div>
 
@@ -239,9 +244,9 @@ export default function InstallAppBanner({
                   </div>
                 )}
 
-                <Link to="/request-pickup" className="hero-pickup-secondary-btn">
+                <Link to={isAuthenticated ? dashboardPath : "/request-pickup"} className="hero-pickup-secondary-btn">
                   <PackagePlus size={19} />
-                  <span>Request Pickup</span>
+                  <span>{isAuthenticated ? 'Open Dashboard' : 'Request Pickup'}</span>
                 </Link>
               </div>
 

@@ -140,7 +140,10 @@ router.get('/me', requireAuth, async (req, res) => {
   if (!user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  res.json(toPublicUser(user));
+  // Sliding session renewal: Re-issue token & cookie so active users remain logged in
+  const token = signToken({ userId: user.id, role: user.role });
+  setSessionCookie(res, token);
+  res.json(toPublicUser(user, token));
 });
 
 const passwordSchema = z.object({

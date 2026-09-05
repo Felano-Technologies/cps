@@ -3,7 +3,7 @@ import type { CookieOptions, Response } from 'express';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const COOKIE_NAME = 'cps_session';
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const THREE_HUNDRED_DAYS_MS = 300 * 24 * 60 * 60 * 1000;
 
 export interface AuthTokenPayload {
   userId: string;
@@ -11,7 +11,7 @@ export interface AuthTokenPayload {
 }
 
 export function signToken(payload: AuthTokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '300d' });
 }
 
 export function verifyToken(token: string): AuthTokenPayload {
@@ -24,7 +24,7 @@ function cookieOptions(): CookieOptions {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax',
-    maxAge: SEVEN_DAYS_MS,
+    maxAge: THREE_HUNDRED_DAYS_MS,
     path: '/',
   };
 }
