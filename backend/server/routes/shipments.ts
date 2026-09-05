@@ -6,6 +6,7 @@ import { calculateDeliveryCost } from '../lib/pricing';
 import { generateTrackingCode } from '../lib/trackingCode';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { notify, notifyRoles } from '../lib/notifications';
+import { sendSms } from '../lib/sms';
 
 const router = Router();
 router.use(requireAuth);
@@ -51,6 +52,108 @@ const shipmentInputSchema = z.object({
 async function riderProfileIdFor(userId: string): Promise<string | null> {
   const profile = await prisma.riderProfile.findUnique({ where: { userId }, select: { id: true } });
   return profile?.id ?? null;
+}
+
+const shipmentInclude = {
+  statusEvents: { orderBy: { createdAt: 'asc' as const } },
+  assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+  pickupRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+  dropoffRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
+  bonuses: true,
+  customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
+};
+
+async function notifyReceiverOfStatus(
+  shipment: {
+    trackingCode: string;
+    receiverNumber: string;
+    deliveryFee: any;
+    productFee?: any;
+    dropoffLocation: string;
+    dropoffRider?: { user?: { name: string; phone?: string | null } } | null;
+  },
+  status: string,
+  note?: string
+) {
+  if (!shipment.receiverNumber) return;
+
+  const fee = Number(shipment.deliveryFee || 0).toFixed(2);
+  const cod = shipment.productFee && Number(shipment.productFee) > 0 
+    ? ` + COD: GHS ${Number(shipment.productFee).toFixed(2)}` 
+    : '';
+  const total = (Number(shipment.deliveryFee || 0) + Number(shipment.productFee || 0)).toFixed(2);
+
+  let message = '';
+  switch (status) {
+    case 'pending':
+      message = `CPS Logistics: Your package #${shipment.trackingCode} is confirmed! Delivery Fee: GHS ${fee}${cod}. Track: https://cpslogistics.com/track/${shipment.trackingCode}`;
+      break;
+    case 'picked_up':
+      message = `CPS Logistics: Package #${shipment.trackingCode} has been picked up from sender and is heading to our hub. Total to pay: GHS ${total}.`;
+      break;
+    case 'in_transit':
+      message = `CPS Logistics: Package #${shipment.trackingCode} is in transit towards ${shipment.dropoffLocation}.`;
+      break;
+    case 'out_for_delivery': {
+      const riderName = shipment.dropoffRider?.user?.name || 'our rider';
+      const riderPhone = shipment.dropoffRider?.user?.phone ? ` (${shipment.dropoffRider.user.phone})` : '';
+      message = `CPS Logistics: Package #${shipment.trackingCode} is OUT FOR DELIVERY by ${riderName}${riderPhone}. Amount to pay: GHS ${total}.`;
+      break;
+    }
+    case 'delivered':
+      message = `CPS Logistics: Package #${shipment.trackingCode} was delivered successfully. Thank you for choosing CPS!`;
+      break;
+    case 'delayed':
+      message = `CPS Logistics: Package #${shipment.trackingCode} has encountered a temporary delay${note ? `: ${note}` : ''}. Our dispatch team is working on it.`;
+      break;
+    default:
+      return;
+  }
+
+  try {
+    await sendSms(shipment.receiverNumber, message);
+  } catch (err) {
+    console.error('[sms] Failed to send receiver status SMS:', err);
+  }
+}
+
+async function creditRiderBonus(
+  shipmentId: string,
+  riderId: string,
+  type: 'pickup' | 'dropoff',
+  trackingCode: string,
+  riderUserId?: string
+) {
+  try {
+    await prisma.riderBonus.upsert({
+      where: {
+        shipmentId_type: {
+          shipmentId,
+          type,
+        },
+      },
+      update: {},
+      create: {
+        riderId,
+        shipmentId,
+        type,
+        amount: 1.00,
+      },
+    });
+
+    if (riderUserId) {
+      const typeLabel = type === 'pickup' ? 'Pickup' : 'Dropoff';
+      notify(
+        riderUserId,
+        'bonus_earned',
+        `GHS 1.00 ${typeLabel} Bonus Earned!`,
+        `You earned a GHS 1.00 bonus for ${typeLabel.toLowerCase()} on order #${trackingCode}.`,
+        shipmentId
+      ).catch(() => {});
+    }
+  } catch (err) {
+    console.error(`[bonus] Failed to credit ${type} bonus:`, err);
+  }
 }
 
 function buildShipmentCreateData(
@@ -105,6 +208,7 @@ router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res
   try {
     const shipment = await prisma.shipment.create({
       data: buildShipmentCreateData(parsed.data, customerId, null),
+      include: shipmentInclude,
     });
     if (customerId) {
       notify(
@@ -176,6 +280,7 @@ router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req,
             customerId,
             batchId
           ),
+          include: shipmentInclude,
         })
       )
     );
@@ -210,7 +315,12 @@ router.get('/', async (req, res) => {
     where.customerId = req.auth!.userId;
   } else if (req.auth!.role === 'rider') {
     const riderProfileId = await riderProfileIdFor(req.auth!.userId);
-    where.assignedRiderId = riderProfileId ?? '__none__';
+    const rId = riderProfileId ?? '__none__';
+    where.OR = [
+      { assignedRiderId: rId },
+      { pickupRiderId: rId },
+      { dropoffRiderId: rId },
+    ];
   }
 
   if (status && (STATUSES as readonly string[]).includes(status)) {
@@ -228,11 +338,7 @@ router.get('/', async (req, res) => {
   const shipments = await prisma.shipment.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    },
+    include: shipmentInclude,
   });
 
   res.json(shipments);
@@ -244,11 +350,7 @@ router.get('/:trackingCode', async (req, res) => {
   // source resolve to the right shipment.
   const shipment = await prisma.shipment.findFirst({
     where: { OR: [{ trackingCode: req.params.trackingCode }, { id: req.params.trackingCode }] },
-    include: {
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-    },
+    include: shipmentInclude,
   });
 
   if (!shipment) {
@@ -280,7 +382,12 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
 
   if (req.auth!.role === 'rider') {
     const riderProfileId = await riderProfileIdFor(req.auth!.userId);
-    if (!riderProfileId || shipment.assignedRiderId !== riderProfileId) {
+    if (
+      !riderProfileId ||
+      (shipment.assignedRiderId !== riderProfileId &&
+        shipment.pickupRiderId !== riderProfileId &&
+        shipment.dropoffRiderId !== riderProfileId)
+    ) {
       return res.status(403).json({ error: 'Not assigned to this shipment' });
     }
   }
@@ -291,11 +398,7 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
       status: parsed.data.status,
       statusEvents: { create: { status: parsed.data.status, note: parsed.data.note } },
     },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    },
+    include: shipmentInclude,
   });
 
   if (updated.customerId) {
@@ -308,15 +411,20 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     ).catch(() => {});
   }
 
-  if (updated.assignedRider) {
+  const notifyRiderUserIds = new Set<string>();
+  if (updated.pickupRider) notifyRiderUserIds.add(updated.pickupRider.userId);
+  if (updated.dropoffRider) notifyRiderUserIds.add(updated.dropoffRider.userId);
+  if (updated.assignedRider) notifyRiderUserIds.add(updated.assignedRider.userId);
+
+  notifyRiderUserIds.forEach(uId => {
     notify(
-      updated.assignedRider.userId,
+      uId,
       'shipment_status',
       `Shipment ${updated.trackingCode} update`,
       `Status updated to: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
       updated.id
     ).catch(() => {});
-  }
+  });
 
   if (parsed.data.status === 'delayed') {
     notifyRoles(
@@ -327,6 +435,37 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
       updated.id
     ).catch(() => {});
   }
+
+  // Credit 1 Cedi pickup bonus when order is picked up
+  if (parsed.data.status === 'picked_up') {
+    const pRiderId = updated.pickupRiderId || updated.assignedRiderId;
+    if (pRiderId) {
+      creditRiderBonus(
+        updated.id,
+        pRiderId,
+        'pickup',
+        updated.trackingCode,
+        updated.pickupRider?.userId || updated.assignedRider?.userId
+      );
+    }
+  }
+
+  // Credit 1 Cedi dropoff bonus when order is delivered
+  if (parsed.data.status === 'delivered') {
+    const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
+    if (dRiderId) {
+      creditRiderBonus(
+        updated.id,
+        dRiderId,
+        'dropoff',
+        updated.trackingCode,
+        updated.dropoffRider?.userId || updated.assignedRider?.userId
+      );
+    }
+  }
+
+  // Send real-time SMS to package receiver
+  notifyReceiverOfStatus(updated, parsed.data.status, parsed.data.note);
 
   res.json(updated);
 });
@@ -356,8 +495,12 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
   }
 
   const riderProfileId = await riderProfileIdFor(req.auth!.userId);
-  if (!riderProfileId || shipment.assignedRiderId !== riderProfileId) {
-    return res.status(403).json({ error: 'Not assigned to this shipment' });
+  if (
+    !riderProfileId ||
+    (shipment.assignedRiderId !== riderProfileId &&
+      shipment.dropoffRiderId !== riderProfileId)
+  ) {
+    return res.status(403).json({ error: 'Not assigned to deliver this shipment' });
   }
 
   if (shipment.status === 'delivered') {
@@ -374,21 +517,13 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
       podPhotoUrl: parsed.data.podPhotoUrl,
       statusEvents: { create: { status: 'delivered', note: `POD via ${parsed.data.podMethod}` } },
     },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    },
+    include: shipmentInclude,
   }).catch(() => null);
 
   if (!updated) {
     const current = await prisma.shipment.findUnique({
       where: { id: shipment.id },
-      include: {
-        assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-        customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-        statusEvents: { orderBy: { createdAt: 'asc' } },
-      },
+      include: shipmentInclude,
     });
     return res.json(current);
   }
@@ -403,36 +538,120 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     ).catch(() => {});
   }
 
+  // Credit 1 Cedi dropoff bonus on successful POD delivery
+  const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
+  if (dRiderId) {
+    creditRiderBonus(
+      updated.id,
+      dRiderId,
+      'dropoff',
+      updated.trackingCode,
+      updated.dropoffRider?.userId || updated.assignedRider?.userId
+    );
+  }
+
+  // Notify package receiver via SMS
+  notifyReceiverOfStatus(updated, 'delivered');
+
   res.json(updated);
 });
 
-const assignSchema = z.object({ riderId: z.string().min(1) });
+const assignSchema = z.object({
+  riderId: z.string().nullable().optional(),
+  pickupRiderId: z.string().nullable().optional(),
+  dropoffRiderId: z.string().nullable().optional(),
+  type: z.enum(['pickup', 'dropoff', 'both']).optional(),
+}).refine(data => data.riderId !== undefined || data.pickupRiderId !== undefined || data.dropoffRiderId !== undefined, {
+  message: 'At least one rider field must be provided',
+});
 
 router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res) => {
   const parsed = assignSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'riderId is required' });
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
 
-  const rider = await prisma.riderProfile.findUnique({
-    where: { id: parsed.data.riderId },
-    include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+  const existingShipment = await prisma.shipment.findUnique({
+    where: { id: req.params.id as string },
+    include: shipmentInclude,
   });
-  if (!rider) {
-    return res.status(404).json({ error: 'Rider not found' });
+
+  if (!existingShipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
   }
+
+  let nextPickupRiderId = existingShipment.pickupRiderId;
+  let nextDropoffRiderId = existingShipment.dropoffRiderId;
+
+  if (parsed.data.pickupRiderId !== undefined) {
+    nextPickupRiderId = parsed.data.pickupRiderId || null;
+  }
+  if (parsed.data.dropoffRiderId !== undefined) {
+    nextDropoffRiderId = parsed.data.dropoffRiderId || null;
+  }
+
+  // Support legacy/convenience riderId and type parameter
+  if (parsed.data.riderId !== undefined) {
+    const rId = parsed.data.riderId || null;
+    const type = parsed.data.type || 'both';
+    if (type === 'pickup') {
+      nextPickupRiderId = rId;
+    } else if (type === 'dropoff') {
+      nextDropoffRiderId = rId;
+    } else {
+      nextPickupRiderId = rId;
+      nextDropoffRiderId = rId;
+    }
+  }
+
+  // Validate rider existence if specified
+  if (nextPickupRiderId) {
+    const pRider = await prisma.riderProfile.findUnique({ where: { id: nextPickupRiderId } });
+    if (!pRider) return res.status(404).json({ error: 'Pickup rider not found' });
+  }
+  if (nextDropoffRiderId) {
+    const dRider = await prisma.riderProfile.findUnique({ where: { id: nextDropoffRiderId } });
+    if (!dRider) return res.status(404).json({ error: 'Dropoff rider not found' });
+  }
+
+  const nextAssignedRiderId = nextDropoffRiderId || nextPickupRiderId || null;
 
   const shipment = await prisma.shipment.update({
-    where: { id: req.params.id as string },
-    data: { assignedRiderId: rider.id },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
+    where: { id: existingShipment.id },
+    data: {
+      pickupRiderId: nextPickupRiderId,
+      dropoffRiderId: nextDropoffRiderId,
+      assignedRiderId: nextAssignedRiderId,
     },
+    include: shipmentInclude,
   });
 
-  if (shipment.customerId) {
+  // Notifications
+  if (nextPickupRiderId && nextPickupRiderId !== existingShipment.pickupRiderId) {
+    if (shipment.pickupRider) {
+      notify(
+        shipment.pickupRider.userId,
+        'shipment_assigned',
+        'Pickup delivery assigned',
+        `You've been assigned for pickup from ${shipment.pickupLocation}.`,
+        shipment.id
+      ).catch(() => {});
+    }
+  }
+
+  if (nextDropoffRiderId && nextDropoffRiderId !== existingShipment.dropoffRiderId && nextDropoffRiderId !== nextPickupRiderId) {
+    if (shipment.dropoffRider) {
+      notify(
+        shipment.dropoffRider.userId,
+        'shipment_assigned',
+        'Dropoff delivery assigned',
+        `You've been assigned for delivery to ${shipment.dropoffLocation}.`,
+        shipment.id
+      ).catch(() => {});
+    }
+  }
+
+  if (shipment.customerId && (!existingShipment.pickupRiderId && !existingShipment.dropoffRiderId && (nextPickupRiderId || nextDropoffRiderId))) {
     notify(
       shipment.customerId,
       'shipment_assigned',
@@ -441,13 +660,6 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
       shipment.id
     ).catch(() => {});
   }
-  notify(
-    rider.userId,
-    'shipment_assigned',
-    'New delivery assigned',
-    `You've been assigned a delivery to ${shipment.dropoffLocation}.`,
-    shipment.id
-  ).catch(() => {});
 
   res.json(shipment);
 });
@@ -472,11 +684,7 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
     data: {
       deliveryFee: parsed.data.deliveryFee,
     },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    },
+    include: shipmentInclude,
   });
 
   if (updated.customerId) {
@@ -495,6 +703,8 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
 const processSchema = z.object({
   deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
   riderId: z.string().optional(),
+  pickupRiderId: z.string().optional(),
+  dropoffRiderId: z.string().optional(),
   opsRemarks: z.string().optional(),
 });
 
@@ -509,22 +719,24 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
     return res.status(404).json({ error: 'Shipment not found' });
   }
 
+  const pRiderId = parsed.data.pickupRiderId || parsed.data.riderId || undefined;
+  const dRiderId = parsed.data.dropoffRiderId || parsed.data.riderId || undefined;
+  const aRiderId = dRiderId || pRiderId || undefined;
+
   const updated = await prisma.shipment.update({
     where: { id: shipment.id },
     data: {
       deliveryFee: parsed.data.deliveryFee,
-      assignedRiderId: parsed.data.riderId || undefined,
+      assignedRiderId: aRiderId,
+      pickupRiderId: pRiderId,
+      dropoffRiderId: dRiderId,
       opsRemarks: parsed.data.opsRemarks,
       ...(shipment.status === 'awaiting_price' ? {
         status: 'pending',
         statusEvents: { create: { status: 'pending', note: 'Order processed by operations' } }
       } : {})
     },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    }
+    include: shipmentInclude,
   });
 
   if (updated.customerId) {
@@ -537,15 +749,28 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
     ).catch(() => {});
   }
 
-  if (updated.assignedRiderId && updated.assignedRiderId !== shipment.assignedRiderId) {
+  if (updated.pickupRider && updated.pickupRiderId !== shipment.pickupRiderId) {
     notify(
-      updated.assignedRider!.userId,
+      updated.pickupRider.userId,
       'shipment_assigned',
-      'New delivery assigned',
-      `You've been assigned a delivery to ${updated.dropoffLocation}.`,
+      'Pickup delivery assigned',
+      `You've been assigned for pickup from ${updated.pickupLocation}.`,
       updated.id
     ).catch(() => {});
   }
+
+  if (updated.dropoffRider && updated.dropoffRiderId !== shipment.dropoffRiderId && updated.dropoffRiderId !== updated.pickupRiderId) {
+    notify(
+      updated.dropoffRider.userId,
+      'shipment_assigned',
+      'Dropoff delivery assigned',
+      `You've been assigned for delivery to ${updated.dropoffLocation}.`,
+      updated.id
+    ).catch(() => {});
+  }
+
+  // Notify receiver via SMS of confirmed price
+  notifyReceiverOfStatus(updated, 'pending');
 
   res.json(updated);
 });
@@ -562,10 +787,7 @@ router.patch('/:id/cancel', async (req, res) => {
 
   const shipment = await prisma.shipment.findUnique({
     where: { id: req.params.id as string },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-    },
+    include: shipmentInclude,
   });
 
   if (!shipment) {
@@ -609,11 +831,7 @@ router.patch('/:id/cancel', async (req, res) => {
         },
       },
     },
-    include: {
-      assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-      customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      statusEvents: { orderBy: { createdAt: 'asc' } },
-    },
+    include: shipmentInclude,
   });
 
   // Notify customer
@@ -627,16 +845,21 @@ router.patch('/:id/cancel', async (req, res) => {
     ).catch(() => {});
   }
 
-  // Notify assigned rider if one was assigned
-  if (updated.assignedRider) {
+  // Notify assigned riders
+  const cancelNotifyRiders = new Set<string>();
+  if (updated.pickupRider) cancelNotifyRiders.add(updated.pickupRider.userId);
+  if (updated.dropoffRider) cancelNotifyRiders.add(updated.dropoffRider.userId);
+  if (updated.assignedRider) cancelNotifyRiders.add(updated.assignedRider.userId);
+
+  cancelNotifyRiders.forEach(userId => {
     notify(
-      updated.assignedRider.userId,
+      userId,
       'shipment_cancelled',
       `Delivery ${updated.trackingCode} Cancelled`,
       `The assigned delivery for ${updated.dropoffLocation} was cancelled.`,
       updated.id
     ).catch(() => {});
-  }
+  });
 
   // Notify operations & admin team
   if (req.auth!.role === 'customer') {

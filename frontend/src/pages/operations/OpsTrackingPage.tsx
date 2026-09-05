@@ -105,13 +105,16 @@ export default function OpsTrackingPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [processFee, setProcessFee] = useState('');
-  const [processRiderId, setProcessRiderId] = useState('');
+  const [processPickupRiderId, setProcessPickupRiderId] = useState('');
+  const [processDropoffRiderId, setProcessDropoffRiderId] = useState('');
   const [processRemarks, setProcessRemarks] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (shipment?.status === 'awaiting_price') {
       setProcessFee(String(shipment.deliveryFee));
+      setProcessPickupRiderId(shipment.pickupRiderId ?? shipment.assignedRiderId ?? '');
+      setProcessDropoffRiderId(shipment.dropoffRiderId ?? shipment.assignedRiderId ?? '');
     }
   }, [shipment]);
 
@@ -151,15 +154,28 @@ export default function OpsTrackingPage() {
     );
   };
 
-  const handleAssignRider = async (riderId: string) => {
-    if (!shipment || !riderId) return;
+  const handleAssignRider = async (params: {
+    pickupRiderId?: string | null;
+    dropoffRiderId?: string | null;
+    riderId?: string | null;
+    type?: 'pickup' | 'dropoff' | 'both';
+  }) => {
+    if (!shipment) return;
     try {
-      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/assign`, { riderId });
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/assign`, params);
       setShipment(data);
-      toast.success('Rider assigned successfully.');
+      toast.success('Rider assignment updated.');
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Failed to assign rider.'));
     }
+  };
+
+  const handleAssignPickupRider = (riderId: string) => {
+    handleAssignRider({ pickupRiderId: riderId || null });
+  };
+
+  const handleAssignDropoffRider = (riderId: string) => {
+    handleAssignRider({ dropoffRiderId: riderId || null });
   };
 
   const handleStatusChange = async (status: string) => {
@@ -192,7 +208,8 @@ export default function OpsTrackingPage() {
     try {
       const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/process`, {
         deliveryFee: Number(processFee),
-        riderId: processRiderId || undefined,
+        pickupRiderId: processPickupRiderId || undefined,
+        dropoffRiderId: processDropoffRiderId || undefined,
         opsRemarks: processRemarks || undefined,
       });
       setShipment(data);
@@ -457,12 +474,6 @@ export default function OpsTrackingPage() {
             <div className="header-actions-bar">
               <CustomSelect
                 value=""
-                onChange={handleAssignRider}
-                options={riderOptions.filter(r => r.value !== '')}
-                icon={<User size={17} />}
-              />
-              <CustomSelect
-                value=""
                 onChange={handleStatusChange}
                 options={STATUS_OPTIONS}
                 icon={<RefreshCw size={17} />}
@@ -476,9 +487,10 @@ export default function OpsTrackingPage() {
                 <Share2 size={16} /> Share Link
               </button>
               <button
-                className="primary-green"
-                style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px' }}
+                className="neutral-btn"
                 onClick={() => setIsPrintModalOpen(true)}
+                style={{ padding: '10px 18px', minHeight: '44px', fontWeight: 600, fontSize: '14px' }}
+                title="Print official receipt"
               >
                 <Printer size={16} /> Print Waybill
               </button>
@@ -486,16 +498,18 @@ export default function OpsTrackingPage() {
           </div>
         </div>
 
-        {/* Process Order Banner (When Awaiting Price) */}
+        {/* OPERATIONS PRICING ACTION BANNER (Shown when order is in awaiting_price) */}
         {shipment.status === 'awaiting_price' && (
-          <div className="ops-card" style={{ padding: '28px', marginBottom: '24px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '6px solid #f59e0b' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <DollarSign size={22} />
+          <div style={{ background: '#fffbeb', border: '2px solid #fde68a', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <DollarSign size={24} />
               </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#92400e', margin: '0 0 4px 0' }}>Step 1: Set & Confirm Order Price</h3>
-                <p style={{ color: '#b45309', margin: 0, fontSize: '14px', lineHeight: 1.4 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#92400e' }}>
+                  Action Required: Price Confirmation &amp; Rider Dispatch
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#b45309' }}>
                   Before dispatching, decide whether to accept the customer's estimated price or adjust it based on route, volume, or special requirements.
                 </p>
               </div>
@@ -528,11 +542,23 @@ export default function OpsTrackingPage() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '6px' }}>
-                  Assign Dispatch Rider (Optional)
+                  Assign Pickup Rider (Optional)
                 </label>
                 <CustomSelect
-                  value={processRiderId}
-                  onChange={setProcessRiderId}
+                  value={processPickupRiderId}
+                  onChange={setProcessPickupRiderId}
+                  options={riderOptions}
+                  icon={<User size={16} />}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '6px' }}>
+                  Assign Dropoff Rider (Optional)
+                </label>
+                <CustomSelect
+                  value={processDropoffRiderId}
+                  onChange={setProcessDropoffRiderId}
                   options={riderOptions}
                   icon={<User size={16} />}
                 />
@@ -949,80 +975,230 @@ export default function OpsTrackingPage() {
             </div>
           </div>
 
-          {/* ASSIGNED DISPATCH RIDER CARD */}
+          {/* ASSIGNED DISPATCH RIDERS (PICKUP & DROPOFF) */}
           <div className="ops-card">
             <div className="ops-card-header">
               <h3 className="ops-card-title">
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bike size={18} />
                 </div>
-                Assigned Dispatch Rider
+                Assigned Dispatch Riders
               </h3>
+              <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                Manage distinct riders for collection (pickup) and recipient delivery (dropoff).
+              </div>
             </div>
 
             <div className="ops-card-body">
-              {shipment.assignedRider ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#e0ffe0', color: '#078c35', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px' }}>
-                      {shipment.assignedRider.user.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
-                        {shipment.assignedRider.user.name}
-                      </h4>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>
-                          Status: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{shipment.assignedRider.currentStatus.replace('_', ' ')}</strong>
-                        </span>
-                        {shipment.assignedRider.vehicleType && (
-                          <span style={{ fontSize: '13px', color: '#64748b' }}>
-                            • Vehicle: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{shipment.assignedRider.vehicleType}</strong>
-                          </span>
-                        )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+
+                {/* 1. PICKUP RIDER CARD */}
+                <div style={{
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ background: '#dbeafe', color: '#1d4ed8', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                        <Package size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>Pickup Rider</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>From: {shipment.pickupLocation}</div>
                       </div>
                     </div>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      textTransform: 'uppercase',
+                      background: (shipment.pickupRider || shipment.assignedRider) ? '#dcfce7' : '#f1f5f9',
+                      color: (shipment.pickupRider || shipment.assignedRider) ? '#15803d' : '#64748b',
+                    }}>
+                      {(shipment.pickupRider || shipment.assignedRider) ? 'Assigned' : 'Unassigned'}
+                    </span>
                   </div>
 
-                  {shipment.assignedRider.user.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>Rider Phone:</span>
-                      <strong style={{ fontFamily: 'monospace', fontSize: '15px' }}>{shipment.assignedRider.user.phone}</strong>
-                      <a href={`tel:${shipment.assignedRider.user.phone}`} className="contact-btn contact-btn-call">
-                        <Phone size={13} /> Call Rider
-                      </a>
+                  {(shipment.pickupRider || shipment.assignedRider) ? (
+                    (() => {
+                      const pRider = shipment.pickupRider ?? shipment.assignedRider!;
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '17px' }}>
+                              {pRider.user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ margin: '0 0 2px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                                {pRider.user.name}
+                              </h4>
+                              <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>Status: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{pRider.currentStatus.replace('_', ' ')}</strong></span>
+                                {pRider.vehicleType && <span>• Vehicle: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{pRider.vehicleType}</strong></span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {pRider.user.phone && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Phone size={14} color="#64748b" />
+                                <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 600 }}>{pRider.user.phone}</span>
+                              </div>
+                              <a href={`tel:${pRider.user.phone}`} className="contact-btn contact-btn-call" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                                Call
+                              </a>
+                            </div>
+                          )}
+
+                          <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                                Reassign Pickup
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleAssignPickupRider('')}
+                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                Unassign
+                              </button>
+                            </div>
+                            <CustomSelect
+                              value={shipment.pickupRiderId ?? (shipment.assignedRiderId ?? '')}
+                              onChange={handleAssignPickupRider}
+                              options={riderOptions.filter(r => r.value !== '')}
+                              icon={<User size={15} />}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '14px 8px' }}>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#64748b' }}>
+                        No pickup rider assigned yet. Select a rider to pick up from {shipment.senderName}.
+                      </p>
+                      <CustomSelect
+                        value=""
+                        onChange={handleAssignPickupRider}
+                        options={riderOptions.filter(r => r.value !== '')}
+                        icon={<User size={15} />}
+                      />
                     </div>
                   )}
+                </div>
 
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Reassign Rider
-                    </label>
-                    <CustomSelect
-                      value={shipment.assignedRiderId ?? ''}
-                      onChange={handleAssignRider}
-                      options={riderOptions.filter(r => r.value !== '')}
-                      icon={<User size={16} />}
-                    />
+                {/* 2. DROPOFF RIDER CARD */}
+                <div style={{
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ background: '#fef3c7', color: '#b45309', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                        <Truck size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>Dropoff Rider</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>To: {shipment.dropoffLocation}</div>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      textTransform: 'uppercase',
+                      background: (shipment.dropoffRider || shipment.assignedRider) ? '#dcfce7' : '#f1f5f9',
+                      color: (shipment.dropoffRider || shipment.assignedRider) ? '#15803d' : '#64748b',
+                    }}>
+                      {(shipment.dropoffRider || shipment.assignedRider) ? 'Assigned' : 'Unassigned'}
+                    </span>
                   </div>
+
+                  {(shipment.dropoffRider || shipment.assignedRider) ? (
+                    (() => {
+                      const dRider = shipment.dropoffRider ?? shipment.assignedRider!;
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '17px' }}>
+                              {dRider.user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ margin: '0 0 2px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                                {dRider.user.name}
+                              </h4>
+                              <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>Status: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{dRider.currentStatus.replace('_', ' ')}</strong></span>
+                                {dRider.vehicleType && <span>• Vehicle: <strong style={{ textTransform: 'capitalize', color: '#0f172a' }}>{dRider.vehicleType}</strong></span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {dRider.user.phone && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Phone size={14} color="#64748b" />
+                                <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 600 }}>{dRider.user.phone}</span>
+                              </div>
+                              <a href={`tel:${dRider.user.phone}`} className="contact-btn contact-btn-call" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                                Call
+                              </a>
+                            </div>
+                          )}
+
+                          <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                                Reassign Dropoff
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleAssignDropoffRider('')}
+                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                Unassign
+                              </button>
+                            </div>
+                            <CustomSelect
+                              value={shipment.dropoffRiderId ?? (shipment.assignedRiderId ?? '')}
+                              onChange={handleAssignDropoffRider}
+                              options={riderOptions.filter(r => r.value !== '')}
+                              icon={<User size={15} />}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '14px 8px' }}>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#64748b' }}>
+                        No dropoff rider assigned yet. Select a rider to deliver to {shipment.receiverName}.
+                      </p>
+                      <CustomSelect
+                        value=""
+                        onChange={handleAssignDropoffRider}
+                        options={riderOptions.filter(r => r.value !== '')}
+                        icon={<User size={15} />}
+                      />
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '24px 12px' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f1f5f9', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                    <User size={24} />
-                  </div>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>No Rider Assigned Yet</h4>
-                  <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#64748b' }}>Assign an available rider to handle pickup and delivery.</p>
-                  <div style={{ maxWidth: '320px', margin: '0 auto' }}>
-                    <CustomSelect
-                      value=""
-                      onChange={handleAssignRider}
-                      options={riderOptions.filter(r => r.value !== '')}
-                      icon={<User size={16} />}
-                    />
-                  </div>
-                </div>
-              )}
+
+              </div>
             </div>
           </div>
 

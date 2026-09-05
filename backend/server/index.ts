@@ -10,6 +10,7 @@ import contactRoutes from './routes/contact';
 import uploadsRoutes from './routes/uploads';
 import { initWebSocketServer } from './lib/ws';
 import deductionsRoutes from './routes/deductions';
+import bonusesRoutes from './routes/bonuses';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -44,6 +45,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/shipments', shipmentsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/deductions', deductionsRoutes);
+app.use('/api/bonuses', bonusesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/contact', contactRoutes);

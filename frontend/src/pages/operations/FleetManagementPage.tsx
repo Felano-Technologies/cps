@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch } from 'lucide-react';
+import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch, Printer } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
 import { SkeletonTableRows } from '../../components/Skeleton';
 import AssignVehicleModal from '../../components/AssignVehicleModal';
 import AddRiderModal from '../../components/AddRiderModal';
+import RiderManifestModal from '../../components/RiderManifestModal';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
@@ -37,6 +38,8 @@ export default function FleetManagementPage() {
   const [assigningRider, setAssigningRider] = useState<RiderProfile | null>(null);
   const [isAddRiderOpen, setIsAddRiderOpen] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [isManifestOpen, setIsManifestOpen] = useState(false);
+  const [selectedManifestRiderId, setSelectedManifestRiderId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchRiders = async () => {
@@ -252,6 +255,16 @@ export default function FleetManagementPage() {
               ))}
             </div>
             <button
+              className="neutral-btn"
+              style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, borderRadius: '12px' }}
+              onClick={() => {
+                setSelectedManifestRiderId(undefined);
+                setIsManifestOpen(true);
+              }}
+            >
+              <Printer size={16} /> Print Run Sheet
+            </button>
+            <button
               className="primary-green"
               style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsAddRiderOpen(true)}
@@ -402,6 +415,23 @@ export default function FleetManagementPage() {
                               >
                                 <Settings2 size={16} />
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedManifestRiderId(member.id);
+                                  setIsManifestOpen(true);
+                                }}
+                                title="Print Rider Run Sheet"
+                                aria-label="Print Rider Run Sheet"
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  width: '44px', height: '44px', flexShrink: 0,
+                                  border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
+                                  color: '#078c35', cursor: 'pointer',
+                                }}
+                              >
+                                <Printer size={16} />
+                              </button>
                               {!member.isVerified && (
                                 <button
                                   type="button"
@@ -486,6 +516,17 @@ export default function FleetManagementPage() {
         <AddRiderModal
           onClose={() => setIsAddRiderOpen(false)}
           onCreate={(rider) => setRiders(prev => [...prev, rider])}
+        />
+      )}
+
+      {isManifestOpen && (
+        <RiderManifestModal
+          onClose={() => {
+            setIsManifestOpen(false);
+            setSelectedManifestRiderId(undefined);
+          }}
+          initialRiderId={selectedManifestRiderId}
+          initialRiders={riders}
         />
       )}
     </div>

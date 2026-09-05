@@ -15,6 +15,9 @@ import {
   Clock,
   ExternalLink,
   FileSpreadsheet,
+  Zap,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import api from '../../services/api';
@@ -22,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import EmptyState from '../../components/EmptyState';
 import { SkeletonStatCard, SkeletonListItem } from '../../components/Skeleton';
-import type { Shipment, RiderProfile, RiderDeduction } from '../../types/models';
+import type { Shipment, RiderProfile, RiderDeduction, RiderBonus } from '../../types/models';
 
 type FilterTab = 'day' | 'week' | 'month' | 'custom';
 
@@ -46,6 +49,7 @@ export default function RiderEarningsPage() {
   const [profile, setProfile] = useState<RiderProfile | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [deductions, setDeductions] = useState<RiderDeduction[]>([]);
+  const [bonuses, setBonuses] = useState<RiderBonus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,21 +67,23 @@ export default function RiderEarningsPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeViewTab, setActiveViewTab] = useState<'deliveries' | 'deductions'>('deliveries');
+  const [activeViewTab, setActiveViewTab] = useState<'deliveries' | 'bonuses' | 'deductions'>('deliveries');
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [profileRes, shipmentsRes, deductionsRes] = await Promise.all([
+        const [profileRes, shipmentsRes, deductionsRes, bonusesRes] = await Promise.all([
           api.get<RiderProfile>('/riders/me'),
           api.get<Shipment[]>('/shipments'),
           api.get<RiderDeduction[]>('/deductions').catch(() => ({ data: [] })),
+          api.get<{ bonuses: RiderBonus[] }>('/bonuses/my-bonuses').catch(() => ({ data: { bonuses: [] } })),
         ]);
         setProfile(profileRes.data);
         setShipments(shipmentsRes.data);
         setDeductions(deductionsRes.data || []);
+        setBonuses(bonusesRes.data.bonuses || []);
       } catch {
         setError('Failed to load earning history. Please try again.');
         toast.error('Failed to load earning history.');
@@ -179,6 +185,36 @@ export default function RiderEarningsPage() {
     });
   }, [deductions, rangeStartStr, rangeEndStr, searchQuery]);
 
+  // Bonuses filtered by date range
+  const filteredBonuses = useMemo(() => {
+    return bonuses.filter((b) => {
+      const bDate = b.createdAt.slice(0, 10);
+      const inRange = bDate >= rangeStartStr && bDate <= rangeEndStr;
+      if (!inRange) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const code = b.shipment?.trackingCode.toLowerCase() || '';
+        const pLoc = b.shipment?.pickupLocation.toLowerCase() || '';
+        const dLoc = b.shipment?.dropoffLocation.toLowerCase() || '';
+        return code.includes(q) || pLoc.includes(q) || dLoc.includes(q) || b.type.includes(q);
+      }
+      return true;
+    });
+  }, [bonuses, rangeStartStr, rangeEndStr, searchQuery]);
+
+  const pickupBonusesCount = useMemo(() => {
+    return filteredBonuses.filter(b => b.type === 'pickup').length;
+  }, [filteredBonuses]);
+
+  const dropoffBonusesCount = useMemo(() => {
+    return filteredBonuses.filter(b => b.type === 'dropoff').length;
+  }, [filteredBonuses]);
+
+  const totalBonusesAmount = useMemo(() => {
+    return filteredBonuses.reduce((sum, b) => sum + Number(b.amount || 1.00), 0);
+  }, [filteredBonuses]);
+
   // Totals & KPIs
   const grossEarnings = useMemo(() => {
     return filteredDeliveredShipments.reduce((sum, s) => sum + Number(s.deliveryFee || 0), 0);
@@ -193,8 +229,8 @@ export default function RiderEarningsPage() {
   }, [filteredDeductions]);
 
   const netEarnings = useMemo(() => {
-    return Math.max(0, grossEarnings - totalDeductionsAmount);
-  }, [grossEarnings, totalDeductionsAmount]);
+    return Math.max(0, grossEarnings + totalBonusesAmount - totalDeductionsAmount);
+  }, [grossEarnings, totalBonusesAmount, totalDeductionsAmount]);
 
   const completedCount = filteredDeliveredShipments.length;
   const avgPerDelivery = completedCount > 0 ? grossEarnings / completedCount : 0;
@@ -603,7 +639,23 @@ export default function RiderEarningsPage() {
               {formatGHS(netEarnings)}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-              Gross: {formatGHS(grossEarnings)} {totalDeductionsAmount > 0 && `( -${formatGHS(totalDeductionsAmount)} ded.)`}
+              Base: {formatGHS(grossEarnings)} + Bonus: {formatGHS(totalBonusesAmount)} {totalDeductionsAmount > 0 && `( -${formatGHS(totalDeductionsAmount)} ded.)`}
+            </div>
+          </div>
+
+          {/* Bonuses Earned Card */}
+          <div className="earnings-kpi-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 700 }}>Bonuses Earned</span>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={18} />
+              </div>
+            </div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: '#7c3aed', letterSpacing: '-0.02em' }}>
+              {formatGHS(totalBonusesAmount)}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+              {pickupBonusesCount} Pickups + {dropoffBonusesCount} Dropoffs (@ GHS 1.00)
             </div>
           </div>
 
@@ -697,7 +749,7 @@ export default function RiderEarningsPage() {
         )}
 
         {/* View Toggle Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
           <button
             onClick={() => setActiveViewTab('deliveries')}
             style={{
@@ -715,6 +767,24 @@ export default function RiderEarningsPage() {
             }}
           >
             <PackageCheck size={16} /> Delivered Orders ({filteredDeliveredShipments.length})
+          </button>
+          <button
+            onClick={() => setActiveViewTab('bonuses')}
+            style={{
+              background: activeViewTab === 'bonuses' ? '#0f172a' : '#f1f5f9',
+              color: activeViewTab === 'bonuses' ? '#ffffff' : '#475569',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Zap size={16} /> Bonuses ({filteredBonuses.length})
           </button>
           <button
             onClick={() => setActiveViewTab('deductions')}
@@ -822,6 +892,76 @@ export default function RiderEarningsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        ) : activeViewTab === 'bonuses' ? (
+          <div>
+            {filteredBonuses.length === 0 ? (
+              <EmptyState
+                icon={<Zap size={36} color="#7c3aed" />}
+                title="No bonuses recorded"
+                message={`No pickup or dropoff bonuses recorded for ${rangeLabel}. Complete pickups and deliveries to earn 1 Cedi on every stop!`}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredBonuses.map((b) => {
+                  const isPickup = b.type === 'pickup';
+                  return (
+                    <div key={b.id} className="order-row-card" style={{ borderLeft: isPickup ? '4px solid #0284c7' : '4px solid #16a34a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div
+                          style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '12px',
+                            background: isPickup ? '#e0f2fe' : '#dcfce7',
+                            color: isPickup ? '#0284c7' : '#16a34a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isPickup ? <ArrowDownLeft size={22} /> : <ArrowUpRight size={22} />}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                              #{b.shipment?.trackingCode || 'Order'}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: isPickup ? '#0369a1' : '#15803d',
+                              background: isPickup ? '#e0f2fe' : '#dcfce7',
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              textTransform: 'uppercase'
+                            }}>
+                              {isPickup ? 'Pickup Stop Bonus' : 'Dropoff Stop Bonus'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700, background: '#f0fdf4', padding: '2px 6px', borderRadius: '4px' }}>
+                              +GHS 1.00
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span>Location: <strong style={{ color: '#334155' }}>{isPickup ? b.shipment?.pickupLocation || 'Sender Location' : b.shipment?.dropoffLocation || 'Receiver Location'}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                          {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(b.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </div>
+                        <div style={{ fontSize: '18px', fontWeight: 900, color: '#7c3aed', marginTop: '2px' }}>
+                          +{formatGHS(b.amount || 1.00)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

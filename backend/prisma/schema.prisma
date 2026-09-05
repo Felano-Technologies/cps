@@ -65,6 +65,11 @@ enum PodMethod {
   photo
 }
 
+enum BonusType {
+  pickup
+  dropoff
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -97,7 +102,10 @@ model RiderProfile {
   updatedAt       DateTime    @updatedAt
 
   assignedShipments Shipment[]       @relation("RiderShipments")
+  pickupShipments   Shipment[]       @relation("PickupRiderShipments")
+  dropoffShipments  Shipment[]       @relation("DropoffRiderShipments")
   deductions        RiderDeduction[]
+  bonuses           RiderBonus[]
 
   @@map("rider_profiles")
 }
@@ -117,6 +125,12 @@ model Shipment {
 
   assignedRiderId String?
   assignedRider   RiderProfile? @relation("RiderShipments", fields: [assignedRiderId], references: [id], onDelete: SetNull)
+
+  pickupRiderId   String?
+  pickupRider     RiderProfile? @relation("PickupRiderShipments", fields: [pickupRiderId], references: [id], onDelete: SetNull)
+
+  dropoffRiderId  String?
+  dropoffRider    RiderProfile? @relation("DropoffRiderShipments", fields: [dropoffRiderId], references: [id], onDelete: SetNull)
 
   senderName    String
   senderNumber  String
@@ -149,6 +163,7 @@ model Shipment {
 
   statusEvents  ShipmentStatusEvent[]
   notifications Notification[]
+  bonuses       RiderBonus[]
 
   @@map("shipments")
 }
@@ -214,4 +229,20 @@ model RiderDeduction {
   updatedAt   DateTime     @updatedAt
 
   @@map("rider_deductions")
+}
+
+model RiderBonus {
+  id         String       @id @default(cuid())
+  riderId    String
+  rider      RiderProfile @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  shipmentId String
+  shipment   Shipment     @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type       BonusType
+  amount     Decimal      @default(1.00) @db.Decimal(10, 2)
+  createdAt  DateTime     @default(now())
+
+  @@unique([shipmentId, type])
+  @@index([riderId])
+  @@index([createdAt])
+  @@map("rider_bonuses")
 }

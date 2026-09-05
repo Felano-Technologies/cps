@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Ban } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
+import RiderManifestModal from '../../components/RiderManifestModal';
 import CreateOrderModal from '../../components/CreateOrderModal';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, RiderProfile } from '../../types/models';
@@ -12,6 +13,7 @@ const AUTO_REFRESH_INTERVAL_MS = 60000; // 1 minute
 export default function LiveOpsBoardPage() {
   const toast = useToast();
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isManifestModalOpen, setIsManifestModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [riders, setRiders] = useState<RiderProfile[]>([]);
@@ -141,10 +143,17 @@ export default function LiveOpsBoardPage() {
             <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>Operations Command Center</h1>
             <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>Live overview of riders, active orders, and delivery progress.</p>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <button
               className="neutral-btn"
-              style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
+              style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
+              onClick={() => setIsManifestModalOpen(true)}
+            >
+              <Printer size={18} /> Print Rider Sheet
+            </button>
+            <button
+              className="neutral-btn"
+              style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, borderRadius: '12px' }}
               onClick={() => setIsPrintModalOpen(true)}
             >
               <Printer size={18} /> Print Receipt
@@ -221,6 +230,13 @@ export default function LiveOpsBoardPage() {
 
 
         {isPrintModalOpen && <OrderPrintModal onClose={() => setIsPrintModalOpen(false)} />}
+        {isManifestModalOpen && (
+          <RiderManifestModal
+            onClose={() => setIsManifestModalOpen(false)}
+            initialShipments={orders}
+            initialRiders={riders}
+          />
+        )}
         {isCreateModalOpen && (
           <CreateOrderModal
             onClose={() => setIsCreateModalOpen(false)}

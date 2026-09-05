@@ -15,13 +15,17 @@ import {
   Truck,
   MapPin,
   Phone,
+  User,
+  Printer,
 } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
+import CustomSelect from '../../components/Form/CustomSelect';
+import RiderManifestModal from '../../components/RiderManifestModal';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus } from '../../types/models';
+import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
 
 interface OpsOrdersListPageProps {
   filterType: 'new' | 'active' | 'delayed' | 'cancelled';
@@ -89,6 +93,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState<Shipment[]>([]);
+  const [riders, setRiders] = useState<RiderProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -96,8 +101,11 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [selectedOrderForPricing, setSelectedOrderForPricing] = useState<Shipment | null>(null);
   const [priceMode, setPriceMode] = useState<'accept' | 'adjust'>('accept');
   const [customPrice, setCustomPrice] = useState('');
+  const [modalPickupRiderId, setModalPickupRiderId] = useState('');
+  const [modalDropoffRiderId, setModalDropoffRiderId] = useState('');
   const [opsRemarks, setOpsRemarks] = useState('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
+  const [isManifestOpen, setIsManifestOpen] = useState(false);
 
   const titleMap = {
     new: 'New Orders',
@@ -120,8 +128,12 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const ordersRes = await api.get<Shipment[]>('/shipments');
+        const [ordersRes, ridersRes] = await Promise.all([
+          api.get<Shipment[]>('/shipments'),
+          api.get<RiderProfile[]>('/riders'),
+        ]);
         setOrders(ordersRes.data);
+        setRiders(ridersRes.data);
       } catch {
         toast.error('Failed to load orders.');
       } finally {
@@ -130,6 +142,11 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     };
     fetchData();
   }, [filterType, toast]);
+
+  const riderOptions = useMemo(() => [
+    { value: '', label: 'Unassigned' },
+    ...riders.map(r => ({ value: r.id, label: r.user.name })),
+  ], [riders]);
 
   const counts = useMemo(
     () => ({
@@ -168,7 +185,9 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           order.dropoffLocation.toLowerCase().includes(q) ||
           cancelReason.includes(q) ||
           delayReason.includes(q) ||
-          (order.assignedRider?.user.name && order.assignedRider.user.name.toLowerCase().includes(q))
+          (order.assignedRider?.user.name && order.assignedRider.user.name.toLowerCase().includes(q)) ||
+          (order.pickupRider?.user.name && order.pickupRider.user.name.toLowerCase().includes(q)) ||
+          (order.dropoffRider?.user.name && order.dropoffRider.user.name.toLowerCase().includes(q))
         );
       });
     }
@@ -179,6 +198,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     setSelectedOrderForPricing(order);
     setPriceMode('accept');
     setCustomPrice(String(order.deliveryFee));
+    setModalPickupRiderId(order.pickupRiderId ?? order.assignedRiderId ?? '');
+    setModalDropoffRiderId(order.dropoffRiderId ?? order.assignedRiderId ?? '');
     setOpsRemarks(order.opsRemarks ?? '');
   };
 
@@ -197,6 +218,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     try {
       const { data } = await api.patch<Shipment>(`/shipments/${selectedOrderForPricing.id}/process`, {
         deliveryFee: finalFee,
+        pickupRiderId: modalPickupRiderId || undefined,
+        dropoffRiderId: modalDropoffRiderId || undefined,
         opsRemarks: opsRemarks || undefined,
       });
 
@@ -314,15 +337,24 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
             </p>
           </div>
 
-          <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Search by code, route, reason..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-            />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="neutral-btn"
+              style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, borderRadius: '12px', height: '46px', whiteSpace: 'nowrap' }}
+              onClick={() => setIsManifestOpen(true)}
+            >
+              <Printer size={16} /> Print Rider Sheet
+            </button>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search by code, route, reason..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -337,6 +369,9 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dropoff Location</th>
                   {filterType === 'new' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimated Fee</th>
+                  )}
+                  {filterType === 'active' && (
+                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Riders</th>
                   )}
                   {filterType === 'delayed' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delay Reason & Note</th>
@@ -435,6 +470,25 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                                 GHS {Number(order.deliveryFee).toFixed(2)}
                               </strong>
                               <div style={{ fontSize: '11px', color: '#64748b' }}>Initial estimate</div>
+                            </div>
+                          </td>
+                        )}
+
+                        {filterType === 'active' && (
+                          <td style={{ padding: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '12px' }}>
+                              <div>
+                                <span style={{ color: '#64748b', fontWeight: 600 }}>Pickup: </span>
+                                <strong style={{ color: (order.pickupRider || order.assignedRider) ? '#0f172a' : '#94a3b8' }}>
+                                  {order.pickupRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: '#64748b', fontWeight: 600 }}>Dropoff: </span>
+                                <strong style={{ color: (order.dropoffRider || order.assignedRider) ? '#0f172a' : '#94a3b8' }}>
+                                  {order.dropoffRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
+                                </strong>
+                              </div>
                             </div>
                           </td>
                         )}
@@ -642,6 +696,37 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 )}
               </div>
 
+              {/* Rider Assignment */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '10px' }}>
+                  Assign Dispatch Riders (Optional)
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+                      Pickup Rider
+                    </label>
+                    <CustomSelect
+                      value={modalPickupRiderId}
+                      onChange={setModalPickupRiderId}
+                      options={riderOptions}
+                      icon={<User size={15} />}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+                      Dropoff Rider
+                    </label>
+                    <CustomSelect
+                      value={modalDropoffRiderId}
+                      onChange={setModalDropoffRiderId}
+                      options={riderOptions}
+                      icon={<User size={15} />}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Internal Remarks */}
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
@@ -679,6 +764,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
             </div>
           </Modal>
+        )}
+
+        {isManifestOpen && (
+          <RiderManifestModal
+            onClose={() => setIsManifestOpen(false)}
+            initialShipments={orders}
+            initialRiders={riders}
+          />
         )}
 
         <style>{`
