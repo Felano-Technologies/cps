@@ -57,6 +57,10 @@ export interface Shipment {
   customer?: ShipmentCustomer | null;
   assignedRiderId: string | null;
   assignedRider?: RiderProfile | null;
+  pickupRiderId?: string | null;
+  pickupRider?: RiderProfile | null;
+  dropoffRiderId?: string | null;
+  dropoffRider?: RiderProfile | null;
   senderName: string;
   senderNumber: string;
   senderContact: string | null;

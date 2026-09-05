@@ -97,6 +97,8 @@ model RiderProfile {
   updatedAt       DateTime    @updatedAt
 
   assignedShipments Shipment[]       @relation("RiderShipments")
+  pickupShipments   Shipment[]       @relation("PickupRiderShipments")
+  dropoffShipments  Shipment[]       @relation("DropoffRiderShipments")
   deductions        RiderDeduction[]
 
   @@map("rider_profiles")
@@ -117,6 +119,12 @@ model Shipment {
 
   assignedRiderId String?
   assignedRider   RiderProfile? @relation("RiderShipments", fields: [assignedRiderId], references: [id], onDelete: SetNull)
+
+  pickupRiderId   String?
+  pickupRider     RiderProfile? @relation("PickupRiderShipments", fields: [pickupRiderId], references: [id], onDelete: SetNull)
+
+  dropoffRiderId  String?
+  dropoffRider    RiderProfile? @relation("DropoffRiderShipments", fields: [dropoffRiderId], references: [id], onDelete: SetNull)
 
   senderName    String
   senderNumber  String
