@@ -11,7 +11,7 @@ import api from '../../services/api';
 import { calculateDeliveryCost } from '../../utils/pricing';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { CreateShipmentInput, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
+import type { CreateShipmentInput, DeliveryType, PackageSize, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
 import CustomSelect from '../../components/Form/CustomSelect';
 import FileUpload from '../../components/Form/FileUpload';
 import DatePicker from '../../components/Form/DatePicker';
@@ -53,6 +53,17 @@ const PACKAGE_TYPE_OPTIONS_BULK = [
   { value: 'electronics', label: 'Electronics' },
   { value: 'fragile', label: 'Fragile items' },
   { value: 'other', label: 'Other' },
+];
+
+const PACKAGE_SIZE_OPTIONS = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'big', label: 'Big' },
+];
+
+const DELIVERY_TYPE_OPTIONS = [
+  { value: 'doorstep', label: 'Doorstep delivery' },
+  { value: 'station', label: 'Station delivery' },
 ];
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -107,6 +118,9 @@ export default function RequestPickupPage() {
   const [dropoffLocation, setDropoffLocation] = useState('');
   const [deliverySpeed, setDeliverySpeed] = useState('');
   const [packageType, setPackageType] = useState('');
+  const [packageSize, setPackageSize] = useState('');
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('doorstep');
+  const [stationLocation, setStationLocation] = useState('');
   const [productFee, setProductFee] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -116,7 +130,7 @@ export default function RequestPickupPage() {
   const [numberOfPackages, setNumberOfPackages] = useState<number | ''>('');
   const [bulkReceiverMode, setBulkReceiverMode] = useState<'upload' | 'manual' | null>(null);
   const [bulkImagePreviews, setBulkImagePreviews] = useState<string[]>([]);
-  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string }>>([]);
+  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string, deliveryType: DeliveryType, stationLocation: string }>>([]);
 
   // Form Completion Checks
   const isSingleComplete = Boolean(
@@ -129,7 +143,9 @@ export default function RequestPickupPage() {
     dropoffRegion.trim() &&
     dropoffLocation.trim() &&
     deliverySpeed.trim() &&
-    packageType.trim()
+    packageType.trim() &&
+    packageSize.trim() &&
+    (deliveryType !== 'station' || stationLocation.trim())
   );
 
   const isBulkComplete = Boolean(
@@ -139,10 +155,11 @@ export default function RequestPickupPage() {
     pickupLocation.trim() &&
     deliverySpeed.trim() &&
     packageType.trim() &&
+    packageSize.trim() &&
     typeof numberOfPackages === 'number' &&
     numberOfPackages > 0 &&
     (
-      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim())) ||
+      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim() && (r.deliveryType !== 'station' || r.stationLocation.trim()))) ||
       (bulkReceiverMode === 'upload' && bulkImagePreviews.length > 0)
     )
   );
@@ -202,7 +219,7 @@ export default function RequestPickupPage() {
     // Adjust array size
     if (val > bulkReceivers.length) {
       const added = Array.from({ length: val - bulkReceivers.length }, () => ({
-        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Next day', priority: 'Standard'
+        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Next day', priority: 'Standard', deliveryType: 'doorstep' as DeliveryType, stationLocation: ''
       }));
       setBulkReceivers([...bulkReceivers, ...added]);
     } else if (val < bulkReceivers.length) {
@@ -236,6 +253,8 @@ export default function RequestPickupPage() {
         priority: mapPriority(deliveryPriority),
         speed: mapSpeed(deliverySpeed),
         packageType: packageType as PackageType,
+        packageSize: packageSize as PackageSize,
+        deliveryType,
         senderName,
         senderNumber,
         pickupRegion,
@@ -244,6 +263,7 @@ export default function RequestPickupPage() {
         receiverNumber,
         dropoffRegion,
         dropoffLocation,
+        stationLocation: deliveryType === 'station' ? stationLocation : undefined,
       };
       if (senderContact.trim()) payload.senderContact = senderContact;
       if (pickupDate.trim()) payload.pickupDate = pickupDate;
@@ -286,6 +306,7 @@ export default function RequestPickupPage() {
       const pickup: {
         vehicleType: VehicleType;
         packageType: PackageType;
+        packageSize: PackageSize;
         senderName: string;
         senderNumber: string;
         senderContact?: string;
@@ -297,6 +318,7 @@ export default function RequestPickupPage() {
       } = {
         vehicleType: pickupMode as VehicleType,
         packageType: packageType as PackageType,
+        packageSize: packageSize as PackageSize,
         senderName,
         senderNumber,
         pickupRegion,
@@ -312,6 +334,8 @@ export default function RequestPickupPage() {
         receiverNumber: rec.number,
         dropoffRegion: rec.region,
         dropoffLocation: rec.dropoffLocation,
+        deliveryType: rec.deliveryType,
+        stationLocation: rec.deliveryType === 'station' ? rec.stationLocation : undefined,
         speed: mapSpeed(rec.speed),
         priority: mapPriority(rec.priority),
       }));
@@ -551,12 +575,27 @@ export default function RequestPickupPage() {
                     <CustomSelect value={dropoffRegion} onChange={v => setDropoffRegion(v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                   </label>
                   <label style={{ gridColumn: '1 / -1' }}>
-                    <span>Dropoff Location</span>
+                    <span>Delivery Location Type</span>
+                    <CustomSelect value={deliveryType} onChange={v => setDeliveryType(v as DeliveryType)} options={DELIVERY_TYPE_OPTIONS} icon={<MapPinned size={17} />} />
+                  </label>
+                  {deliveryType === 'station' && (
+                    <div style={{ gridColumn: '1 / -1', background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', padding: '12px 14px', borderRadius: '10px', fontSize: '13px', lineHeight: 1.45 }}>
+                      <strong>Station delivery:</strong> CPS will hand the package to a station vehicle; this is not doorstep delivery. Enter the station or place the package is going to below.
+                    </div>
+                  )}
+                  <label style={{ gridColumn: '1 / -1' }}>
+                    <span>{deliveryType === 'station' ? 'Station / destination place' : 'Dropoff Location'}</span>
                     <div className="rp-input-wrap">
                       <MapPinned size={17} />
-                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
+                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder={deliveryType === 'station' ? 'Receiver’s destination or town' : 'Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)'} />
                     </div>
                   </label>
+                  {deliveryType === 'station' && (
+                    <label style={{ gridColumn: '1 / -1' }}>
+                      <span>Station name / handover point</span>
+                      <div className="rp-input-wrap"><MapPinned size={17} /><input value={stationLocation} onChange={e => setStationLocation(e.target.value)} placeholder="e.g. Kejetia Station, STC Terminal" /></div>
+                    </label>
+                  )}
                 </div>
 
                 <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
@@ -573,6 +612,10 @@ export default function RequestPickupPage() {
                         Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
                       </div>
                     )}
+                  </label>
+                  <label>
+                    <span>Package Size</span>
+                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
                   </label>
                 </div>
 
@@ -649,6 +692,10 @@ export default function RequestPickupPage() {
                         Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
                       </div>
                     )}
+                  </label>
+                  <label>
+                    <span>Package Size</span>
+                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
                   </label>
                   <label>
                     <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>
@@ -773,6 +820,21 @@ export default function RequestPickupPage() {
                                   <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
                                 </div>
                               </label>
+                              <label>
+                                <span>Delivery Location Type</span>
+                                <CustomSelect value={rec.deliveryType} onChange={v => handleBulkReceiverChange(i, 'deliveryType', v)} options={DELIVERY_TYPE_OPTIONS} icon={<MapPinned size={17} />} />
+                              </label>
+                              {rec.deliveryType === 'station' && (
+                                <>
+                                  <div style={{ gridColumn: '1 / -1', background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', padding: '10px 12px', borderRadius: '8px', fontSize: '12px' }}>
+                                    Station delivery is a handover to a station vehicle, not doorstep delivery.
+                                  </div>
+                                  <label>
+                                    <span>Station / handover point</span>
+                                    <div className="rp-input-wrap"><MapPinned size={17} /><input value={rec.stationLocation} onChange={e => handleBulkReceiverChange(i, 'stationLocation', e.target.value)} placeholder="Station name or terminal" /></div>
+                                  </label>
+                                </>
+                              )}
                             </div>
                           </div>
                         ))}

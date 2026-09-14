@@ -398,6 +398,9 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pickup Location</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dropoff Location</th>
+                  {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Speed / vehicle</th>}
+                  {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Package details</th>}
+                  {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assign riders</th>}
                   {filterType === 'new' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimated Fee</th>
                   )}
@@ -491,9 +494,13 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', marginLeft: '21px' }}>
                             {order.dropoffRegion} {order.receiverName ? `· To: ${order.receiverName}` : ''}
                           </div>
+                          {order.deliveryType === 'station' && <div style={{ fontSize: '11px', color: '#c2410c', fontWeight: 800, marginTop: 4 }}>STATION: {order.stationLocation}</div>}
                         </td>
 
                         {/* Mode Specific Columns */}
+                        {filterType === 'new' && (
+                          <><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.speed.replace('_', ' ')}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.vehicleType}</div></td><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.packageType}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.packageSize}</div></td><td style={{ padding: '16px', fontSize: '12px' }}><div>Pickup: <strong>{order.pickupRider?.user.name || 'Unassigned'}</strong></div><div>Dropoff: <strong>{order.dropoffRider?.user.name || 'Unassigned'}</strong></div></td></>
+                        )}
                         {filterType === 'new' && (
                           <td style={{ padding: '16px' }}>
                             <div>

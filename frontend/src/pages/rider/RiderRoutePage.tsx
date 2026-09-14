@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, AlertOctagon, X, Phone, AlertTriangle, ArrowRight, PackageX, PartyPopper, MapPin, Package, Wallet, Zap } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
+import StationHandoverModal from '../../components/StationHandoverModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import { useToast } from '../../contexts/ToastContext';
 import { PageLoader } from '../../components/Spinner';
@@ -25,6 +26,9 @@ interface RouteStop {
   dropoffRegion: string;
   dropoffKumasiSubArea: string | null;
   packageType: string;
+  packageSize: string;
+  deliveryType: 'doorstep' | 'station';
+  stationLocation: string | null;
   speed: string;
   priority: string;
   deliveryFee: string;
@@ -67,6 +71,9 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
       dropoffRegion: shipment.dropoffRegion,
       dropoffKumasiSubArea: shipment.dropoffKumasiSubArea,
       packageType: shipment.packageType,
+      packageSize: shipment.packageSize,
+      deliveryType: shipment.deliveryType,
+      stationLocation: shipment.stationLocation,
       speed: shipment.speed,
       priority: shipment.priority,
       deliveryFee: shipment.deliveryFee,
@@ -79,6 +86,7 @@ export default function RiderRoutePage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [podOpen, setPodOpen] = useState(false);
+  const [stationHandoverOpen, setStationHandoverOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
 
   const navigate = useNavigate();
@@ -134,6 +142,14 @@ export default function RiderRoutePage() {
       setError('Failed to submit proof of delivery. Please try again.');
       toast.error('Failed to confirm delivery.');
     }
+  };
+
+  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl: string }) => {
+    if (!activeStop) return;
+    const { data } = await api.patch<Shipment>(`/shipments/${activeStop.id}/station-handover`, details);
+    setShipments(prev => prev.map(s => s.id === activeStop.id ? data : s));
+    setStationHandoverOpen(false);
+    toast.success('Station handover recorded.');
   };
 
   const handleIssueSubmit = async (reason: string) => {
@@ -277,7 +293,8 @@ export default function RiderRoutePage() {
               <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fef9c3', color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Package size={16} /></span>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Package</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>{activeStop.packageType} · {activeStop.speed.replace('_', ' ')}</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'capitalize' }}>{activeStop.packageType} · {activeStop.packageSize} · {activeStop.speed.replace('_', ' ')}</div>
+                {activeStop.deliveryType === 'station' && <div style={{ fontSize: '12px', color: '#9a3412', fontWeight: 700 }}>Station: {activeStop.stationLocation}</div>}
               </div>
               <div style={{ marginLeft: 'auto', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Wallet size={14} /> GHS {Number(activeStop.deliveryFee).toFixed(2)}
@@ -332,10 +349,10 @@ export default function RiderRoutePage() {
           padding: '16px 20px', paddingBottom: 'max(16px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.08)', zIndex: 20,
         }}>
           <button
-            onClick={() => setPodOpen(true)}
+            onClick={() => activeStop.deliveryType === 'station' ? setStationHandoverOpen(true) : setPodOpen(true)}
             style={{ width: '100%', background: '#078c35', color: '#fff', padding: '18px', borderRadius: '16px', border: 'none', fontSize: '18px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer' }}
           >
-            Arrived &amp; Deliver
+            {activeStop.deliveryType === 'station' ? 'Record Station Handover' : 'Arrived & Deliver'}
             <ArrowRight size={20} />
           </button>
         </div>
@@ -348,6 +365,7 @@ export default function RiderRoutePage() {
           onSubmit={handlePodSubmit}
         />
       )}
+      {stationHandoverOpen && activeStop && <StationHandoverModal stopAddress={activeStop.stationLocation || activeStop.address} onClose={() => setStationHandoverOpen(false)} onSubmit={handleStationHandover} />}
 
       {issueOpen && activeStop && (
         <ReportIssueModal

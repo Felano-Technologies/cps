@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Ban } from 'lucide-react';
+import { Printer, Plus, Package, Bike, Truck, AlertTriangle, Ban, Bus, Archive } from 'lucide-react';
 import api from '../../services/api';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import RiderManifestModal from '../../components/RiderManifestModal';
@@ -91,6 +91,7 @@ export default function LiveOpsBoardPage() {
     () => orders.filter(o => o.status === 'cancelled').length,
     [orders]
   );
+  const stationDeliveryCount = useMemo(() => orders.filter(o => o.deliveryType === 'station').length, [orders]);
 
   return (
     <div className="page-shell light-shell">
@@ -185,6 +186,16 @@ export default function LiveOpsBoardPage() {
             <div style={{ width: '48px', height: '48px', background: '#fff7ed', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c2410c' }}>
               <Package size={22} />
             </div>
+          </Link>
+
+          <Link to="/ops/station-deliveries" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Station Deliveries</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#c2410c', marginTop: '8px' }}>{stationDeliveryCount}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>View handovers & receipts</div></div>
+            <div style={{ width: '48px', height: '48px', background: '#fff7ed', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c2410c' }}><Bus size={22} /></div>
+          </Link>
+
+          <Link to="/ops/records" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Records</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{orders.length}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>Search all orders</div></div>
+            <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Archive size={22} /></div>
           </Link>
 
           <Link to="/ops/active-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

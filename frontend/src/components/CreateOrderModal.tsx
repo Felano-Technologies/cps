@@ -5,7 +5,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import CustomSelect from './Form/CustomSelect';
 import Modal from './Modal';
-import type { CreateShipmentInput, PackageType, Shipment, ShipmentPriority, ShipmentSpeed, VehicleType } from '../types/models';
+import type { CreateShipmentInput, PackageSize, PackageType, Shipment, ShipmentPriority, ShipmentSpeed, VehicleType } from '../types/models';
 
 interface CreateOrderModalProps {
   onClose: () => void;
@@ -23,6 +23,9 @@ const PACKAGE_TYPE_OPTIONS: { value: PackageType; label: string }[] = [
   { value: 'fragile', label: 'Fragile' },
   { value: 'food', label: 'Food' },
   { value: 'other', label: 'Other' },
+];
+const PACKAGE_SIZE_OPTIONS: { value: PackageSize; label: string }[] = [
+  { value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'big', label: 'Big' },
 ];
 
 const SPEED_OPTIONS: { value: ShipmentSpeed; label: string }[] = [
@@ -52,6 +55,7 @@ interface FormState {
   dropoffRegion: string;
   dropoffLocation: string;
   packageType: PackageType;
+  packageSize: PackageSize;
   speed: ShipmentSpeed;
   priority: ShipmentPriority;
   vehicleType: VehicleType;
@@ -67,6 +71,7 @@ const initialFormState: FormState = {
   dropoffRegion: 'Kumasi',
   dropoffLocation: '',
   packageType: 'parcel',
+  packageSize: 'medium',
   speed: 'same_day',
   priority: 'standard',
   vehicleType: 'motorbike',
@@ -99,6 +104,7 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
       priority: formData.priority,
       speed: formData.speed,
       packageType: formData.packageType,
+      packageSize: formData.packageSize,
       senderName: formData.senderName,
       senderNumber: formData.senderNumber,
       pickupRegion: formData.pickupRegion,
@@ -250,6 +256,10 @@ export default function CreateOrderModal({ onClose, onCreate }: CreateOrderModal
                       Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
                     </div>
                   )}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Package Size</label>
+                  <CustomSelect value={formData.packageSize} onChange={v => updateField('packageSize', v as PackageSize)} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Vehicle Type</label>

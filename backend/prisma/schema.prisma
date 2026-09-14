@@ -60,6 +60,17 @@ enum PackageType {
   other
 }
 
+enum PackageSize {
+  small
+  medium
+  big
+}
+
+enum DeliveryType {
+  doorstep
+  station
+}
+
 enum PodMethod {
   signature
   photo
@@ -119,6 +130,8 @@ model Shipment {
   speed          ShipmentSpeed    @default(next_day)
   vehicleType    VehicleType
   packageType    PackageType
+  packageSize    PackageSize @default(medium)
+  deliveryType   DeliveryType @default(doorstep)
 
   customerId String?
   customer   User?   @relation("CustomerShipments", fields: [customerId], references: [id], onDelete: SetNull)
@@ -144,6 +157,13 @@ model Shipment {
   dropoffRegion  String
   dropoffKumasiSubArea String?
   dropoffLocation String
+  stationLocation String?
+
+  stationDriverName   String?
+  stationDriverNumber String?
+  stationCarNumber    String?
+  stationReceiptUrl   String?
+  stationHandoverAt   DateTime?
 
   deliveryFee Decimal @db.Decimal(10, 2)
   productFee  Decimal? @db.Decimal(10, 2)
