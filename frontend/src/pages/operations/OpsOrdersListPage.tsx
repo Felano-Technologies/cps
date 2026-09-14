@@ -17,6 +17,7 @@ import {
   Phone,
   User,
   Printer,
+  UserCheck,
 } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
@@ -106,6 +107,12 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [opsRemarks, setOpsRemarks] = useState('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
   const [isManifestOpen, setIsManifestOpen] = useState(false);
+
+  // Assign Riders Modal State (for active/delayed orders)
+  const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<Shipment | null>(null);
+  const [assignPickupRiderId, setAssignPickupRiderId] = useState('');
+  const [assignDropoffRiderId, setAssignDropoffRiderId] = useState('');
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
 
   const titleMap = {
     new: 'New Orders',
@@ -201,6 +208,30 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     setModalPickupRiderId(order.pickupRiderId ?? order.assignedRiderId ?? '');
     setModalDropoffRiderId(order.dropoffRiderId ?? order.assignedRiderId ?? '');
     setOpsRemarks(order.opsRemarks ?? '');
+  };
+
+  const handleOpenAssignModal = (order: Shipment) => {
+    setSelectedOrderForAssign(order);
+    setAssignPickupRiderId(order.pickupRiderId ?? order.assignedRiderId ?? '');
+    setAssignDropoffRiderId(order.dropoffRiderId ?? order.assignedRiderId ?? '');
+  };
+
+  const handleSaveRiderAssignment = async () => {
+    if (!selectedOrderForAssign) return;
+    setIsSubmittingAssign(true);
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${selectedOrderForAssign.id}/assign`, {
+        pickupRiderId: assignPickupRiderId || null,
+        dropoffRiderId: assignDropoffRiderId || null,
+      });
+      setOrders((prev) => prev.map((o) => (o.id === data.id ? data : o)));
+      setSelectedOrderForAssign(null);
+      toast.success(`Riders updated for ${data.trackingCode}.`);
+    } catch {
+      toast.error('Failed to update rider assignment. Please try again.');
+    } finally {
+      setIsSubmittingAssign(false);
+    }
   };
 
   const handleConfirmPriceAndProcess = async () => {
@@ -476,18 +507,36 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
                         {filterType === 'active' && (
                           <td style={{ padding: '16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '12px' }}>
-                              <div>
-                                <span style={{ color: '#64748b', fontWeight: 600 }}>Pickup: </span>
-                                <strong style={{ color: (order.pickupRider || order.assignedRider) ? '#0f172a' : '#94a3b8' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ color: '#64748b', fontWeight: 600, minWidth: '48px' }}>Pickup:</span>
+                                <span
+                                  style={{
+                                    background: (order.pickupRider || order.assignedRider) ? '#dbeafe' : '#f1f5f9',
+                                    color: (order.pickupRider || order.assignedRider) ? '#1d4ed8' : '#94a3b8',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontWeight: 700,
+                                    fontSize: '11px',
+                                  }}
+                                >
                                   {order.pickupRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
-                                </strong>
+                                </span>
                               </div>
-                              <div>
-                                <span style={{ color: '#64748b', fontWeight: 600 }}>Dropoff: </span>
-                                <strong style={{ color: (order.dropoffRider || order.assignedRider) ? '#0f172a' : '#94a3b8' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ color: '#64748b', fontWeight: 600, minWidth: '48px' }}>Dropoff:</span>
+                                <span
+                                  style={{
+                                    background: (order.dropoffRider || order.assignedRider) ? '#dcfce7' : '#f1f5f9',
+                                    color: (order.dropoffRider || order.assignedRider) ? '#15803d' : '#94a3b8',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontWeight: 700,
+                                    fontSize: '11px',
+                                  }}
+                                >
                                   {order.dropoffRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
-                                </strong>
+                                </span>
                               </div>
                             </div>
                           </td>
@@ -540,7 +589,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                         </td>
 
                         <td style={{ padding: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             {filterType === 'new' ? (
                               <button
                                 onClick={() => handleOpenPricingModal(order)}
@@ -558,14 +607,39 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                                 View Details
                               </Link>
                             )}
-                            <Link
-                              to={`/ops/tracking/${order.trackingCode}`}
-                              className="contact-btn contact-btn-copy"
-                              style={{ padding: '8px 12px', fontSize: '12px' }}
-                              title="View Full Details"
-                            >
-                              Details
-                            </Link>
+                            {(filterType === 'active' || filterType === 'delayed') && (
+                              <button
+                                onClick={() => handleOpenAssignModal(order)}
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  border: '1px solid #cbd5e1',
+                                  background: '#f8fafc',
+                                  color: '#334155',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  transition: 'all 0.15s ease',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title="Assign / change pickup and dropoff riders"
+                              >
+                                <UserCheck size={13} /> Assign Riders
+                              </button>
+                            )}
+                            {filterType !== 'new' && (
+                              <Link
+                                to={`/ops/tracking/${order.trackingCode}`}
+                                className="contact-btn contact-btn-copy"
+                                style={{ padding: '8px 12px', fontSize: '12px' }}
+                                title="View Full Details"
+                              >
+                                Details
+                              </Link>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -772,6 +846,125 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
             initialShipments={orders}
             initialRiders={riders}
           />
+        )}
+
+        {/* ASSIGN RIDERS MODAL (for active/delayed orders) */}
+        {selectedOrderForAssign && (
+          <Modal onClose={() => setSelectedOrderForAssign(null)} maxWidth="520px" padding="0">
+            <div style={{ padding: '24px' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '19px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#e0ffe0', color: '#078c35', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                      <UserCheck size={18} />
+                    </div>
+                    Assign Riders
+                  </h3>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                    Order #{selectedOrderForAssign.trackingCode} — {selectedOrderForAssign.pickupLocation} → {selectedOrderForAssign.dropoffLocation}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedOrderForAssign(null)}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', marginLeft: '8px' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Order Context */}
+              <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b' }}>Sender:</span>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.senderName}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b' }}>Pickup:</span>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.pickupLocation}, {selectedOrderForAssign.pickupRegion}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b' }}>Dropoff:</span>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.dropoffLocation}, {selectedOrderForAssign.dropoffRegion}</strong>
+                </div>
+              </div>
+
+              {/* Rider Selectors */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+
+                {/* Pickup Rider */}
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ background: '#dbeafe', color: '#1d4ed8', padding: '5px', borderRadius: '6px', display: 'flex' }}>
+                      <Package size={15} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e3a8a' }}>Pickup Rider</div>
+                      <div style={{ fontSize: '11px', color: '#3b82f6' }}>Collects from: {selectedOrderForAssign.pickupLocation}</div>
+                    </div>
+                    {(selectedOrderForAssign.pickupRider || selectedOrderForAssign.assignedRider) && (
+                      <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px' }}>
+                        Currently: {selectedOrderForAssign.pickupRider?.user.name ?? selectedOrderForAssign.assignedRider?.user.name}
+                      </span>
+                    )}
+                  </div>
+                  <CustomSelect
+                    value={assignPickupRiderId}
+                    onChange={setAssignPickupRiderId}
+                    options={riderOptions}
+                    icon={<User size={15} />}
+                  />
+                </div>
+
+                {/* Dropoff Rider */}
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ background: '#dcfce7', color: '#15803d', padding: '5px', borderRadius: '6px', display: 'flex' }}>
+                      <MapPin size={15} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#14532d' }}>Dropoff Rider</div>
+                      <div style={{ fontSize: '11px', color: '#16a34a' }}>Delivers to: {selectedOrderForAssign.dropoffLocation}</div>
+                    </div>
+                    {(selectedOrderForAssign.dropoffRider || selectedOrderForAssign.assignedRider) && (
+                      <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px' }}>
+                        Currently: {selectedOrderForAssign.dropoffRider?.user.name ?? selectedOrderForAssign.assignedRider?.user.name}
+                      </span>
+                    )}
+                  </div>
+                  <CustomSelect
+                    value={assignDropoffRiderId}
+                    onChange={setAssignDropoffRiderId}
+                    options={riderOptions}
+                    icon={<User size={15} />}
+                  />
+                </div>
+
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderForAssign(null)}
+                  className="neutral-btn"
+                  style={{ padding: '10px 18px', borderRadius: '8px', fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRiderAssignment}
+                  disabled={isSubmittingAssign}
+                  className="primary-green"
+                  style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', opacity: isSubmittingAssign ? 0.7 : 1 }}
+                >
+                  <UserCheck size={15} />
+                  {isSubmittingAssign ? 'Saving...' : 'Save Assignment'}
+                </button>
+              </div>
+            </div>
+          </Modal>
         )}
 
         <style>{`
