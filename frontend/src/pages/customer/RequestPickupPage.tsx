@@ -282,7 +282,11 @@ export default function RequestPickupPage() {
       if (senderContact.trim()) payload.senderContact = senderContact;
       if (pickupDate.trim()) payload.pickupDate = pickupDate;
       if (productFee.trim() !== '') payload.productFee = Number(productFee);
-      if (additionalInstructions.trim()) payload.additionalInstructions = additionalInstructions;
+      const combinedInstructions = [
+        additionalInstructions.trim(),
+        packageSize ? `[Size: ${packageSize}]` : '',
+      ].filter(Boolean).join(' ');
+      if (combinedInstructions) payload.additionalInstructions = combinedInstructions;
       if (uploadedImageUrl) payload.packageImageUrl = uploadedImageUrl;
 
       try {

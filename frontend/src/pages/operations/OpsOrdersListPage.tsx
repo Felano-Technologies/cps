@@ -29,6 +29,7 @@ import CustomSelect from '../../components/Form/CustomSelect';
 import RiderManifestModal from '../../components/RiderManifestModal';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
+import { formatPackageSize, getPackageSizeBadgeColors } from '../../utils/packageSize';
 
 interface OpsOrdersListPageProps {
   filterType: 'new' | 'active' | 'delayed' | 'cancelled' | 'station';
@@ -538,9 +539,15 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                         {filterType === 'new' && (
                           <><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.speed === 'next_day' ? 'Standard' : order.speed === 'express' ? 'Express' : order.speed.replace('_', ' ')}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.vehicleType}</div></td><td style={{ padding: '16px', textTransform: 'capitalize' }}>
                             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '14px' }}>{order.packageType}</div>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', color: '#475569', padding: '2px 7px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                              <Package size={10} /> {order.packageSize}
-                            </div>
+                            {(() => {
+                              const size = formatPackageSize(order);
+                              const badge = getPackageSizeBadgeColors(size);
+                              return (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', background: badge.bg, color: badge.text, border: `1px solid ${badge.border}`, padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '4px' }}>
+                                  Size: <span style={{ marginLeft: '4px', fontWeight: 800 }}>{size}</span>
+                                </div>
+                              );
+                            })()}
                           </td><td style={{ padding: '16px', fontSize: '12px' }}><div>Pickup: <strong>{order.pickupRider?.user.name || 'Unassigned'}</strong></div><div>Dropoff: <strong>{order.dropoffRider?.user.name || 'Unassigned'}</strong></div></td></>
                         )}
                         {filterType === 'new' && (
@@ -758,6 +765,10 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Dropoff:</span>
                   <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.dropoffLocation}, {selectedOrderForPricing.deliveryType === 'station' ? 'Station Delivery' : selectedOrderForPricing.dropoffRegion}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                  <span style={{ color: '#64748b' }}>Package:</span>
+                  <strong style={{ color: '#0f172a', textTransform: 'capitalize' }}>{selectedOrderForPricing.packageType} · Size: {formatPackageSize(selectedOrderForPricing)}</strong>
                 </div>
                 {selectedOrderForPricing.deliveryType === 'station' && selectedOrderForPricing.stationLocation && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
