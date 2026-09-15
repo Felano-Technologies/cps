@@ -622,6 +622,12 @@ router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => 
   notifyRoles(['operations', 'admin'], 'station_handover', `Station handover completed: ${updated.trackingCode}`,
     `Driver and receipt details are ready for review.`, updated.id).catch(() => {});
 
+  const stationSms = `CPS Logistics: Package #${updated.trackingCode} has been delivered to ${updatedStationShipment.stationLocation || 'the station'} for onward travel. Driver: ${parsed.data.stationDriverName}, ${parsed.data.stationDriverNumber}. Car: ${parsed.data.stationCarNumber}.`;
+  // Notify both parties independently; sendSms handles provider failures without failing the handover.
+  [updated.senderNumber, updated.receiverNumber]
+    .filter((phone, index, phones) => !!phone && phones.indexOf(phone) === index)
+    .forEach(phone => { void sendSms(phone, stationSms); });
+
   const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
   if (dRiderId) creditRiderBonus(updated.id, dRiderId, 'dropoff', updated.trackingCode);
   res.json(updated);

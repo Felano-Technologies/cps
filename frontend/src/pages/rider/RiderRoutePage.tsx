@@ -34,12 +34,10 @@ interface RouteStop {
   deliveryFee: string;
 }
 
-function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
+function mapShipmentsToStops(shipments: Shipment[], selectedId?: string): RouteStop[] {
   const sorted = [...shipments].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
-
-  let activeAssigned = false;
 
   return sorted.map(shipment => {
     let status: RouteStop['status'];
@@ -47,9 +45,8 @@ function mapShipmentsToStops(shipments: Shipment[]): RouteStop[] {
       status = 'completed';
     } else if (shipment.status === 'failed' || shipment.status === 'cancelled') {
       status = 'failed';
-    } else if (!activeAssigned) {
+    } else if (selectedId === shipment.id) {
       status = 'active';
-      activeAssigned = true;
     } else {
       status = 'pending';
     }
@@ -88,6 +85,7 @@ export default function RiderRoutePage() {
   const [podOpen, setPodOpen] = useState(false);
   const [stationHandoverOpen, setStationHandoverOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const toast = useToast();
@@ -102,6 +100,8 @@ export default function RiderRoutePage() {
         const response = await api.get<Shipment[]>('/shipments');
         if (isMounted) {
           setShipments(response.data);
+          const firstOpen = response.data.find(s => !['delivered', 'failed', 'cancelled'].includes(s.status));
+          setSelectedStopId(current => current && response.data.some(s => s.id === current && !['delivered', 'failed', 'cancelled'].includes(s.status)) ? current : firstOpen?.id ?? null);
         }
       } catch {
         if (isMounted) {
@@ -122,7 +122,7 @@ export default function RiderRoutePage() {
     };
   }, []);
 
-  const stops = mapShipmentsToStops(shipments);
+  const stops = mapShipmentsToStops(shipments, selectedStopId ?? undefined);
   const activeStop = stops.find(s => s.status === 'active');
   const allCompleted = stops.length > 0 && stops.every(s => s.status === 'completed' || s.status === 'failed');
 
@@ -136,6 +136,7 @@ export default function RiderRoutePage() {
         podPhotoUrl: photoUrl ?? undefined,
       });
       setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
+      setSelectedStopId(shipments.find(s => s.id !== activeStop.id && !['delivered', 'failed', 'cancelled'].includes(s.status))?.id ?? null);
       setPodOpen(false);
       toast.success('Delivery confirmed.');
     } catch {
@@ -148,6 +149,7 @@ export default function RiderRoutePage() {
     if (!activeStop) return;
     const { data } = await api.patch<Shipment>(`/shipments/${activeStop.id}/station-handover`, details);
     setShipments(prev => prev.map(s => s.id === activeStop.id ? data : s));
+    setSelectedStopId(shipments.find(s => s.id !== activeStop.id && !['delivered', 'failed', 'cancelled'].includes(s.status))?.id ?? null);
     setStationHandoverOpen(false);
     toast.success('Station handover recorded.');
   };
@@ -165,6 +167,17 @@ export default function RiderRoutePage() {
     } catch {
       setError('Failed to report issue. Please try again.');
       toast.error('Failed to report issue.');
+    }
+  };
+
+  const handleStatusChange = async (status: 'picked_up' | 'in_transit' | 'out_for_delivery') => {
+    if (!activeStop) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${activeStop.id}/status`, { status });
+      setShipments(prev => prev.map(s => s.id === data.id ? data : s));
+      toast.success(`Package marked ${status.replace('_', ' ')}.`);
+    } catch {
+      toast.error('Failed to update package status.');
     }
   };
 
@@ -229,6 +242,8 @@ export default function RiderRoutePage() {
     );
   }
 
+  const selectableStops = stops.filter(stop => stop.status !== 'completed' && stop.status !== 'failed');
+
   return (
     <div className="page-shell light-shell" style={{ minHeight: '100vh', paddingBottom: activeStop ? '120px' : '24px' }}>
 
@@ -255,6 +270,12 @@ export default function RiderRoutePage() {
 
       {activeStop && (
         <main style={{ padding: '20px' }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '14px', marginBottom: '18px' }}>
+            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', marginBottom: '10px' }}>Choose an order to work on</div>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {selectableStops.map(stop => <button key={stop.id} onClick={() => setSelectedStopId(stop.id)} style={{ flex: '0 0 auto', textAlign: 'left', border: stop.id === activeStop.id ? '2px solid #078c35' : '1px solid #cbd5e1', background: stop.id === activeStop.id ? '#ecfdf5' : '#fff', borderRadius: '10px', padding: '9px 12px', cursor: 'pointer' }}><strong style={{ display: 'block', fontSize: '12px' }}>{stop.trackingCode}</strong><span style={{ display: 'block', fontSize: '11px', color: '#64748b', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stop.deliveryType === 'station' ? stop.stationLocation : stop.address}</span></button>)}
+            </div>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
             <div>
               <div style={{ color: '#078c35', fontWeight: 800, fontSize: '12px', letterSpacing: '0.05em', marginBottom: '4px', textTransform: 'uppercase' }}>Next Stop</div>
@@ -308,6 +329,13 @@ export default function RiderRoutePage() {
             )}
           </div>
 
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '14px 16px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>Update package status</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {(['picked_up', 'in_transit', 'out_for_delivery'] as const).map(status => <button key={status} onClick={() => handleStatusChange(status)} style={{ border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', borderRadius: '9px', padding: '9px 11px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>{status.replace('_', ' ')}</button>)}
+            </div>
+          </div>
+
           {/* Order Contacts */}
           <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
             <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '16px', marginTop: 0 }}>Order Contacts</h3>
@@ -349,10 +377,10 @@ export default function RiderRoutePage() {
           padding: '16px 20px', paddingBottom: 'max(16px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.08)', zIndex: 20,
         }}>
           <button
-            onClick={() => activeStop.deliveryType === 'station' ? setStationHandoverOpen(true) : setPodOpen(true)}
+            onClick={() => { const isStation = activeStop.deliveryType === 'station' || !!activeStop.stationLocation; setPodOpen(false); setStationHandoverOpen(isStation); if (!isStation) setPodOpen(true); }}
             style={{ width: '100%', background: '#078c35', color: '#fff', padding: '18px', borderRadius: '16px', border: 'none', fontSize: '18px', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', boxShadow: '0 8px 24px rgba(7, 140, 53, 0.25)', cursor: 'pointer' }}
           >
-            {activeStop.deliveryType === 'station' ? 'Record Station Handover' : 'Arrived & Deliver'}
+            {(activeStop.deliveryType === 'station' || !!activeStop.stationLocation) ? 'Record Station Handover' : 'Arrived & Deliver'}
             <ArrowRight size={20} />
           </button>
         </div>

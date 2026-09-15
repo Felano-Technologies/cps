@@ -53,6 +53,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 // Rider Pages
 import RiderDashboardPage from './pages/rider/RiderDashboardPage';
 import RiderRoutePage from './pages/rider/RiderRoutePage';
+import RiderStationDeliveriesPage from './pages/rider/RiderStationDeliveriesPage';
 import RiderEarningsPage from './pages/rider/RiderEarningsPage';
 
 // 404
@@ -259,6 +260,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/rider/station-deliveries" element={<ProtectedRoute requiredRole="rider"><RiderStationDeliveriesPage /></ProtectedRoute>} />
           <Route
             path="/rider/earnings"
             element={

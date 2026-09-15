@@ -163,7 +163,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const counts = useMemo(
     () => ({
       new: orders.filter((o) => o.status === 'awaiting_price').length,
-      active: orders.filter((o) => ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(o.status)).length,
+      active: orders.filter((o) => ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(o.status) && o.deliveryType !== 'station').length,
       delayed: orders.filter((o) => o.status === 'delayed').length,
       cancelled: orders.filter((o) => o.status === 'cancelled').length,
       station: orders.filter((o) => o.deliveryType === 'station' && !['cancelled', 'delivered', 'failed', 'awaiting_price'].includes(o.status)).length,
@@ -176,7 +176,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
       if (filterType === 'new') {
         return order.status === 'awaiting_price';
       } else if (filterType === 'active') {
-        return ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(order.status);
+        return ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(order.status) && order.deliveryType !== 'station';
       } else if (filterType === 'delayed') {
         return order.status === 'delayed';
       } else if (filterType === 'cancelled') {

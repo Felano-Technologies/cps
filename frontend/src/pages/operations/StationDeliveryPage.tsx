@@ -9,7 +9,7 @@ export default function StationDeliveryPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   useEffect(() => { api.get<Shipment[]>('/shipments').then(r => setOrders(r.data)).finally(() => setLoading(false)); }, []);
-  const rows = useMemo(() => orders.filter(o => o.deliveryType === 'station').filter(o => `${o.trackingCode} ${o.senderName} ${o.receiverName} ${o.stationLocation}`.toLowerCase().includes(search.toLowerCase())), [orders, search]);
+  const rows = useMemo(() => orders.filter(o => o.deliveryType === 'station' && !['awaiting_price', 'cancelled', 'failed'].includes(o.status)).filter(o => `${o.trackingCode} ${o.senderName} ${o.receiverName} ${o.stationLocation}`.toLowerCase().includes(search.toLowerCase())), [orders, search]);
   return <div className="page-shell light-shell" style={{ padding: '32px 24px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'start', flexWrap: 'wrap', marginBottom: 24 }}>
       <div><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Bus color="#c2410c" /><h1 style={{ margin: 0 }}>Station Deliveries</h1></div><p style={{ color: '#64748b' }}>Station handovers, driver details, vehicle numbers, and receipts.</p></div>
