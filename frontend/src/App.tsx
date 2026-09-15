@@ -192,6 +192,14 @@ function App() {
             }
           />
           <Route
+            path="/ops/station-orders"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsOrdersListPage filterType="station" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/fleet"
             element={
               <ProtectedRoute requiredRole="operations">

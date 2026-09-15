@@ -62,7 +62,7 @@ const VEHICLE_LABELS: Record<VehicleType, string> = {
 
 const SPEED_LABELS: Record<ShipmentSpeed, string> = {
   same_day: 'Same Day',
-  next_day: 'Next Day',
+  next_day: 'Standard',
   express: 'Express',
 };
 

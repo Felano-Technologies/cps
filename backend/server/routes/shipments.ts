@@ -170,12 +170,17 @@ function buildShipmentCreateData(
   customerId: string | null,
   batchId: string | null
 ) {
-  const deliveryFee = calculateDeliveryCost({
-    region: input.dropoffRegion,
-    kumasiSubArea: input.dropoffKumasiSubArea,
-  });
-  if (deliveryFee === null) {
-    throw new Error(`No delivery rate configured for region "${input.dropoffRegion}"`);
+  const isStation = input.deliveryType === 'station' || input.dropoffRegion === 'Station Delivery';
+  let deliveryFee = 0;
+  if (!isStation) {
+    const calculated = calculateDeliveryCost({
+      region: input.dropoffRegion,
+      kumasiSubArea: input.dropoffKumasiSubArea,
+    });
+    if (calculated === null) {
+      throw new Error(`No delivery rate configured for region "${input.dropoffRegion}"`);
+    }
+    deliveryFee = calculated;
   }
 
   return {
@@ -186,7 +191,7 @@ function buildShipmentCreateData(
     speed: input.speed,
     packageType: input.packageType,
     packageSize: input.packageSize,
-    deliveryType: input.deliveryType,
+    deliveryType: isStation ? 'station' : input.deliveryType,
     customerId,
     senderName: input.senderName,
     senderNumber: input.senderNumber,
@@ -199,7 +204,7 @@ function buildShipmentCreateData(
     dropoffRegion: input.dropoffRegion,
     dropoffKumasiSubArea: input.dropoffKumasiSubArea,
     dropoffLocation: input.dropoffLocation,
-    stationLocation: input.deliveryType === 'station' ? input.stationLocation : undefined,
+    stationLocation: isStation ? input.stationLocation : undefined,
     deliveryFee,
     productFee: input.productFee,
     weightKg: input.weightKg,

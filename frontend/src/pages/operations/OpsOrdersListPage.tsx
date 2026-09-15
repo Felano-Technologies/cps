@@ -18,6 +18,8 @@ import {
   User,
   Printer,
   UserCheck,
+  Train,
+  StickyNote,
 } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
@@ -29,7 +31,7 @@ import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
 
 interface OpsOrdersListPageProps {
-  filterType: 'new' | 'active' | 'delayed' | 'cancelled';
+  filterType: 'new' | 'active' | 'delayed' | 'cancelled' | 'station';
 }
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
@@ -119,6 +121,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     active: 'Active Orders',
     delayed: 'Delayed Orders',
     cancelled: 'Cancelled Orders',
+    station: 'Station Deliveries',
   };
 
   const subtitleMap = {
@@ -126,6 +129,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     active: 'Orders currently being fulfilled by riders.',
     delayed: 'Shipments currently experiencing delays. Review delay notes and assist riders.',
     cancelled: 'All orders cancelled by customers or operations and their cancellation reasons.',
+    station: 'Confirmed orders dispatched to a transport station or vehicle — not doorstep delivery.',
   };
 
   const title = titleMap[filterType];
@@ -161,6 +165,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
       active: orders.filter((o) => ['pending', 'picked_up', 'in_transit', 'out_for_delivery'].includes(o.status)).length,
       delayed: orders.filter((o) => o.status === 'delayed').length,
       cancelled: orders.filter((o) => o.status === 'cancelled').length,
+      station: orders.filter((o) => o.deliveryType === 'station' && !['cancelled', 'delivered', 'failed', 'awaiting_price'].includes(o.status)).length,
     }),
     [orders]
   );
@@ -175,6 +180,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
         return order.status === 'delayed';
       } else if (filterType === 'cancelled') {
         return order.status === 'cancelled';
+      } else if (filterType === 'station') {
+        return order.deliveryType === 'station' && !['cancelled', 'delivered', 'failed', 'awaiting_price'].includes(order.status);
       }
       return true;
     });
@@ -355,6 +362,25 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
               <Ban size={14} />
               Cancelled ({counts.cancelled})
             </button>
+            <button
+              onClick={() => navigate('/ops/station-orders')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: filterType === 'station' ? '#1e40af' : 'transparent',
+                color: filterType === 'station' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Train size={14} />
+              Station ({counts.station})
+            </button>
           </div>
         </div>
 
@@ -396,8 +422,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</th>
-                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pickup Location</th>
-                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dropoff Location</th>
+                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location</th>
                   {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Speed / vehicle</th>}
                   {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Package details</th>}
                   {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assign riders</th>}
@@ -472,34 +497,51 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                               <Zap size={11} /> URGENT
                             </div>
                           )}
+                          {order.additionalInstructions && (
+                            <div style={{ marginTop: '6px', background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '5px 8px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                              <StickyNote size={12} color="#ca8a04" style={{ flexShrink: 0, marginTop: '1px' }} />
+                              <span style={{ fontSize: '11px', color: '#854d0e', fontWeight: 600, lineHeight: 1.4 }}>{order.additionalInstructions}</span>
+                            </div>
+                          )}
                         </td>
 
-                        {/* Pickup Location */}
+                        {/* Pickup & Dropoff Location (merged) */}
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <MapPin size={15} color="#0f172a" style={{ flexShrink: 0 }} />
+                          {/* Pickup row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '46px' }}>Pickup</span>
+                            <MapPin size={12} color="#0f172a" style={{ flexShrink: 0 }} />
                             <span>{order.pickupLocation}</span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', marginLeft: '21px' }}>
+                          <div style={{ fontSize: '14px', color: '#334155', marginTop: '2px', marginLeft: '62px', fontWeight: 900 }}>
                             {order.pickupRegion}
                           </div>
-                        </td>
-
-                        {/* Dropoff Location */}
-                        <td style={{ padding: '16px' }}>
-                          <div style={{ fontSize: '14px', color: '#078c35', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <MapPin size={15} color="#078c35" style={{ flexShrink: 0 }} />
+                          {/* Divider */}
+                          <div style={{ borderTop: '1px dashed #e2e8f0', margin: '6px 0' }} />
+                          {/* Dropoff row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#078c35', fontWeight: 600 }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '46px' }}>Dropoff</span>
+                            <MapPin size={12} color="#078c35" style={{ flexShrink: 0 }} />
                             <span>{order.dropoffLocation}</span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', marginLeft: '21px' }}>
-                            {order.dropoffRegion} {order.receiverName ? `· To: ${order.receiverName}` : ''}
+                          <div style={{ fontSize: '14px', color: '#334155', marginTop: '2px', marginLeft: '62px', fontWeight: 900 }}>
+                            {order.deliveryType === 'station' ? 'Station Delivery' : order.dropoffRegion}
                           </div>
-                          {order.deliveryType === 'station' && <div style={{ fontSize: '11px', color: '#c2410c', fontWeight: 800, marginTop: 4 }}>STATION: {order.stationLocation}</div>}
+                          {order.deliveryType === 'station' && (
+                            <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
+                              <Train size={11} /> Station → {order.stationLocation || 'See details'}
+                            </div>
+                          )}
                         </td>
 
                         {/* Mode Specific Columns */}
                         {filterType === 'new' && (
-                          <><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.speed.replace('_', ' ')}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.vehicleType}</div></td><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.packageType}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.packageSize}</div></td><td style={{ padding: '16px', fontSize: '12px' }}><div>Pickup: <strong>{order.pickupRider?.user.name || 'Unassigned'}</strong></div><div>Dropoff: <strong>{order.dropoffRider?.user.name || 'Unassigned'}</strong></div></td></>
+                          <><td style={{ padding: '16px', textTransform: 'capitalize' }}>{order.speed === 'next_day' ? 'Standard' : order.speed === 'express' ? 'Express' : order.speed.replace('_', ' ')}<div style={{ fontSize: '12px', color: '#64748b' }}>{order.vehicleType}</div></td><td style={{ padding: '16px', textTransform: 'capitalize' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '14px' }}>{order.packageType}</div>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', color: '#475569', padding: '2px 7px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              <Package size={10} /> {order.packageSize}
+                            </div>
+                          </td><td style={{ padding: '16px', fontSize: '12px' }}><div>Pickup: <strong>{order.pickupRider?.user.name || 'Unassigned'}</strong></div><div>Dropoff: <strong>{order.dropoffRider?.user.name || 'Unassigned'}</strong></div></td></>
                         )}
                         {filterType === 'new' && (
                           <td style={{ padding: '16px' }}>
@@ -692,6 +734,15 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
               {/* Order Quick Context */}
               <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {selectedOrderForPricing.deliveryType === 'station' && (
+                  <div style={{ background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Train size={16} color="#1e40af" style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontWeight: 800, color: '#1e40af', fontSize: '13px' }}>Station Delivery</div>
+                      <div style={{ fontSize: '12px', color: '#1e3a8a' }}>This is NOT a doorstep delivery. Package will be handed to a station/transport vehicle.</div>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Sender:</span>
                   <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.senderName} ({selectedOrderForPricing.senderNumber})</strong>
@@ -706,8 +757,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Dropoff:</span>
-                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.dropoffLocation}, {selectedOrderForPricing.dropoffRegion}</strong>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.dropoffLocation}, {selectedOrderForPricing.deliveryType === 'station' ? 'Station Delivery' : selectedOrderForPricing.dropoffRegion}</strong>
                 </div>
+                {selectedOrderForPricing.deliveryType === 'station' && selectedOrderForPricing.stationLocation && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                    <span style={{ color: '#1e40af', fontWeight: 700 }}>Station / Handover:</span>
+                    <strong style={{ color: '#1e40af' }}>{selectedOrderForPricing.stationLocation}</strong>
+                  </div>
+                )}
               </div>
 
               {/* Pricing Choice */}

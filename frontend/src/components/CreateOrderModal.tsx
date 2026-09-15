@@ -29,8 +29,7 @@ const PACKAGE_SIZE_OPTIONS: { value: PackageSize; label: string }[] = [
 ];
 
 const SPEED_OPTIONS: { value: ShipmentSpeed; label: string }[] = [
-  { value: 'same_day', label: 'Same Day' },
-  { value: 'next_day', label: 'Next Day' },
+  { value: 'next_day', label: 'Standard' },
   { value: 'express', label: 'Express' },
 ];
 
@@ -72,7 +71,7 @@ const initialFormState: FormState = {
   dropoffLocation: '',
   packageType: 'parcel',
   packageSize: 'medium',
-  speed: 'same_day',
+  speed: 'next_day',
   priority: 'standard',
   vehicleType: 'motorbike',
 };

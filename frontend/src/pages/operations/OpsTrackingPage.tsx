@@ -66,7 +66,7 @@ const VEHICLE_ICONS: Record<VehicleType, LucideIcon> = {
 
 const SPEED_LABELS: Record<ShipmentSpeed, string> = {
   same_day: 'Same Day Delivery',
-  next_day: 'Next Day Delivery',
+  next_day: 'Standard Delivery',
   express: 'Express Delivery',
 };
 
