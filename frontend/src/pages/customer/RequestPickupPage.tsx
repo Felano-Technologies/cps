@@ -5,13 +5,13 @@ import {
   Package, Boxes, Calendar, Flag, Bike, Truck, User, UserCheck, Contact, Phone,
   MapPin, MapPinned, Zap, Banknote, ImagePlus, StickyNote, Hash, PenLine,
   AlertTriangle, AlertCircle, CheckCircle2, ClipboardList, Send, PackageSearch,
-  Info,
+  Info, Train, Bell,
 } from 'lucide-react';
 import api from '../../services/api';
 import { calculateDeliveryCost } from '../../utils/pricing';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { CreateShipmentInput, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
+import type { CreateShipmentInput, DeliveryType, PackageSize, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
 import CustomSelect from '../../components/Form/CustomSelect';
 import FileUpload from '../../components/Form/FileUpload';
 import DatePicker from '../../components/Form/DatePicker';
@@ -31,11 +31,11 @@ const REGION_OPTIONS = [
   { value: 'Takoradi', label: 'Takoradi' },
   { value: 'Sunyani', label: 'Sunyani' },
   { value: 'Tamale', label: 'Tamale' },
+  { value: 'Station Delivery', label: 'Station Delivery' },
 ];
 
 const SPEED_OPTIONS = [
-  { value: 'Same day', label: 'Same day' },
-  { value: 'Next day', label: 'Next day' },
+  { value: 'Standard', label: 'Standard' },
   { value: 'Express', label: 'Express' },
 ];
 
@@ -55,6 +55,17 @@ const PACKAGE_TYPE_OPTIONS_BULK = [
   { value: 'other', label: 'Other' },
 ];
 
+const PACKAGE_SIZE_OPTIONS = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'big', label: 'Big' },
+];
+
+const DELIVERY_TYPE_OPTIONS = [
+  { value: 'doorstep', label: 'Doorstep delivery' },
+  { value: 'station', label: 'Station delivery' },
+];
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
     return err.response.data.error;
@@ -68,9 +79,8 @@ function mapPriority(value: string): ShipmentPriority {
 
 function mapSpeed(value: string): ShipmentSpeed {
   switch (value) {
-    case 'Same day': return 'same_day';
     case 'Express': return 'express';
-    case 'Next day':
+    case 'Standard':
     default:
       return 'next_day';
   }
@@ -105,8 +115,22 @@ export default function RequestPickupPage() {
   const [receiverNumber, setReceiverNumber] = useState('');
   const [dropoffRegion, setDropoffRegion] = useState('Kumasi');
   const [dropoffLocation, setDropoffLocation] = useState('');
+
+  const handleDropoffRegionChange = (v: string) => {
+    setDropoffRegion(v);
+    if (v === 'Station Delivery') {
+      setDeliveryType('station');
+    } else {
+      setDeliveryType('doorstep');
+    }
+    setDropoffLocation('');
+    setStationLocation('');
+  };
   const [deliverySpeed, setDeliverySpeed] = useState('');
   const [packageType, setPackageType] = useState('');
+  const [packageSize, setPackageSize] = useState('');
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('doorstep');
+  const [stationLocation, setStationLocation] = useState('');
   const [productFee, setProductFee] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -116,7 +140,7 @@ export default function RequestPickupPage() {
   const [numberOfPackages, setNumberOfPackages] = useState<number | ''>('');
   const [bulkReceiverMode, setBulkReceiverMode] = useState<'upload' | 'manual' | null>(null);
   const [bulkImagePreviews, setBulkImagePreviews] = useState<string[]>([]);
-  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string }>>([]);
+  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string, deliveryType: DeliveryType, stationLocation: string }>>([]);
 
   // Form Completion Checks
   const isSingleComplete = Boolean(
@@ -129,7 +153,9 @@ export default function RequestPickupPage() {
     dropoffRegion.trim() &&
     dropoffLocation.trim() &&
     deliverySpeed.trim() &&
-    packageType.trim()
+    packageType.trim() &&
+    packageSize.trim() &&
+    (deliveryType !== 'station' || stationLocation.trim())
   );
 
   const isBulkComplete = Boolean(
@@ -139,19 +165,24 @@ export default function RequestPickupPage() {
     pickupLocation.trim() &&
     deliverySpeed.trim() &&
     packageType.trim() &&
+    packageSize.trim() &&
     typeof numberOfPackages === 'number' &&
     numberOfPackages > 0 &&
     (
-      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim())) ||
+      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim() && (r.deliveryType !== 'station' || r.stationLocation.trim()))) ||
       (bulkReceiverMode === 'upload' && bulkImagePreviews.length > 0)
     )
   );
 
   const isFormComplete = activeTab === 'single' ? isSingleComplete : isBulkComplete;
 
-  // Calculated Cost (Starts at 0.00 until all required fields are filled)
+  const isStationDelivery = activeTab === 'single'
+    ? (deliveryType === 'station' || dropoffRegion === 'Station Delivery')
+    : (bulkReceiverMode === 'manual' && bulkReceivers.some(r => r.deliveryType === 'station' || r.region === 'Station Delivery'));
+
+  // Calculated Cost (Starts at 0.00 until all required fields are filled, not applicable for station deliveries)
   const estimatedCost = useMemo(() => {
-    if (!isFormComplete) return 0;
+    if (!isFormComplete || isStationDelivery) return 0;
 
     if (activeTab === 'single') {
       const cost = calculateDeliveryCost({
@@ -169,7 +200,7 @@ export default function RequestPickupPage() {
         return count * 35;
       }
     }
-  }, [isFormComplete, activeTab, dropoffRegion, bulkReceiverMode, bulkReceivers, numberOfPackages]);
+  }, [isFormComplete, isStationDelivery, activeTab, dropoffRegion, bulkReceiverMode, bulkReceivers, numberOfPackages]);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -202,7 +233,7 @@ export default function RequestPickupPage() {
     // Adjust array size
     if (val > bulkReceivers.length) {
       const added = Array.from({ length: val - bulkReceivers.length }, () => ({
-        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Next day', priority: 'Standard'
+        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Standard', priority: 'Standard', deliveryType: 'doorstep' as DeliveryType, stationLocation: ''
       }));
       setBulkReceivers([...bulkReceivers, ...added]);
     } else if (val < bulkReceivers.length) {
@@ -236,6 +267,8 @@ export default function RequestPickupPage() {
         priority: mapPriority(deliveryPriority),
         speed: mapSpeed(deliverySpeed),
         packageType: packageType as PackageType,
+        packageSize: packageSize as PackageSize,
+        deliveryType,
         senderName,
         senderNumber,
         pickupRegion,
@@ -244,16 +277,37 @@ export default function RequestPickupPage() {
         receiverNumber,
         dropoffRegion,
         dropoffLocation,
+        stationLocation: deliveryType === 'station' ? stationLocation : undefined,
       };
       if (senderContact.trim()) payload.senderContact = senderContact;
       if (pickupDate.trim()) payload.pickupDate = pickupDate;
       if (productFee.trim() !== '') payload.productFee = Number(productFee);
-      if (additionalInstructions.trim()) payload.additionalInstructions = additionalInstructions;
+      const combinedInstructions = [
+        additionalInstructions.trim(),
+        packageSize ? `[Size: ${packageSize}]` : '',
+      ].filter(Boolean).join(' ');
+      if (combinedInstructions) payload.additionalInstructions = combinedInstructions;
       if (uploadedImageUrl) payload.packageImageUrl = uploadedImageUrl;
 
-      await api.post('/shipments', payload);
+      try {
+        await api.post('/shipments', payload);
+      } catch (postErr) {
+        if (
+          isStationDelivery &&
+          axios.isAxiosError(postErr) &&
+          typeof postErr.response?.data?.error === 'string' &&
+          postErr.response.data.error.toLowerCase().includes('no delivery rate configured')
+        ) {
+          await api.post('/shipments', {
+            ...payload,
+            dropoffRegion: pickupRegion || 'Kumasi',
+          });
+        } else {
+          throw postErr;
+        }
+      }
       setSubmitSuccess(true);
-      toast.success('Pickup request submitted.');
+      toast.success(isStationDelivery ? 'Station delivery request submitted! Ops team will set price and notify you.' : 'Pickup request submitted.');
       setTimeout(() => navigate('/shipments'), 600);
     } catch (err) {
       const message = extractErrorMessage(err, 'Failed to create shipment. Please try again.');
@@ -286,6 +340,7 @@ export default function RequestPickupPage() {
       const pickup: {
         vehicleType: VehicleType;
         packageType: PackageType;
+        packageSize: PackageSize;
         senderName: string;
         senderNumber: string;
         senderContact?: string;
@@ -297,6 +352,7 @@ export default function RequestPickupPage() {
       } = {
         vehicleType: pickupMode as VehicleType,
         packageType: packageType as PackageType,
+        packageSize: packageSize as PackageSize,
         senderName,
         senderNumber,
         pickupRegion,
@@ -312,11 +368,33 @@ export default function RequestPickupPage() {
         receiverNumber: rec.number,
         dropoffRegion: rec.region,
         dropoffLocation: rec.dropoffLocation,
+        deliveryType: rec.deliveryType,
+        stationLocation: rec.deliveryType === 'station' ? rec.stationLocation : undefined,
         speed: mapSpeed(rec.speed),
         priority: mapPriority(rec.priority),
       }));
 
-      await api.post('/shipments/bulk', { pickup, receivers });
+      try {
+        await api.post('/shipments/bulk', { pickup, receivers });
+      } catch (postErr) {
+        const hasStation = receivers.some(r => r.deliveryType === 'station' || r.dropoffRegion === 'Station Delivery');
+        if (
+          hasStation &&
+          axios.isAxiosError(postErr) &&
+          typeof postErr.response?.data?.error === 'string' &&
+          postErr.response.data.error.toLowerCase().includes('no delivery rate configured')
+        ) {
+          const safeReceivers = receivers.map(r => ({
+            ...r,
+            dropoffRegion: (r.deliveryType === 'station' || r.dropoffRegion === 'Station Delivery')
+              ? (pickup.pickupRegion || 'Kumasi')
+              : r.dropoffRegion,
+          }));
+          await api.post('/shipments/bulk', { pickup, receivers: safeReceivers });
+        } else {
+          throw postErr;
+        }
+      }
       setSubmitSuccess(true);
       toast.success('Bulk pickup request submitted.');
       setTimeout(() => navigate('/shipments'), 600);
@@ -329,7 +407,120 @@ export default function RequestPickupPage() {
     }
   };
 
+  interface ValidationError {
+    fieldId: string;
+    label: string;
+  }
+
+  const validateForm = (): ValidationError[] => {
+    const errors: ValidationError[] = [];
+
+    // Sender details
+    if (!senderName.trim()) {
+      errors.push({ fieldId: 'field-senderName', label: "Sender's Name" });
+    }
+    if (!senderNumber.trim()) {
+      errors.push({ fieldId: 'field-senderNumber', label: "Sender's Phone Number" });
+    }
+    if (!pickupLocation.trim()) {
+      errors.push({ fieldId: 'field-pickupLocation', label: 'Pickup Location' });
+    }
+
+    if (activeTab === 'single') {
+      // Single receiver details
+      if (!receiverName.trim()) {
+        errors.push({ fieldId: 'field-receiverName', label: "Receiver's Name" });
+      }
+      if (!receiverNumber.trim()) {
+        errors.push({ fieldId: 'field-receiverNumber', label: "Receiver's Phone Number" });
+      }
+      if (isStationDelivery) {
+        if (!dropoffLocation.trim()) {
+          errors.push({ fieldId: 'field-dropoffLocation', label: "Receiver's Destination / Town" });
+        }
+        if (!stationLocation.trim()) {
+          errors.push({ fieldId: 'field-stationLocation', label: 'Station / Handover Point' });
+        }
+      } else {
+        if (!dropoffLocation.trim()) {
+          errors.push({ fieldId: 'field-dropoffLocation', label: 'Dropoff Location' });
+        }
+      }
+
+      // Package details
+      if (!deliverySpeed.trim()) {
+        errors.push({ fieldId: 'field-deliverySpeed', label: 'Delivery Speed' });
+      }
+      if (!packageType.trim()) {
+        errors.push({ fieldId: 'field-packageType', label: 'Package Type' });
+      }
+      if (!packageSize.trim()) {
+        errors.push({ fieldId: 'field-packageSize', label: 'Package Size' });
+      }
+    } else {
+      // Bulk mode package details
+      if (!deliverySpeed.trim()) {
+        errors.push({ fieldId: 'field-bulkDeliverySpeed', label: 'Delivery Speed' });
+      }
+      if (!packageType.trim()) {
+        errors.push({ fieldId: 'field-bulkPackageType', label: 'Package Type' });
+      }
+      if (!packageSize.trim()) {
+        errors.push({ fieldId: 'field-bulkPackageSize', label: 'Package Size' });
+      }
+      if (typeof numberOfPackages !== 'number' || numberOfPackages < 1) {
+        errors.push({ fieldId: 'field-numberOfPackages', label: 'Number of Packages' });
+      } else if (!bulkReceiverMode) {
+        errors.push({ fieldId: 'field-bulkReceiverMode', label: 'Receiver Entry Method (Upload or Enter Manually)' });
+      } else if (bulkReceiverMode === 'upload' && bulkImagePreviews.length === 0) {
+        errors.push({ fieldId: 'field-bulkUpload', label: 'Package/Receiver List Images' });
+      } else if (bulkReceiverMode === 'manual') {
+        bulkReceivers.forEach((rec, idx) => {
+          if (!rec.name.trim()) {
+            errors.push({ fieldId: `field-bulk-${idx}-name`, label: `Receiver ${idx + 1} Name` });
+          }
+          if (!rec.number.trim()) {
+            errors.push({ fieldId: `field-bulk-${idx}-number`, label: `Receiver ${idx + 1} Phone Number` });
+          }
+          if (!rec.dropoffLocation.trim()) {
+            errors.push({ fieldId: `field-bulk-${idx}-location`, label: `Receiver ${idx + 1} Dropoff Location` });
+          }
+          if (rec.deliveryType === 'station' && !rec.stationLocation.trim()) {
+            errors.push({ fieldId: `field-bulk-${idx}-station`, label: `Receiver ${idx + 1} Station Location` });
+          }
+        });
+      }
+    }
+
+    return errors;
+  };
+
   const handleCreateOrder = () => {
+    setSubmitError(null);
+    const errors = validateForm();
+    if (errors.length > 0) {
+      const message = errors.length === 1
+        ? `Please fill in: ${errors[0].label}.`
+        : `Please fill in: ${errors.map(e => e.label).join(', ')}.`;
+      
+      setSubmitError(message);
+      toast.error(message);
+
+      // Scroll smoothly to the first missing field and highlight it
+      const firstEl = document.getElementById(errors[0].fieldId);
+      if (firstEl) {
+        firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstEl.classList.add('field-highlight-error');
+        setTimeout(() => firstEl.classList.remove('field-highlight-error'), 3500);
+
+        const focusable = firstEl.querySelector<HTMLElement>('input, textarea, button, select');
+        if (focusable) {
+          focusable.focus({ preventScroll: true });
+        }
+      }
+      return;
+    }
+
     if (activeTab === 'single') {
       handleSubmitSingle();
     } else {
@@ -340,6 +531,25 @@ export default function RequestPickupPage() {
   return (
     <div className="page-shell light-shell">
       <style>{`
+        @keyframes fieldErrorPulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+          50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.15); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .field-highlight-error {
+          animation: fieldErrorPulse 1.2s ease-in-out 3;
+          border-radius: 8px;
+        }
+        .field-highlight-error input,
+        .field-highlight-error textarea,
+        .field-highlight-error button.cs-trigger,
+        .field-highlight-error .rp-input-wrap {
+          border-color: #ef4444 !important;
+        }
+        .field-highlight-error span:first-child {
+          color: #dc2626 !important;
+          font-weight: 700;
+        }
         .rp-header-icon {
           width: 48px;
           height: 48px;
@@ -493,14 +703,14 @@ export default function RequestPickupPage() {
 
             <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><User size={22} /> Sender Information</h2>
             <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-              <label>
+              <label id="field-senderName">
                 <span>Sender's Name</span>
                 <div className="rp-input-wrap">
                   <User size={17} />
                   <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="John Doe" />
                 </div>
               </label>
-              <label>
+              <label id="field-senderNumber">
                 <span>Sender's Number</span>
                 <div className="rp-input-wrap">
                   <Phone size={17} />
@@ -518,7 +728,7 @@ export default function RequestPickupPage() {
                 <span>Region</span>
                 <CustomSelect value={pickupRegion} onChange={v => setPickupRegion(v)} options={PICKUP_REGION_OPTIONS} icon={<MapPin size={17} />} />
               </label>
-              <label style={{ gridColumn: '1 / -1' }}>
+              <label id="field-pickupLocation" style={{ gridColumn: '1 / -1' }}>
                 <span>Pickup Location</span>
                 <div className="rp-input-wrap">
                   <MapPinned size={17} />
@@ -532,14 +742,14 @@ export default function RequestPickupPage() {
               <>
                 <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label>
+                  <label id="field-receiverName">
                     <span>Receiver's Name</span>
                     <div className="rp-input-wrap">
                       <User size={17} />
                       <input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder="Jane Doe" />
                     </div>
                   </label>
-                  <label>
+                  <label id="field-receiverNumber">
                     <span>Receiver's Number</span>
                     <div className="rp-input-wrap">
                       <Phone size={17} />
@@ -548,24 +758,64 @@ export default function RequestPickupPage() {
                   </label>
                   <label style={{ gridColumn: '1 / -1' }}>
                     <span>Dropoff Region</span>
-                    <CustomSelect value={dropoffRegion} onChange={v => setDropoffRegion(v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
+                    <CustomSelect value={dropoffRegion} onChange={handleDropoffRegionChange} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                   </label>
-                  <label style={{ gridColumn: '1 / -1' }}>
-                    <span>Dropoff Location</span>
-                    <div className="rp-input-wrap">
-                      <MapPinned size={17} />
-                      <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
+
+                  {/* Station Delivery disclaimer */}
+                  {dropoffRegion === 'Station Delivery' && (
+                    <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', border: '1.5px solid #93c5fd', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: '#1e40af', fontSize: '14px', marginBottom: '4px' }}>What is Station Delivery?</div>
+                        <div style={{ fontSize: '13px', color: '#1e3a8a', lineHeight: 1.55 }}>
+                          Station deliveries are <strong>destinations where we do not offer doorstep delivery</strong> — but you'd like us to send your package there anyway. We'll hand over your package to a transport vehicle or station heading to that location.
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#15803d', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                        <Bell size={15} color="#15803d" style={{ flexShrink: 0 }} />
+                        <span>Price will be set by the ops team; a notification will be sent to you via <strong>SMS</strong> and on the <strong>app</strong>.</span>
+                      </div>
                     </div>
-                  </label>
+                  )}
+
+                  {/* Regular dropoff location */}
+                  {dropoffRegion !== 'Station Delivery' && (
+                    <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
+                      <span>Dropoff Location</span>
+                      <div className="rp-input-wrap">
+                        <MapPinned size={17} />
+                        <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
+                      </div>
+                    </label>
+                  )}
+
+                  {/* Station delivery fields */}
+                  {dropoffRegion === 'Station Delivery' && (
+                    <>
+                      <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
+                        <span>Receiver's Destination / Town</span>
+                        <div className="rp-input-wrap">
+                          <MapPinned size={17} />
+                          <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="e.g. Koforidua, Tema, Takoradi" />
+                        </div>
+                      </label>
+                      <label id="field-stationLocation" style={{ gridColumn: '1 / -1' }}>
+                        <span>Station / Handover Point</span>
+                        <div className="rp-input-wrap">
+                          <MapPinned size={17} />
+                          <input value={stationLocation} onChange={e => setStationLocation(e.target.value)} placeholder="e.g. Kejetia Station, STC Terminal, Neoplan Station" />
+                        </div>
+                      </label>
+                    </>
+                  )}
                 </div>
 
                 <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label>
+                  <label id="field-deliverySpeed">
                     <span>Delivery Speed</span>
                     <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
                   </label>
-                  <label>
+                  <label id="field-packageType">
                     <span>Package Type</span>
                     <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS} icon={<Package size={17} />} />
                     {packageType !== 'fragile' && (
@@ -573,6 +823,10 @@ export default function RequestPickupPage() {
                         Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
                       </div>
                     )}
+                  </label>
+                  <label id="field-packageSize">
+                    <span>Package Size</span>
+                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
                   </label>
                 </div>
 
@@ -637,11 +891,11 @@ export default function RequestPickupPage() {
                 {/* BULK DELIVERY DETAILS */}
                 <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
                 <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label>
+                  <label id="field-bulkDeliverySpeed">
                     <span>Delivery Speed</span>
                     <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
                   </label>
-                  <label>
+                  <label id="field-bulkPackageType">
                     <span>Package Type</span>
                     <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS_BULK} icon={<Package size={17} />} />
                     {packageType !== 'fragile' && (
@@ -650,7 +904,11 @@ export default function RequestPickupPage() {
                       </div>
                     )}
                   </label>
-                  <label>
+                  <label id="field-bulkPackageSize">
+                    <span>Package Size</span>
+                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
+                  </label>
+                  <label id="field-numberOfPackages">
                     <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>
                     <div className="rp-input-wrap">
                       <Hash size={17} />
@@ -695,7 +953,7 @@ export default function RequestPickupPage() {
                     <p style={{ color: '#586159', marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
                       <strong>Choose between</strong> uploading images <strong>OR</strong> entering the details manually.
                     </p>
-                    <div className="rp-tabs-row" style={{ marginBottom: '16px' }}>
+                    <div id="field-bulkReceiverMode" className="rp-tabs-row" style={{ marginBottom: '16px' }}>
                       <button
                         type="button"
                         className="rp-tab-btn rp-tab-btn-sm"
@@ -724,7 +982,7 @@ export default function RequestPickupPage() {
 
 
                     {bulkReceiverMode === 'upload' && (
-                      <div className="field-grid one-col" style={{ marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
+                      <div id="field-bulkUpload" className="field-grid one-col" style={{ marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
                         <p style={{ color: 'var(--green-dark)', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '12px' }}>
                           Take clear pictures of packages with all relevant details visible.
                         </p>
@@ -748,14 +1006,14 @@ export default function RequestPickupPage() {
                           <div key={i} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: '#f8fafc' }}>
                             <h4 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><UserCheck size={16} /> Receiver {i + 1}</h4>
                             <div className="field-grid two-col">
-                              <label>
+                              <label id={`field-bulk-${i}-name`}>
                                 <span>Name</span>
                                 <div className="rp-input-wrap">
                                   <User size={17} />
                                   <input value={rec.name} onChange={e => handleBulkReceiverChange(i, 'name', e.target.value)} placeholder="Jane Doe" />
                                 </div>
                               </label>
-                              <label>
+                              <label id={`field-bulk-${i}-number`}>
                                 <span>Number</span>
                                 <div className="rp-input-wrap">
                                   <Phone size={17} />
@@ -766,13 +1024,28 @@ export default function RequestPickupPage() {
                                 <span>Region</span>
                                 <CustomSelect value={rec.region} onChange={v => handleBulkReceiverChange(i, 'region', v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
                               </label>
-                              <label>
+                              <label id={`field-bulk-${i}-location`}>
                                 <span>Dropoff Location</span>
                                 <div className="rp-input-wrap">
                                   <MapPinned size={17} />
                                   <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
                                 </div>
                               </label>
+                              <label>
+                                <span>Delivery Location Type</span>
+                                <CustomSelect value={rec.deliveryType} onChange={v => handleBulkReceiverChange(i, 'deliveryType', v)} options={DELIVERY_TYPE_OPTIONS} icon={<MapPinned size={17} />} />
+                              </label>
+                              {rec.deliveryType === 'station' && (
+                                <>
+                                  <div style={{ gridColumn: '1 / -1', background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', padding: '10px 12px', borderRadius: '8px', fontSize: '12px' }}>
+                                    Station delivery is a handover to a station vehicle, not doorstep delivery.
+                                  </div>
+                                  <label id={`field-bulk-${i}-station`}>
+                                    <span>Station / handover point</span>
+                                    <div className="rp-input-wrap"><MapPinned size={17} /><input value={rec.stationLocation} onChange={e => handleBulkReceiverChange(i, 'stationLocation', e.target.value)} placeholder="Station name or terminal" /></div>
+                                  </label>
+                                </>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -807,17 +1080,14 @@ export default function RequestPickupPage() {
               <div className="summary-row"><span>Priority</span><strong>{deliveryPriority}</strong></div>
               <div className="summary-row"><span>Speed</span><strong>{deliverySpeed}</strong></div>
 
-              <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <span style={{ display: 'block', fontWeight: 600, color: 'var(--navy)' }}>Estimated Fee</span>
-                  <span style={{ fontSize: '11px', color: isFormComplete ? '#166534' : '#94a3b8', fontWeight: 600 }}>
-                    {isFormComplete ? 'Calculated Estimate' : 'Fill required details to estimate'}
-                  </span>
+              {isStationDelivery && (
+                <div className="summary-row">
+                  <span>Delivery Type</span>
+                  <strong style={{ color: '#1d4ed8', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <Train size={14} /> Station Delivery
+                  </strong>
                 </div>
-                <strong style={{ fontSize: '1.3rem', color: isFormComplete ? 'var(--green-dark, #078c35)' : '#64748b' }}>
-                  GHS {estimatedCost.toFixed(2)}
-                </strong>
-              </div>
+              )}
 
               {activeTab === 'bulk' && (
                 <div className="summary-row" style={{ marginTop: '8px' }}>
@@ -826,28 +1096,80 @@ export default function RequestPickupPage() {
                 </div>
               )}
 
-              {/* Operations Review Notice */}
-              <div style={{ marginTop: '18px', padding: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <Info size={18} color="#166534" style={{ flexShrink: 0, marginTop: '2px' }} />
-                <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
-                  <strong style={{ display: 'block', marginBottom: '2px', color: '#14532d', fontSize: '12.5px' }}>
-                    Estimate &amp; Operations Review
-                  </strong>
-                  The amount displayed is an initial estimate. The final price is subject to review and confirmation by operations based on order specifics. Please check your <span style={{ fontWeight: 700, textDecoration: 'underline' }}>notifications</span> for the accepted final price.
+              {isStationDelivery ? (
+                /* Station Delivery Pricing Disclaimer */
+                <div style={{ marginTop: '16px', padding: '16px', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', border: '1.5px solid #93c5fd', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af', fontWeight: 800, fontSize: '14px' }}>
+                    <Train size={17} /> Price to be Set by Operations
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#1e3a8a', lineHeight: 1.5 }}>
+                    Station delivery fees are custom-calculated by the operations team based on your destination terminal and package requirements.
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255, 255, 255, 0.9)', padding: '10px 12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                    <Bell size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ fontSize: '12.5px', color: '#1d4ed8', lineHeight: 1.45, fontWeight: 500 }}>
+                      A price will be set by the ops team and a notification sent to you via <strong>SMS</strong> and on the <strong>app</strong>.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <span style={{ display: 'block', fontWeight: 600, color: 'var(--navy)' }}>Estimated Fee</span>
+                      <span style={{ fontSize: '11px', color: isFormComplete ? '#166534' : '#94a3b8', fontWeight: 600 }}>
+                        {isFormComplete ? 'Calculated Estimate' : 'Fill required details to estimate'}
+                      </span>
+                    </div>
+                    <strong style={{ fontSize: '1.3rem', color: isFormComplete ? 'var(--green-dark, #078c35)' : '#64748b' }}>
+                      GHS {estimatedCost.toFixed(2)}
+                    </strong>
+                  </div>
+
+                  {/* Operations Review Notice */}
+                  <div style={{ marginTop: '18px', padding: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <Info size={18} color="#166534" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+                      <strong style={{ display: 'block', marginBottom: '2px', color: '#14532d', fontSize: '12.5px' }}>
+                        Estimate &amp; Operations Review
+                      </strong>
+                      The amount displayed is an initial estimate. The final price is subject to review and confirmation by operations based on order specifics. Please check your <span style={{ fontWeight: 700, textDecoration: 'underline' }}>notifications</span> for the accepted final price.
+                    </div>
+                  </div>
+                </>
+              )}
 
               <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {isSubmitting ? 'Submitting…' : (<><Send size={16} /> Create Order</>)}
               </button>
               {submitError && (
-                <p style={{ color: '#991b1b', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> {submitError}
-                </p>
+                <div
+                  style={{
+                    background: '#fef2f2',
+                    border: '1.5px solid #fca5a5',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    marginTop: '14px',
+                    color: '#991b1b',
+                    fontSize: '0.88rem',
+                    lineHeight: 1.45,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle size={18} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong style={{ display: 'block', color: '#7f1d1d', marginBottom: '2px', fontSize: '13px' }}>
+                      Required Details Missing
+                    </strong>
+                    <span>{submitError}</span>
+                  </div>
+                </div>
               )}
               {submitSuccess && (
                 <p style={{ color: 'var(--green)', fontWeight: 600, marginTop: '12px', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                  <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> Order created successfully! Redirecting…
+                  <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> {isStationDelivery ? 'Order created! Ops team will set price and notify you via SMS and app.' : 'Order created successfully! Redirecting…'}
                 </p>
               )}
             </div>

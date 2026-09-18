@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Navigation2, PackageCheck, AlertTriangle, MapPin, Wallet, TrendingUp, Route, User, Phone, Package, Banknote, Zap } from 'lucide-react';
 import ProofOfDeliveryModal from '../../components/ProofOfDeliveryModal';
+import StationHandoverModal from '../../components/StationHandoverModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Modal from '../../components/Modal';
 import EmptyState from '../../components/EmptyState';
@@ -70,8 +71,10 @@ export default function RiderDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [podOpen, setPodOpen] = useState(false);
+  const [stationHandoverOpen, setStationHandoverOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
   const [interactingStopId, setInteractingStopId] = useState<string | null>(null);
+  const [selectedActiveId, setSelectedActiveId] = useState<string | null>(null);
   const [detailsStopId, setDetailsStopId] = useState<string | null>(null);
   const [isDeductionsModalOpen, setIsDeductionsModalOpen] = useState(false);
   const [bonuses, setBonuses] = useState<RiderBonus[]>([]);
@@ -87,6 +90,8 @@ export default function RiderDashboardPage() {
         ]);
         setProfile(profileRes.data);
         setShipments(shipmentsRes.data);
+        const firstOpen = shipmentsRes.data.find(s => !isTerminal(s.status));
+        setSelectedActiveId(firstOpen?.id ?? null);
         setDeductions(deductionsRes.data);
         setBonuses(bonusesRes.data.bonuses || []);
       } catch {
@@ -117,7 +122,8 @@ export default function RiderDashboardPage() {
     () => [...shipments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
     [shipments]
   );
-  const activeStop = sortedStops.find(s => !isTerminal(s.status)) ?? null;
+  const selectedOpenStop = selectedActiveId ? sortedStops.find(s => s.id === selectedActiveId && !isTerminal(s.status)) : null;
+  const activeStop = selectedOpenStop ?? sortedStops.find(s => !isTerminal(s.status)) ?? null;
   const completedCount = shipments.filter(s => isTerminal(s.status)).length;
 
   const todaysEarnings = useMemo(() => {
@@ -189,6 +195,25 @@ export default function RiderDashboardPage() {
       setIssueOpen(false);
       setInteractingStopId(null);
     }
+  };
+
+  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl: string }) => {
+    if (!interactingStopId) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${interactingStopId}/station-handover`, details);
+      setShipments(prev => prev.map(s => s.id === data.id ? data : s));
+      setStationHandoverOpen(false); setInteractingStopId(null);
+      toast.success('Station delivery details sent to operations.');
+    } catch (err) { toast.error(extractErrorMessage(err, 'Failed to submit station delivery details.')); }
+  };
+
+  const handleRiderStatusChange = async (status: 'picked_up' | 'in_transit' | 'out_for_delivery') => {
+    if (!activeStop) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${activeStop.id}/status`, { status });
+      setShipments(prev => prev.map(s => s.id === data.id ? data : s));
+      toast.success(`Package marked ${status.replace('_', ' ')}.`);
+    } catch (err) { toast.error(extractErrorMessage(err, 'Failed to update package status.')); }
   };
 
   if (isLoading) {
@@ -436,7 +461,7 @@ export default function RiderDashboardPage() {
                     return (
                       <div
                         key={stop.id}
-                        onClick={() => setDetailsStopId(stop.id)}
+                        onClick={() => { if (!isTerminal(stop.status)) setSelectedActiveId(stop.id); setDetailsStopId(stop.id); }}
                         style={{
                           background: '#ffffff', borderRadius: '20px', padding: '20px',
                           border: '1px solid', borderColor: isActive ? '#078c35' : '#e2e8f0',
@@ -460,10 +485,10 @@ export default function RiderDashboardPage() {
                         {isActive && (
                           <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setInteractingStopId(stop.id); setPodOpen(true); }}
+                              onClick={(e) => { e.stopPropagation(); setInteractingStopId(stop.id); const isStation = stop.deliveryType === 'station' || !!stop.stationLocation; setPodOpen(false); setStationHandoverOpen(isStation); if (!isStation) setPodOpen(true); }}
                               style={{ flex: 1, padding: '10px 24px', background: '#078c35', border: 'none', borderRadius: '12px', fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                             >
-                              <PackageCheck size={16} /> Deliver
+                              <PackageCheck size={16} /> {(stop.deliveryType === 'station' || !!stop.stationLocation) ? 'Collect station details' : 'Deliver'}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setInteractingStopId(stop.id); setIssueOpen(true); }}
@@ -473,6 +498,7 @@ export default function RiderDashboardPage() {
                             </button>
                           </div>
                         )}
+                        {!isTerminal(stop.status) && <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>{(['picked_up', 'in_transit', 'out_for_delivery'] as const).map(status => <button key={status} onClick={() => { setSelectedActiveId(stop.id); handleRiderStatusChange(status); }} style={{ border: '1px solid #cbd5e1', background: stop.status === status ? '#dcfce7' : '#f8fafc', borderRadius: 8, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>{status.replace('_', ' ')}</button>)}</div>}
                       </div>
                     );
                   })}
@@ -486,6 +512,7 @@ export default function RiderDashboardPage() {
       {podOpen && interactingStop && (
         <ProofOfDeliveryModal stopAddress={interactingStop.dropoffLocation} onClose={() => { setPodOpen(false); setInteractingStopId(null); }} onSubmit={handlePodSubmit} />
       )}
+      {stationHandoverOpen && interactingStop && <StationHandoverModal stopAddress={interactingStop.stationLocation || interactingStop.dropoffLocation} onClose={() => { setStationHandoverOpen(false); setInteractingStopId(null); }} onSubmit={handleStationHandover} />}
 
       {issueOpen && interactingStop && (
         <ReportIssueModal stopAddress={interactingStop.dropoffLocation} onClose={() => { setIssueOpen(false); setInteractingStopId(null); }} onSubmit={handleIssueSubmit} />

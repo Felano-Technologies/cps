@@ -21,6 +21,8 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   ],
   operations: [
     { path: '/ops-board', label: 'Live Ops Board' },
+    { path: '/ops/station-deliveries', label: 'Station Deliveries' },
+    { path: '/ops/records', label: 'Order Records' },
     { path: '/fleet', label: 'Fleet Management' },
     { path: '/ops/deductions', label: 'Rider Payroll & Bonuses' },
     { path: '/ops-alerts', label: 'Alerts' },
@@ -34,6 +36,7 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   rider: [
     { path: '/rider-board', label: 'Dashboard' },
     { path: '/route', label: 'Active Route' },
+    { path: '/rider/station-deliveries', label: 'Station Deliveries' },
     { path: '/rider/earnings', label: 'Earnings' },
     { path: '/settings', label: 'Settings' },
   ],

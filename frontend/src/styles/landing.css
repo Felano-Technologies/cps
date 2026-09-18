@@ -1435,3 +1435,418 @@
     border: 1.5px solid #bbf7d0;
   }
 }
+
+/* =====================================================
+   NEW DESKTOP LANDING PAGE HERO (lp-hero-*)
+   ===================================================== */
+
+.lp-hero-section {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  padding: 0;
+}
+
+/* Soft ambient glows */
+.lp-hero-glow {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+}
+.lp-hero-glow-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(131, 211, 20, 0.12) 0%, transparent 70%);
+  top: -120px;
+  left: -120px;
+}
+.lp-hero-glow-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(7, 140, 53, 0.08) 0%, transparent 70%);
+  bottom: 0;
+  right: -100px;
+}
+
+/* Two-column inner layout */
+.lp-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 560px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Content panel — full width centered */
+.lp-hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  padding: 80px 5vw;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Eyebrow chip */
+.lp-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--lime-soft);
+  border: 1px solid rgba(7, 140, 53, 0.2);
+  color: #056626;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 22px;
+  width: fit-content;
+}
+.lp-hero-eyebrow svg {
+  color: var(--lime-hover);
+  flex-shrink: 0;
+}
+
+/* Main heading — bigger now that it spans full width */
+.lp-hero-heading {
+  margin: 0 0 18px;
+  font-size: clamp(3.2rem, 6vw, 5.4rem);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+  color: var(--navy);
+}
+
+.lp-hero-heading-accent {
+  color: #078c35;
+  position: relative;
+}
+.lp-hero-heading-accent::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #83d314, #22c55e);
+  border-radius: 100px;
+  opacity: 0.45;
+}
+
+/* Subtext */
+.lp-hero-sub {
+  margin: 0 0 32px;
+  font-size: 1.15rem;
+  color: var(--muted);
+  line-height: 1.62;
+  max-width: 58ch;
+}
+
+/* CTA row */
+.lp-hero-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+/* Primary green CTA */
+.lp-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: linear-gradient(135deg, #078c35 0%, #056626 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 11px;
+  padding: 14px 26px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  box-shadow: 0 6px 22px rgba(7, 140, 53, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  white-space: nowrap;
+}
+.lp-cta-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(7, 140, 53, 0.4);
+  filter: brightness(1.06);
+}
+.lp-cta-arrow {
+  transition: transform 0.15s ease;
+}
+.lp-cta-primary:hover .lp-cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Secondary dark CTA */
+.lp-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--navy);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 11px;
+  padding: 14px 22px;
+  font-size: 0.97rem;
+  font-weight: 700;
+  transition: background 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+.lp-cta-secondary:hover {
+  background: #1e3a2b;
+  transform: translateY(-2px);
+}
+
+/* Small ghost install button */
+.lp-install-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 10px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.lp-install-ghost-btn:hover {
+  border-color: #94a3b8;
+  color: #334155;
+  background: #f8fafc;
+}
+
+/* Installed micro badge */
+.lp-installed-micro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+/* Tracking form */
+.lp-track-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  width: 100%;
+  max-width: 560px;
+}
+.lp-track-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 16px;
+  height: 48px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lp-track-field:focus-within {
+  border-color: #83d314;
+  box-shadow: 0 0 0 3px rgba(131, 211, 20, 0.15);
+}
+.lp-track-field svg {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.lp-track-field input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.93rem;
+  color: var(--navy);
+}
+.lp-track-field input::placeholder {
+  color: #94a3b8;
+}
+.lp-track-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0 22px;
+  height: 48px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.lp-track-btn:hover {
+  background: #1e3a2b;
+}
+
+/* Trust pills */
+.lp-trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 24px;
+}
+.lp-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+.lp-trust-item svg {
+  color: #078c35;
+  flex-shrink: 0;
+}
+
+
+
+
+/* ── Responsive: hide desktop hero on mobile ── */
+@media (max-width: 900px) {
+  .lp-hero-section.hero-install-desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 901px) {
+  /* hero-install-main wrapping the mobile version — suppress on desktop */
+  .hero-install-main .hero-install-mobile-only {
+    display: none !important;
+  }
+  .hero-install-main {
+    padding: 0 !important;
+  }
+}
+
+/* Large desktop — extra breathing room */
+@media (min-width: 1280px) {
+  .lp-hero-left {
+    padding-left: 5vw;
+    padding-right: 5vw;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MOBILE HERO — same design system as desktop
+   ═══════════════════════════════════════════════ */
+
+/* Show only on mobile (≤ 900px) */
+.hero-install-mobile-only-section {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .hero-install-mobile-only-section {
+    display: block;
+  }
+
+  /* Tighten inner height — no need for tall desktop min-height */
+  .lp-hero-inner-mobile {
+    min-height: unset;
+    padding: 0;
+  }
+
+  /* Left panel: switch to left-aligned on mobile, tighter padding */
+  .lp-hero-left-mobile {
+    align-items: flex-start;
+    text-align: left;
+    padding: 48px 20px 40px;
+    max-width: 100%;
+  }
+
+  /* Heading: scale down for narrow screens */
+  .lp-hero-heading-mobile {
+    font-size: clamp(2.4rem, 9vw, 3.4rem);
+  }
+
+  /* Lede: slightly smaller */
+  .lp-hero-sub-mobile {
+    font-size: 0.97rem;
+    margin-bottom: 24px;
+    max-width: 100%;
+  }
+
+  /* CTA row: stack full-width on mobile */
+  .lp-hero-cta-row-mobile {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    width: 100%;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .lp-cta-primary-mobile {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .lp-cta-secondary-mobile {
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Install ghost button: full width on mobile */
+  .lp-install-ghost-btn-mobile {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  /* Tracking form: stack vertically on mobile */
+  .lp-track-form-mobile {
+    flex-direction: column;
+    max-width: 100%;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  .lp-track-form-mobile .lp-track-field {
+    width: 100%;
+  }
+
+  .lp-track-form-mobile .lp-track-btn {
+    width: 100%;
+    height: 48px;
+    justify-content: center;
+    border-radius: 10px;
+  }
+
+  /* Trust row: allow wrapping on small screens */
+  .lp-trust-row {
+    justify-content: flex-start;
+    gap: 8px 16px;
+  }
+}
+

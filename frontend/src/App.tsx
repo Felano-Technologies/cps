@@ -42,6 +42,8 @@ import OpsAnalyticsPage from './pages/operations/OpsAnalyticsPage';
 import AdminPanelPage from './pages/admin/AdminPanelPage';
 import OpsOrdersListPage from './pages/operations/OpsOrdersListPage';
 import RiderDeductionsPage from './pages/operations/RiderDeductionsPage';
+import StationDeliveryPage from './pages/operations/StationDeliveryPage';
+import OpsRecordsPage from './pages/operations/OpsRecordsPage';
 
 // Shared Pages
 import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
@@ -51,6 +53,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 // Rider Pages
 import RiderDashboardPage from './pages/rider/RiderDashboardPage';
 import RiderRoutePage from './pages/rider/RiderRoutePage';
+import RiderStationDeliveriesPage from './pages/rider/RiderStationDeliveriesPage';
 import RiderEarningsPage from './pages/rider/RiderEarningsPage';
 
 // 404
@@ -190,6 +193,14 @@ function App() {
             }
           />
           <Route
+            path="/ops/station-orders"
+            element={
+              <ProtectedRoute requiredRole="operations">
+                <OpsOrdersListPage filterType="station" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/fleet"
             element={
               <ProtectedRoute requiredRole="operations">
@@ -221,6 +232,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/ops/station-deliveries" element={<ProtectedRoute requiredRole="operations"><StationDeliveryPage /></ProtectedRoute>} />
+          <Route path="/ops/records" element={<ProtectedRoute requiredRole="operations"><OpsRecordsPage /></ProtectedRoute>} />
           <Route
             path="/admin"
             element={
@@ -247,6 +260,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/rider/station-deliveries" element={<ProtectedRoute requiredRole="rider"><RiderStationDeliveriesPage /></ProtectedRoute>} />
           <Route
             path="/rider/earnings"
             element={

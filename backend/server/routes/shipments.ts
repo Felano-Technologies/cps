@@ -15,6 +15,8 @@ const VEHICLE_TYPES = ['motorbike', 'van', 'truck'] as const;
 const PRIORITIES = ['standard', 'high'] as const;
 const SPEEDS = ['same_day', 'next_day', 'express'] as const;
 const PACKAGE_TYPES = ['document', 'parcel', 'electronics', 'fragile', 'food', 'other'] as const;
+const PACKAGE_SIZES = ['small', 'medium', 'big'] as const;
+const DELIVERY_TYPES = ['doorstep', 'station'] as const;
 const STATUSES = [
   'awaiting_price',
   'pending',
@@ -27,11 +29,13 @@ const STATUSES = [
   'cancelled',
 ] as const;
 
-const shipmentInputSchema = z.object({
+const shipmentInputBaseSchema = z.object({
   vehicleType: z.enum(VEHICLE_TYPES),
   priority: z.enum(PRIORITIES),
   speed: z.enum(SPEEDS),
   packageType: z.enum(PACKAGE_TYPES),
+  packageSize: z.enum(PACKAGE_SIZES),
+  deliveryType: z.enum(DELIVERY_TYPES).default('doorstep'),
   senderName: z.string().min(1),
   senderNumber: z.string().min(1),
   senderContact: z.string().optional(),
@@ -43,10 +47,15 @@ const shipmentInputSchema = z.object({
   dropoffRegion: z.string().min(1),
   dropoffKumasiSubArea: z.enum(['CampusAndEnvirons', 'Other']).optional(),
   dropoffLocation: z.string().min(1),
+  stationLocation: z.string().min(1).optional(),
   productFee: z.number().optional(),
   weightKg: z.number().optional(),
   additionalInstructions: z.string().optional(),
   packageImageUrl: z.string().optional(),
+});
+
+const shipmentInputSchema = shipmentInputBaseSchema.refine(data => data.deliveryType !== 'station' || !!data.stationLocation, {
+  message: 'Station location is required for station deliveries', path: ['stationLocation'],
 });
 
 async function riderProfileIdFor(userId: string): Promise<string | null> {
@@ -161,12 +170,17 @@ function buildShipmentCreateData(
   customerId: string | null,
   batchId: string | null
 ) {
-  const deliveryFee = calculateDeliveryCost({
-    region: input.dropoffRegion,
-    kumasiSubArea: input.dropoffKumasiSubArea,
-  });
-  if (deliveryFee === null) {
-    throw new Error(`No delivery rate configured for region "${input.dropoffRegion}"`);
+  const isStation = input.deliveryType === 'station' || input.dropoffRegion === 'Station Delivery';
+  let deliveryFee = 0;
+  if (!isStation) {
+    const calculated = calculateDeliveryCost({
+      region: input.dropoffRegion,
+      kumasiSubArea: input.dropoffKumasiSubArea,
+    });
+    if (calculated === null) {
+      throw new Error(`No delivery rate configured for region "${input.dropoffRegion}"`);
+    }
+    deliveryFee = calculated;
   }
 
   return {
@@ -176,6 +190,8 @@ function buildShipmentCreateData(
     priority: input.priority,
     speed: input.speed,
     packageType: input.packageType,
+    packageSize: input.packageSize,
+    deliveryType: isStation ? 'station' : input.deliveryType,
     customerId,
     senderName: input.senderName,
     senderNumber: input.senderNumber,
@@ -188,6 +204,7 @@ function buildShipmentCreateData(
     dropoffRegion: input.dropoffRegion,
     dropoffKumasiSubArea: input.dropoffKumasiSubArea,
     dropoffLocation: input.dropoffLocation,
+    stationLocation: isStation ? input.stationLocation : undefined,
     deliveryFee,
     productFee: input.productFee,
     weightKg: input.weightKg,
@@ -233,10 +250,25 @@ router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res
   }
 });
 
+const bulkReceiverSchema = shipmentInputBaseSchema.pick({
+  receiverName: true,
+  receiverNumber: true,
+  dropoffRegion: true,
+  dropoffKumasiSubArea: true,
+  dropoffLocation: true,
+  deliveryType: true,
+  stationLocation: true,
+  speed: true,
+  priority: true,
+}).refine(data => data.deliveryType !== 'station' || !!data.stationLocation, {
+  message: 'Station location is required for station deliveries', path: ['stationLocation'],
+});
+
 const bulkCreateSchema = z.object({
-  pickup: shipmentInputSchema.pick({
+  pickup: shipmentInputBaseSchema.pick({
     vehicleType: true,
     packageType: true,
+    packageSize: true,
     senderName: true,
     senderNumber: true,
     senderContact: true,
@@ -248,17 +280,7 @@ const bulkCreateSchema = z.object({
     packageImageUrl: true,
   }),
   receivers: z
-    .array(
-      shipmentInputSchema.pick({
-        receiverName: true,
-        receiverNumber: true,
-        dropoffRegion: true,
-        dropoffKumasiSubArea: true,
-        dropoffLocation: true,
-        speed: true,
-        priority: true,
-      })
-    )
+    .array(bulkReceiverSchema)
     .min(1),
 });
 
@@ -553,6 +575,61 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
   // Notify package receiver via SMS
   notifyReceiverOfStatus(updated, 'delivered');
 
+  res.json(updated);
+});
+
+const stationHandoverSchema = z.object({
+  stationDriverName: z.string().min(1),
+  stationDriverNumber: z.string().min(1),
+  stationCarNumber: z.string().min(1),
+  stationReceiptUrl: z.string().url(),
+});
+
+router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => {
+  const parsed = stationHandoverSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid station handover details' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
+  const stationShipment = shipment as typeof shipment & { deliveryType: 'station' | 'doorstep'; stationLocation: string | null };
+  if (stationShipment.deliveryType !== 'station') {
+    return res.status(400).json({ error: 'This shipment is not a station delivery' });
+  }
+
+  const riderProfileId = await riderProfileIdFor(req.auth!.userId);
+  if (!riderProfileId || (shipment.assignedRiderId !== riderProfileId && shipment.dropoffRiderId !== riderProfileId)) {
+    return res.status(403).json({ error: 'Not assigned to deliver this shipment' });
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      ...parsed.data,
+      stationHandoverAt: new Date(),
+      status: 'delivered',
+      statusEvents: { create: { status: 'delivered', note: `Station handover completed at ${stationShipment.stationLocation}` } },
+    },
+    include: shipmentInclude,
+  } as any);
+
+  const updatedStationShipment = updated as typeof updated & { stationLocation: string | null };
+  if (updated.customerId) {
+    notify(updated.customerId, 'station_handover', `Station handover completed for ${updated.trackingCode}`,
+      `Your package has been handed to the station vehicle at ${updatedStationShipment.stationLocation}.`, updated.id).catch(() => {});
+  }
+  notifyRoles(['operations', 'admin'], 'station_handover', `Station handover completed: ${updated.trackingCode}`,
+    `Driver and receipt details are ready for review.`, updated.id).catch(() => {});
+
+  const stationSms = `CPS Logistics: Package #${updated.trackingCode} has been delivered to ${updatedStationShipment.stationLocation || 'the station'} for onward travel. Driver: ${parsed.data.stationDriverName}, ${parsed.data.stationDriverNumber}. Car: ${parsed.data.stationCarNumber}.`;
+  // Notify both parties independently; sendSms handles provider failures without failing the handover.
+  [updated.senderNumber, updated.receiverNumber]
+    .filter((phone, index, phones) => !!phone && phones.indexOf(phone) === index)
+    .forEach(phone => { void sendSms(phone, stationSms); });
+
+  const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
+  if (dRiderId) creditRiderBonus(updated.id, dRiderId, 'dropoff', updated.trackingCode);
   res.json(updated);
 });
 

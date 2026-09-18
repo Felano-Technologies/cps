@@ -13,6 +13,8 @@ export type ShipmentStatus =
 export type ShipmentPriority = 'standard' | 'high';
 export type ShipmentSpeed = 'same_day' | 'next_day' | 'express';
 export type PackageType = 'document' | 'parcel' | 'electronics' | 'fragile' | 'food' | 'other';
+export type PackageSize = 'small' | 'medium' | 'big';
+export type DeliveryType = 'doorstep' | 'station';
 export type PodMethod = 'signature' | 'photo';
 
 export interface RiderProfile {
@@ -53,6 +55,8 @@ export interface Shipment {
   speed: ShipmentSpeed;
   vehicleType: VehicleType;
   packageType: PackageType;
+  packageSize: PackageSize;
+  deliveryType: DeliveryType;
   customerId: string | null;
   customer?: ShipmentCustomer | null;
   assignedRiderId: string | null;
@@ -72,6 +76,12 @@ export interface Shipment {
   dropoffRegion: string;
   dropoffKumasiSubArea: 'CampusAndEnvirons' | 'Other' | null;
   dropoffLocation: string;
+  stationLocation: string | null;
+  stationDriverName: string | null;
+  stationDriverNumber: string | null;
+  stationCarNumber: string | null;
+  stationReceiptUrl: string | null;
+  stationHandoverAt: string | null;
   deliveryFee: string;
   productFee: string | null;
   weightKg: string | null;
@@ -103,6 +113,8 @@ export interface CreateShipmentInput {
   priority: ShipmentPriority;
   speed: ShipmentSpeed;
   packageType: PackageType;
+  packageSize: PackageSize;
+  deliveryType?: DeliveryType;
   senderName: string;
   senderNumber: string;
   senderContact?: string;
@@ -114,6 +126,7 @@ export interface CreateShipmentInput {
   dropoffRegion: string;
   dropoffKumasiSubArea?: 'CampusAndEnvirons' | 'Other';
   dropoffLocation: string;
+  stationLocation?: string;
   productFee?: number;
   weightKg?: number;
   additionalInstructions?: string;
