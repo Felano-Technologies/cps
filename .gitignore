@@ -124,3 +124,6 @@ dist-ssr/
 *.sln
 *.sw?
 BACKEND_TASKS.md
+
+
+.env.local

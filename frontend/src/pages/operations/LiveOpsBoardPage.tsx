@@ -188,16 +188,6 @@ export default function LiveOpsBoardPage() {
             </div>
           </Link>
 
-          <Link to="/ops/station-deliveries" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Station Deliveries</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#c2410c', marginTop: '8px' }}>{stationDeliveryCount}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>View handovers & receipts</div></div>
-            <div style={{ width: '48px', height: '48px', background: '#fff7ed', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c2410c' }}><Bus size={22} /></div>
-          </Link>
-
-          <Link to="/ops/records" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Records</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{orders.length}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>Search all orders</div></div>
-            <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Archive size={22} /></div>
-          </Link>
-
           <Link to="/ops/active-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Orders</div>
@@ -207,6 +197,12 @@ export default function LiveOpsBoardPage() {
               <Truck size={22} />
             </div>
           </Link>
+
+          <Link to="/ops/station-deliveries" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Station Deliveries</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#c2410c', marginTop: '8px' }}>{stationDeliveryCount}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>View handovers & receipts</div></div>
+            <div style={{ width: '48px', height: '48px', background: '#fff7ed', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c2410c' }}><Bus size={22} /></div>
+          </Link>
+
 
           <Link to="/ops/delayed-orders" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -226,6 +222,11 @@ export default function LiveOpsBoardPage() {
             <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
               <Ban size={22} />
             </div>
+          </Link>
+
+          <Link to="/ops/records" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Records</div><div style={{ fontSize: '36px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>{orders.length}</div><div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>Search all orders</div></div>
+            <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Archive size={22} /></div>
           </Link>
 
           <Link to="/fleet" className="glass-card kpi-link-card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

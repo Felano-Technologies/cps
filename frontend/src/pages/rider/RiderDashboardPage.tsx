@@ -197,7 +197,7 @@ export default function RiderDashboardPage() {
     }
   };
 
-  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl: string }) => {
+  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl?: string }) => {
     if (!interactingStopId) return;
     try {
       const { data } = await api.patch<Shipment>(`/shipments/${interactingStopId}/station-handover`, details);

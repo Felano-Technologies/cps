@@ -14,7 +14,7 @@ export default function RiderStationDeliveriesPage() {
   const load = () => api.get<Shipment[]>('/shipments').then(({ data }) => setShipments(data.filter(s => s.deliveryType === 'station' && !['delivered', 'cancelled', 'failed'].includes(s.status)))).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
-  const submit = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl: string }) => {
+  const submit = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl?: string }) => {
     if (!selected) return;
     await api.patch(`/shipments/${selected.id}/station-handover`, details);
     setSelected(null); toast.success('Station delivery sent to operations.'); load();

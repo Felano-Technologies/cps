@@ -582,7 +582,7 @@ const stationHandoverSchema = z.object({
   stationDriverName: z.string().min(1),
   stationDriverNumber: z.string().min(1),
   stationCarNumber: z.string().min(1),
-  stationReceiptUrl: z.string().url(),
+  stationReceiptUrl: z.string().url().optional(),
 });
 
 router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => {
@@ -849,6 +849,41 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
   // Notify receiver via SMS of confirmed price
   notifyReceiverOfStatus(updated, 'pending');
 
+  res.json(updated);
+});
+
+const bulkAcceptSchema = z.object({ pickupRiderId: z.string().optional(), opsRemarks: z.string().optional() });
+
+router.patch('/batch/:batchId/accept', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = bulkAcceptSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid bulk acceptance details' });
+  const batch = await prisma.shipment.findMany({ where: { batchId: req.params.batchId as string, status: 'awaiting_price' } });
+  if (!batch.length) return res.status(404).json({ error: 'Bulk order not found or already processed' });
+  const updated = await prisma.$transaction(batch.map(order => prisma.shipment.update({
+    where: { id: order.id },
+    data: {
+      // Bulk pickup is free. Individual delivery pricing happens after office processing.
+      deliveryFee: 0,
+      pickupRiderId: parsed.data.pickupRiderId || null,
+      assignedRiderId: parsed.data.pickupRiderId || null,
+      opsRemarks: parsed.data.opsRemarks,
+      status: 'pending',
+      statusEvents: { create: { status: 'pending', note: 'Bulk pickup accepted; awaiting office processing' } },
+    },
+    include: shipmentInclude,
+  })));
+  res.json(updated);
+});
+
+router.patch('/batch/:batchId/decline', requireRole('operations', 'admin'), async (req, res) => {
+  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim() : 'Bulk order declined by operations';
+  const batch = await prisma.shipment.findMany({ where: { batchId: req.params.batchId as string, status: 'awaiting_price' } });
+  if (!batch.length) return res.status(404).json({ error: 'Bulk order not found or already processed' });
+  const updated = await prisma.$transaction(batch.map(order => prisma.shipment.update({
+    where: { id: order.id },
+    data: { status: 'cancelled', opsRemarks: reason, statusEvents: { create: { status: 'cancelled', note: reason } } },
+    include: shipmentInclude,
+  })));
   res.json(updated);
 });
 

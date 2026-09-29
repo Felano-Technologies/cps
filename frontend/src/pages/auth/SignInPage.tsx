@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import cpsLogo from '../../assets/logo2.png';
 import heroImg from '../../assets/hero.png';
 import '../../styles/auth.css';
+import { MOCK_MODE } from '../../services/mockApi';
 
 export default function SignInPage() {
   const [identifier, setIdentifier] = useState('');
@@ -63,6 +64,10 @@ export default function SignInPage() {
               <h1>Welcome back</h1>
               <p>Sign in to your CPS Delivery account.</p>
             </div>
+
+            {MOCK_MODE && <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', borderRadius: 10, padding: '12px 14px', fontSize: 13, lineHeight: 1.45, marginBottom: 18 }}>
+              <strong>Frontend preview mode</strong><br />Use one of these role names as the login identifier: <code>customer</code>, <code>operations</code>, <code>rider</code>, or <code>admin</code>. Any password is accepted.
+            </div>}
 
             {(error || localError) && (
               <div className="auth-error">

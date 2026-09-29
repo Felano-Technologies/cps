@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
+import { MOCK_MODE, clearMockUser, getMockUser, setMockUser, type MockRole } from '../services/mockApi';
 
 export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
 
@@ -69,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (MOCK_MODE) {
+      setUser(getMockUser());
+      setIsLoading(false);
+      return;
+    }
     const checkAuth = async () => {
       try {
         const { data } = await api.get<User & { token?: string }>('/auth/me');
@@ -85,6 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (identifier: string, password: string) => {
+    if (MOCK_MODE) {
+      const role = (['customer', 'operations', 'rider', 'admin'].includes(identifier.toLowerCase()) ? identifier.toLowerCase() : 'operations') as MockRole;
+      const mockUser = setMockUser(role);
+      setUser(mockUser);
+      return mockUser;
+    }
     setIsLoading(true);
     setError(null);
 
@@ -193,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // localStorage unavailable — nothing to clear
     }
+    if (MOCK_MODE) { clearMockUser(); return; }
     api.post('/auth/logout').catch(() => {});
   };
 
