@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -109,6 +109,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [modalDropoffRiderId, setModalDropoffRiderId] = useState('');
   const [opsRemarks, setOpsRemarks] = useState('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
+  const [applyPriceToBulk, setApplyPriceToBulk] = useState(false);
   const [isManifestOpen, setIsManifestOpen] = useState(false);
 
   // Assign Riders Modal State (for active/delayed orders)
@@ -116,6 +117,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [assignPickupRiderId, setAssignPickupRiderId] = useState('');
   const [assignDropoffRiderId, setAssignDropoffRiderId] = useState('');
   const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  const [applyAssignmentToBulk, setApplyAssignmentToBulk] = useState(false);
 
   const titleMap = {
     new: 'New Orders',
@@ -209,32 +212,55 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     return filtered;
   }, [orders, filterType, searchQuery]);
 
+  const bulkCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOrders.forEach(order => { if (order.batchId) counts.set(order.batchId, (counts.get(order.batchId) || 0) + 1); });
+    return counts;
+  }, [filteredOrders]);
+
+  // New orders are handled as one operational unit per bulk batch. Once processed,
+  // the active/station views intentionally show each package separately.
+  const displayOrders = useMemo(() => {
+    if (filterType !== 'new') return filteredOrders;
+    const seenBatches = new Set<string>();
+    return filteredOrders.filter(order => {
+      if (!order.batchId) return true;
+      if (seenBatches.has(order.batchId)) return false;
+      seenBatches.add(order.batchId);
+      return true;
+    });
+  }, [filteredOrders, filterType]);
+
   const handleOpenPricingModal = (order: Shipment) => {
     setSelectedOrderForPricing(order);
     setPriceMode('accept');
     setCustomPrice(String(order.deliveryFee));
     setModalPickupRiderId(order.pickupRiderId ?? order.assignedRiderId ?? '');
-    setModalDropoffRiderId(order.dropoffRiderId ?? order.assignedRiderId ?? '');
+    setModalDropoffRiderId(order.batchId ? '' : (order.dropoffRiderId ?? order.assignedRiderId ?? ''));
     setOpsRemarks(order.opsRemarks ?? '');
+    setApplyPriceToBulk(false);
   };
 
   const handleOpenAssignModal = (order: Shipment) => {
     setSelectedOrderForAssign(order);
     setAssignPickupRiderId(order.pickupRiderId ?? order.assignedRiderId ?? '');
-    setAssignDropoffRiderId(order.dropoffRiderId ?? order.assignedRiderId ?? '');
+    setAssignDropoffRiderId(order.batchId ? '' : (order.dropoffRiderId ?? order.assignedRiderId ?? ''));
+    setApplyAssignmentToBulk(false);
   };
 
   const handleSaveRiderAssignment = async () => {
     if (!selectedOrderForAssign) return;
     setIsSubmittingAssign(true);
     try {
-      const { data } = await api.patch<Shipment>(`/shipments/${selectedOrderForAssign.id}/assign`, {
-        pickupRiderId: assignPickupRiderId || null,
-        dropoffRiderId: assignDropoffRiderId || null,
-      });
-      setOrders((prev) => prev.map((o) => (o.id === data.id ? data : o)));
+      const targets = applyAssignmentToBulk && selectedOrderForAssign.batchId
+        ? orders.filter(o => o.batchId === selectedOrderForAssign.batchId)
+        : [selectedOrderForAssign];
+      const updated = await Promise.all(targets.map(target => api.patch<Shipment>(`/shipments/${target.id}/assign`, {
+        pickupRiderId: assignPickupRiderId || null, dropoffRiderId: assignDropoffRiderId || null,
+      }).then(response => response.data)));
+      setOrders((prev) => prev.map((o) => updated.find(item => item.id === o.id) ?? o));
       setSelectedOrderForAssign(null);
-      toast.success(`Riders updated for ${data.trackingCode}.`);
+      toast.success(`${updated.length > 1 ? `Riders updated for ${updated.length} bulk packages` : `Riders updated for ${updated[0].trackingCode}`}.`);
     } catch {
       toast.error('Failed to update rider assignment. Please try again.');
     } finally {
@@ -255,16 +281,21 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
     setIsSubmittingPrice(true);
     try {
-      const { data } = await api.patch<Shipment>(`/shipments/${selectedOrderForPricing.id}/process`, {
+      const targets = applyPriceToBulk && selectedOrderForPricing.batchId
+        ? orders.filter(o => o.batchId === selectedOrderForPricing.batchId)
+        : [selectedOrderForPricing];
+      const updated = await Promise.all(targets.map(target => api.patch<Shipment>(`/shipments/${target.id}/process`, {
         deliveryFee: finalFee,
+        // A bulk order gets one pickup rider for the office handoff. Its individual
+        // drop-off riders are assigned after the packages are processed separately.
         pickupRiderId: modalPickupRiderId || undefined,
-        dropoffRiderId: modalDropoffRiderId || undefined,
+        dropoffRiderId: applyPriceToBulk && selectedOrderForPricing.batchId ? undefined : (modalDropoffRiderId || undefined),
         opsRemarks: opsRemarks || undefined,
-      });
+      }).then(response => response.data)));
 
-      setOrders((prev) => prev.map((o) => (o.id === data.id ? data : o)));
+      setOrders((prev) => prev.map((o) => updated.find(item => item.id === o.id) ?? o));
       setSelectedOrderForPricing(null);
-      toast.success(`Order ${data.trackingCode} price confirmed (GHS ${finalFee.toFixed(2)}) and moved to active queue.`);
+      toast.success(`${updated.length > 1 ? `${updated.length} bulk packages` : `Order ${updated[0].trackingCode}`} price confirmed (GHS ${finalFee.toFixed(2)}) and moved to the next queue.`);
     } catch {
       toast.error('Failed to process order pricing. Please try again.');
     } finally {
@@ -272,10 +303,56 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     }
   };
 
+  const handleAcceptBulk = async (order: Shipment) => {
+    if (!order.batchId) return;
+    setIsProcessingBulk(true);
+    try {
+      const { data } = await api.patch<Shipment[]>(`/shipments/batch/${order.batchId}/accept`, { pickupRiderId: order.pickupRiderId || order.assignedRiderId || undefined });
+      setOrders(prev => prev.map(item => data.find(updated => updated.id === item.id) ?? item));
+      toast.success(`Bulk pickup accepted for ${data.length} packages. No pickup fee charged.`);
+    } catch { toast.error('Failed to accept the bulk pickup.'); }
+    finally { setIsProcessingBulk(false); }
+  };
+
+  const handleDeclineBulk = async (order: Shipment) => {
+    if (!order.batchId || !window.confirm('Decline this entire bulk pickup?')) return;
+    setIsProcessingBulk(true);
+    try {
+      const { data } = await api.patch<Shipment[]>(`/shipments/batch/${order.batchId}/decline`, { reason: 'Bulk pickup declined by operations' });
+      setOrders(prev => prev.map(item => data.find(updated => updated.id === item.id) ?? item));
+      toast.success(`Bulk pickup declined for ${data.length} packages.`);
+    } catch { toast.error('Failed to decline the bulk pickup.'); }
+    finally { setIsProcessingBulk(false); }
+  };
+
   return (
     <div className="page-shell light-shell">
-      <main className="container" style={{ padding: '32px 24px', maxWidth: '1400px', marginBottom: '80px' }}>
+      <main className="container" style={{ padding: '28px 20px', maxWidth: '1680px', width: '100%', boxSizing: 'border-box', marginBottom: '80px' }}>
+        <style>{`
+          .ops-orders-page .ops-queue-card { background: #fff; border: 1px solid #dbe4ee; border-radius: 18px; box-shadow: 0 10px 30px rgba(15,23,42,.06); overflow: hidden; }
+          .ops-orders-page .ops-table thead tr { background: #f7f9fc; }
+          .ops-orders-page .ops-table tbody tr { transition: background .15s ease; }
+          .ops-orders-page .ops-table tbody tr:hover { background: #f8fbff !important; }
+          .ops-orders-page .ops-table { table-layout: auto; }
+          .ops-orders-page .ops-table th { padding: 12px 9px !important; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .045em; white-space: normal; line-height: 1.25; }
+          .ops-orders-page .ops-table td { padding: 13px 10px !important; vertical-align: top; font-size: 12px; overflow-wrap: normal; word-break: normal; }
+          .ops-orders-page .ops-table th:nth-child(1), .ops-orders-page .ops-table td:nth-child(1) { min-width: 118px; }
+          .ops-orders-page .ops-table th:nth-child(2), .ops-orders-page .ops-table td:nth-child(2) { min-width: 145px; }
+          .ops-orders-page .ops-table th:nth-child(3), .ops-orders-page .ops-table td:nth-child(3) { min-width: 155px; }
+          .ops-orders-page .ops-table th:nth-child(4), .ops-orders-page .ops-table td:nth-child(4) { min-width: 205px; }
+          .ops-orders-page .ops-table th:nth-child(5), .ops-orders-page .ops-table td:nth-child(5) { min-width: 115px; }
+          .ops-orders-page .ops-table th:nth-child(6), .ops-orders-page .ops-table td:nth-child(6) { min-width: 135px; }
+          .ops-orders-page .ops-table th:nth-child(7), .ops-orders-page .ops-table td:nth-child(7) { min-width: 160px; }
+          .ops-orders-page .ops-table th:last-child, .ops-orders-page .ops-table td:last-child { min-width: 180px; }
+          .ops-orders-page .ops-table td button, .ops-orders-page .ops-table td a { white-space: normal; }
+          .ops-orders-page .ops-page-title { font-size: 32px; line-height: 1.1; font-weight: 850; color: #0f172a; margin: 0 0 8px; letter-spacing: -.03em; }
+          .ops-orders-page .ops-search { background: #fff; border: 1px solid #cbd5e1; box-shadow: 0 3px 10px rgba(15,23,42,.04); }
+          .ops-orders-page .ops-search:focus { outline: 3px solid rgba(59,130,246,.14); border-color: #3b82f6; }
+          .ops-orders-page .ops-tab-strip { background: #eef2f7; border: 1px solid #e2e8f0; box-shadow: inset 0 1px 2px rgba(15,23,42,.04); }
+          @media (max-width: 768px) { .ops-orders-page .ops-page-title { font-size: 26px; } .ops-orders-page main { padding-left: 16px !important; padding-right: 16px !important; } }
+        `}</style>
 
+        <div className="ops-orders-page" style={{ display: 'contents' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <button
             onClick={() => navigate('/ops-board')}
@@ -286,7 +363,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           </button>
 
           {/* Quick Tab Switcher */}
-          <div style={{ display: 'flex', gap: '8px', background: '#e2e8f0', padding: '4px', borderRadius: '10px' }}>
+          <div className="ops-tab-strip" style={{ display: 'flex', gap: '8px', padding: '4px', borderRadius: '12px' }}>
             <button
               onClick={() => navigate('/ops/new-orders')}
               style={{
@@ -385,9 +462,9 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', paddingBottom: '22px', borderBottom: '1px solid #e2e8f0' }}>
           <div>
-            <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', letterSpacing: '-0.02em' }}>
+            <h1 className="ops-page-title">
               {title}
             </h1>
             <p className="muted-text" style={{ fontSize: '16px', color: '#64748b' }}>
@@ -410,17 +487,19 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 placeholder="Search by code, route, reason..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
+                className="ops-search"
+                style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '12px', fontSize: '14px', boxSizing: 'border-box' }}
               />
             </div>
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <div className="ops-queue-card">
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
+            <table className="ops-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 0 }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order type</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</th>
                   <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location</th>
@@ -428,7 +507,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Package details</th>}
                   {filterType === 'new' && <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assign riders</th>}
                   {filterType === 'new' && (
-                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimated Fee</th>
+                    <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fee</th>
                   )}
                   {filterType === 'active' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Riders</th>
@@ -464,8 +543,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                       <td style={{ padding: '16px' }}><Skeleton height="2em" width="80px" radius="8px" /></td>
                     </tr>
                   ))
-                ) : filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => {
+                ) : displayOrders.length > 0 ? (
+                  displayOrders.map((order) => {
                     const colors = STATUS_COLORS[order.status];
                     const isUrgent = order.priority === 'high';
                     const cancelReason = getCancellationReason(order);
@@ -473,11 +552,14 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                     const delayReason = getDelayReason(order);
                     const delayTime = getDelayTime(order);
 
+                    const isBulk = !!order.batchId && (bulkCounts.get(order.batchId) || 0) > 1;
                     return (
+                      <Fragment key={order.id}>
                       <tr key={order.id} style={{ borderBottom: '1px solid #e2e8f0', background: isUrgent ? '#fffbeb' : '#fff', transition: 'background 0.2s' }} className="hover-row">
+                        <td style={{ padding: '16px' }}><span style={{ display: 'inline-flex', padding: '4px 9px', borderRadius: 7, background: isBulk ? '#dbeafe' : '#f1f5f9', color: isBulk ? '#1e40af' : '#475569', fontSize: 12, fontWeight: 800 }}>{isBulk ? `Bulk · ${bulkCounts.get(order.batchId!) || 0} orders` : 'Single'}</span></td>
                         {/* Order ID & Date */}
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{order.trackingCode}</div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{isBulk ? <><span style={{ color: '#1d4ed8' }}>Bulk</span><span style={{ display: 'block', fontSize: 12, color: '#64748b', marginTop: 3 }}>{order.trackingCode}</span></> : order.trackingCode}</div>
                           <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
                             {new Date(order.createdAt).toLocaleDateString()}
                           </div>
@@ -523,10 +605,10 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#078c35', fontWeight: 600 }}>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '46px' }}>Dropoff</span>
                             <MapPin size={12} color="#078c35" style={{ flexShrink: 0 }} />
-                            <span>{order.dropoffLocation}</span>
+                            {filterType === 'new' && isBulk ? <span>{bulkCounts.get(order.batchId!) || 0} packages at drop-off</span> : <span>{order.dropoffLocation}</span>}
                           </div>
                           <div style={{ fontSize: '14px', color: '#334155', marginTop: '2px', marginLeft: '62px', fontWeight: 900 }}>
-                            {order.deliveryType === 'station' ? 'Station Delivery' : order.dropoffRegion}
+                            {filterType === 'new' && isBulk ? 'Multiple destinations' : order.deliveryType === 'station' ? 'Station Delivery' : order.dropoffRegion}
                           </div>
                           {order.deliveryType === 'station' && (
                             <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
@@ -552,12 +634,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                         )}
                         {filterType === 'new' && (
                           <td style={{ padding: '16px' }}>
-                            <div>
-                              <strong style={{ fontSize: '15px', color: '#0f172a' }}>
-                                GHS {Number(order.deliveryFee).toFixed(2)}
-                              </strong>
-                              <div style={{ fontSize: '11px', color: '#64748b' }}>Initial estimate</div>
-                            </div>
+                            {isBulk ? <div style={{ display: 'inline-flex', padding: '6px 9px', borderRadius: 8, background: '#ecfdf5', color: '#166534', fontSize: 12, fontWeight: 800 }}>No pickup fee</div> : <div><strong style={{ fontSize: '15px', color: '#0f172a' }}>GHS {Number(order.deliveryFee).toFixed(2)}</strong><div style={{ fontSize: '11px', color: '#64748b' }}>Initial estimate</div></div>}
                           </td>
                         )}
 
@@ -646,7 +723,12 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
                         <td style={{ padding: '16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            {filterType === 'new' ? (
+                            {filterType === 'new' && isBulk ? (
+                              <>
+                                <button onClick={() => handleAcceptBulk(order)} disabled={isProcessingBulk} className="primary-green" style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: 'none' }}>Accept bulk pickup</button>
+                                <button onClick={() => handleDeclineBulk(order)} disabled={isProcessingBulk} style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b' }}>Decline</button>
+                              </>
+                            ) : filterType === 'new' ? (
                               <button
                                 onClick={() => handleOpenPricingModal(order)}
                                 className="primary-green"
@@ -663,7 +745,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                                 View Details
                               </Link>
                             )}
-                            {(filterType === 'active' || filterType === 'delayed') && (
+                            {(filterType === 'active' || filterType === 'delayed' || (filterType === 'new' && isBulk)) && (
                               <button
                                 onClick={() => handleOpenAssignModal(order)}
                                 style={{
@@ -699,6 +781,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           </div>
                         </td>
                       </tr>
+                      </Fragment>
                     );
                   })
                 ) : (
@@ -715,6 +798,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
               </tbody>
             </table>
           </div>
+        </div>
         </div>
 
 
@@ -864,12 +948,12 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
-                      Dropoff Rider
+                      {selectedOrderForPricing.batchId ? 'Dropoff Rider (assign after pickup)' : 'Dropoff Rider'}
                     </label>
                     <CustomSelect
                       value={modalDropoffRiderId}
-                      onChange={setModalDropoffRiderId}
-                      options={riderOptions}
+                      onChange={selectedOrderForPricing.batchId ? () => {} : setModalDropoffRiderId}
+                      options={selectedOrderForPricing.batchId ? [{ value: '', label: 'Assigned after pickup' }] : riderOptions}
                       icon={<User size={15} />}
                     />
                   </div>
@@ -891,6 +975,11 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
               </div>
 
               {/* Modal Actions */}
+              {selectedOrderForPricing.batchId && (bulkCounts.get(selectedOrderForPricing.batchId) || 0) > 1 && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 13, color: '#1e3a8a', fontWeight: 700 }}>
+                  <input type="checkbox" checked={applyPriceToBulk} onChange={e => setApplyPriceToBulk(e.target.checked)} /> Apply this price and rider assignment to all {(bulkCounts.get(selectedOrderForPricing.batchId) || 0)} packages in this bulk order
+                </label>
+              )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   type="button"
@@ -1009,8 +1098,8 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   </div>
                   <CustomSelect
                     value={assignDropoffRiderId}
-                    onChange={setAssignDropoffRiderId}
-                    options={riderOptions}
+                    onChange={selectedOrderForAssign.batchId ? () => {} : setAssignDropoffRiderId}
+                    options={selectedOrderForAssign.batchId ? [{ value: '', label: 'Assigned after office processing' }] : riderOptions}
                     icon={<User size={15} />}
                   />
                 </div>
@@ -1018,6 +1107,11 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
               </div>
 
               {/* Modal Actions */}
+              {selectedOrderForAssign.batchId && (bulkCounts.get(selectedOrderForAssign.batchId) || 0) > 1 && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 13, color: '#1e3a8a', fontWeight: 700 }}>
+                  <input type="checkbox" checked={applyAssignmentToBulk} onChange={e => setApplyAssignmentToBulk(e.target.checked)} /> Apply these riders to all {(bulkCounts.get(selectedOrderForAssign.batchId) || 0)} packages in this bulk order
+                </label>
+              )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   type="button"

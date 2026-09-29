@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { MOCK_MODE, mockFallback } from './mockApi';
 
 export const AUTH_TOKEN_STORAGE_KEY = 'cps_auth_token';
 
@@ -34,5 +35,12 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+if (MOCK_MODE) {
+  api.interceptors.response.use(response => response, async error => {
+    const fallback = mockFallback(error.config);
+    return fallback ? fallback : Promise.reject(error);
+  });
+}
 
 export default api;

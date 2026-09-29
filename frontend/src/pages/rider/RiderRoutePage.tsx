@@ -145,7 +145,7 @@ export default function RiderRoutePage() {
     }
   };
 
-  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl: string }) => {
+  const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl?: string }) => {
     if (!activeStop) return;
     const { data } = await api.patch<Shipment>(`/shipments/${activeStop.id}/station-handover`, details);
     setShipments(prev => prev.map(s => s.id === activeStop.id ? data : s));
