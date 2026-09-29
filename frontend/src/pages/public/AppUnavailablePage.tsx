@@ -41,7 +41,7 @@ export default function AppUnavailablePage() {
           <div className="arcade-kicker">✦ CPS system status ✦</div>
           <h1 className="arcade-title">Game over<br />for now</h1>
           <div className="arcade-divider" aria-hidden="true" />
-          <p className="arcade-copy">This app is temporarily unavailable. The owner has failed to honor the financial obligations owed to the developers who invested their time, energy, and resources to build it.</p>
+          <p className="arcade-copy">This app is temporarily unavailable</p>
           <div className="arcade-status">PLAYER ACCESS PAUSED — service will return once the outstanding obligations have been resolved.</div>
           <p className="arcade-footer">Insert resolution to continue</p>
         </div>
