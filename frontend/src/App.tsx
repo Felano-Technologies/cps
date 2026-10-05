@@ -58,7 +58,6 @@ import RiderEarningsPage from './pages/rider/RiderEarningsPage';
 
 // 404
 import NotFoundPage from './pages/public/NotFoundPage';
-import AppUnavailablePage from './pages/public/AppUnavailablePage';
 
 /**
  * Route Protection Component
@@ -106,7 +105,6 @@ function App() {
   const isStaff = !isLoading && user && ['rider', 'operations', 'admin'].includes(user.role);
   const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/verify-phone';
 
-  return <AppUnavailablePage />;
   return (
     <div className="app-shell">
       <Analytics />
