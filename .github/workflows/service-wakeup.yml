@@ -1,0 +1,75 @@
+name: Service Wakeup (before 7am UTC)
+
+on:
+  # GitHub delays or drops scheduled runs under load, so several backup
+  # times are listed. The check job makes the extra runs no-ops once the
+  # backend is already up.
+  schedule:
+    - cron: '13 6 * * *'
+    - cron: '31 6 * * *'
+    - cron: '47 6 * * *'
+    - cron: '3 7 * * *'
+    - cron: '19 7 * * *'
+    - cron: '41 7 * * *'
+    - cron: '11 8 * * *'
+    - cron: '43 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: railway-services
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check whether services need waking
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          HOUR=$(date -u +%H)
+          # A run delayed past the shutdown hour must not wake services overnight
+          if [ "$HOUR" -lt 6 ] || [ "$HOUR" -ge 17 ]; then
+            echo "Outside wake window ($HOUR UTC), skipping"
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://cps-production-6d97.up.railway.app/health || true)
+          echo "Backend health: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  wakeup:
+    name: Resume Railway Services
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resume Postgres
+        run: |
+          curl -s -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -cn \
+              --arg sid "${{ secrets.RAILWAY_POSTGRES_SERVICE_ID }}" \
+              --arg eid "${{ secrets.RAILWAY_ENVIRONMENT_ID }}" \
+              '{query:"mutation($sid:String!,$eid:String!){serviceInstanceRedeploy(serviceId:$sid,environmentId:$eid)}",variables:{sid:$sid,eid:$eid}}')"
+
+      - name: Wait for database to initialize
+        run: sleep 15
+
+      - name: Resume backend
+        run: |
+          curl -s -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -cn \
+              --arg sid "${{ secrets.RAILWAY_SERVICE_ID }}" \
+              --arg eid "${{ secrets.RAILWAY_ENVIRONMENT_ID }}" \
+              '{query:"mutation($sid:String!,$eid:String!){serviceInstanceRedeploy(serviceId:$sid,environmentId:$eid)}",variables:{sid:$sid,eid:$eid}}')"
