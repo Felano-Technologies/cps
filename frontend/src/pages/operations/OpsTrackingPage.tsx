@@ -79,10 +79,16 @@ const PACKAGE_TYPE_LABELS: Record<PackageType, string> = {
   other: 'General Cargo',
 };
 
-const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as ShipmentStatus[]).map(s => ({
-  value: s,
-  label: STATUS_LABELS[s],
-}));
+// Mirrors the backend rules: final orders can't change status, and
+// awaiting_price is only left via the pricing/process flow.
+const FINAL_STATUSES: ShipmentStatus[] = ['delivered', 'cancelled', 'failed'];
+
+function statusOptionsFor(current: ShipmentStatus) {
+  if (FINAL_STATUSES.includes(current)) return [];
+  return (Object.keys(STATUS_LABELS) as ShipmentStatus[])
+    .filter(s => s !== 'awaiting_price' && s !== current)
+    .map(s => ({ value: s, label: STATUS_LABELS[s] }));
+}
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err) && typeof err.response?.data?.error === 'string') {
@@ -472,12 +478,14 @@ export default function OpsTrackingPage() {
 
             {/* Header Actions */}
             <div className="header-actions-bar">
-              <CustomSelect
-                value=""
-                onChange={handleStatusChange}
-                options={STATUS_OPTIONS}
-                icon={<RefreshCw size={17} />}
-              />
+              {statusOptionsFor(shipment.status).length > 0 && (
+                <CustomSelect
+                  value=""
+                  onChange={handleStatusChange}
+                  options={statusOptionsFor(shipment.status)}
+                  icon={<RefreshCw size={17} />}
+                />
+              )}
               <button
                 className="contact-btn contact-btn-copy"
                 onClick={handleShareLink}

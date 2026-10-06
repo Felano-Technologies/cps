@@ -209,9 +209,9 @@ router.get('/my-bonuses', requireRole('rider'), async (req, res) => {
         totalCount: bonuses.length,
         totalAmount,
         pickupCount: pickupBonuses.length,
-        pickupAmount: pickupBonuses.length * 1.00,
+        pickupAmount: pickupBonuses.reduce((acc, b) => acc + Number(b.amount || 1.00), 0),
         dropoffCount: dropoffBonuses.length,
-        dropoffAmount: dropoffBonuses.length * 1.00,
+        dropoffAmount: dropoffBonuses.reduce((acc, b) => acc + Number(b.amount || 1.00), 0),
       },
     });
   } catch (err) {

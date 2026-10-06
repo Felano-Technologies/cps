@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router } from 'express';
+import { Prisma, type ShipmentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { calculateDeliveryCost } from '../lib/pricing';
@@ -54,13 +55,49 @@ const shipmentInputBaseSchema = z.object({
   packageImageUrl: z.string().optional(),
 });
 
-const shipmentInputSchema = shipmentInputBaseSchema.refine(data => data.deliveryType !== 'station' || !!data.stationLocation, {
-  message: 'Station location is required for station deliveries', path: ['stationLocation'],
-});
+const STATION_REGION = 'Station Delivery';
+const FINAL_STATUSES = ['delivered', 'cancelled', 'failed'] as const;
+const RIDER_SETTABLE_STATUSES = ['picked_up', 'in_transit', 'out_for_delivery', 'delayed'] as const;
+
+function isStationDelivery(data: { deliveryType?: string; dropoffRegion: string }) {
+  return data.deliveryType === 'station' || data.dropoffRegion === STATION_REGION;
+}
+
+const hasStationLocationIfNeeded = (data: { deliveryType?: string; dropoffRegion: string; stationLocation?: string }) =>
+  !isStationDelivery(data) || !!data.stationLocation;
+const stationLocationError = { message: 'Station location is required for station deliveries', path: ['stationLocation'] };
+
+const shipmentInputSchema = shipmentInputBaseSchema.refine(hasStationLocationIfNeeded, stationLocationError);
+
+const feeSchema = z.coerce
+  .number({ invalid_type_error: 'Delivery fee must be a number' })
+  .finite('Delivery fee must be a number')
+  .nonnegative('Delivery fee cannot be negative');
 
 async function riderProfileIdFor(userId: string): Promise<string | null> {
   const profile = await prisma.riderProfile.findUnique({ where: { userId }, select: { id: true } });
   return profile?.id ?? null;
+}
+
+function riderScope(riderProfileId: string): Prisma.ShipmentWhereInput {
+  return {
+    OR: [
+      { assignedRiderId: riderProfileId },
+      { pickupRiderId: riderProfileId },
+      { dropoffRiderId: riderProfileId },
+    ],
+  };
+}
+
+function isAssignedRider(
+  shipment: { assignedRiderId: string | null; pickupRiderId: string | null; dropoffRiderId: string | null },
+  riderProfileId: string | null
+) {
+  return !!riderProfileId && (
+    shipment.assignedRiderId === riderProfileId ||
+    shipment.pickupRiderId === riderProfileId ||
+    shipment.dropoffRiderId === riderProfileId
+  );
 }
 
 const shipmentInclude = {
@@ -134,23 +171,14 @@ async function creditRiderBonus(
   riderUserId?: string
 ) {
   try {
-    await prisma.riderBonus.upsert({
-      where: {
-        shipmentId_type: {
-          shipmentId,
-          type,
-        },
-      },
-      update: {},
-      create: {
-        riderId,
-        shipmentId,
-        type,
-        amount: 1.00,
-      },
+    // skipDuplicates + the (shipmentId, type) unique key make this idempotent;
+    // only notify when a bonus row was actually created.
+    const { count } = await prisma.riderBonus.createMany({
+      data: [{ riderId, shipmentId, type, amount: 1.00 }],
+      skipDuplicates: true,
     });
 
-    if (riderUserId) {
+    if (count > 0 && riderUserId) {
       const typeLabel = type === 'pickup' ? 'Pickup' : 'Dropoff';
       notify(
         riderUserId,
@@ -170,7 +198,7 @@ function buildShipmentCreateData(
   customerId: string | null,
   batchId: string | null
 ) {
-  const isStation = input.deliveryType === 'station' || input.dropoffRegion === 'Station Delivery';
+  const isStation = isStationDelivery(input);
   let deliveryFee = 0;
   if (!isStation) {
     const calculated = calculateDeliveryCost({
@@ -260,9 +288,7 @@ const bulkReceiverSchema = shipmentInputBaseSchema.pick({
   stationLocation: true,
   speed: true,
   priority: true,
-}).refine(data => data.deliveryType !== 'station' || !!data.stationLocation, {
-  message: 'Station location is required for station deliveries', path: ['stationLocation'],
-});
+}).refine(hasStationLocationIfNeeded, stationLocationError);
 
 const bulkCreateSchema = z.object({
   pickup: shipmentInputBaseSchema.pick({
@@ -328,42 +354,138 @@ router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req,
   }
 });
 
-router.get('/', async (req, res) => {
-  const { status, search } = req.query as { status?: string; search?: string };
+const listQuerySchema = z.object({
+  status: z.string().optional(),
+  search: z.string().trim().optional(),
+  deliveryType: z.enum(DELIVERY_TYPES).optional(),
+  dropoffRegion: z.string().trim().optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).optional(),
+});
 
-  const where: Record<string, unknown> = {};
+/**
+ * Builds the list/export filter. Role scope and the optional filters are
+ * combined with AND so a search can never widen the set of shipments a
+ * customer or rider is allowed to see.
+ */
+async function buildListWhere(
+  auth: { userId: string; role: string },
+  query: z.infer<typeof listQuerySchema>
+): Promise<Prisma.ShipmentWhereInput> {
+  const { status, search, deliveryType, dropoffRegion } = query;
+  const filters: Prisma.ShipmentWhereInput[] = [];
 
-  if (req.auth!.role === 'customer') {
-    where.customerId = req.auth!.userId;
-  } else if (req.auth!.role === 'rider') {
-    const riderProfileId = await riderProfileIdFor(req.auth!.userId);
-    const rId = riderProfileId ?? '__none__';
-    where.OR = [
-      { assignedRiderId: rId },
-      { pickupRiderId: rId },
-      { dropoffRiderId: rId },
-    ];
+  if (auth.role === 'customer') {
+    filters.push({ customerId: auth.userId });
+  } else if (auth.role === 'rider') {
+    const riderProfileId = await riderProfileIdFor(auth.userId);
+    filters.push(riderScope(riderProfileId ?? '__none__'));
   }
 
   if (status && (STATUSES as readonly string[]).includes(status)) {
-    where.status = status;
+    filters.push({ status: status as ShipmentStatus });
   }
+  if (deliveryType) filters.push({ deliveryType });
+  if (dropoffRegion) filters.push({ dropoffRegion });
 
   if (search) {
-    where.OR = [
-      { trackingCode: { contains: search, mode: 'insensitive' } },
-      { receiverName: { contains: search, mode: 'insensitive' } },
-      { dropoffLocation: { contains: search, mode: 'insensitive' } },
-    ];
+    const contains = { contains: search, mode: 'insensitive' as const };
+    filters.push({
+      OR: [
+        { trackingCode: contains },
+        { senderName: contains },
+        { senderNumber: contains },
+        { receiverName: contains },
+        { receiverNumber: contains },
+        { pickupRegion: contains },
+        { pickupLocation: contains },
+        { dropoffRegion: contains },
+        { dropoffLocation: contains },
+        { stationLocation: contains },
+      ],
+    });
   }
 
-  const shipments = await prisma.shipment.findMany({
-    where,
+  return { AND: filters };
+}
+
+router.get('/', async (req, res) => {
+  const parsed = listQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid query' });
+  }
+  const where = await buildListWhere(req.auth!, parsed.data);
+
+  // Pagination is opt-in so existing callers that expect a plain array keep working.
+  const { page, pageSize } = parsed.data;
+  if (page === undefined && pageSize === undefined) {
+    const shipments = await prisma.shipment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: shipmentInclude,
+    });
+    return res.json(shipments);
+  }
+
+  const currentPage = page ?? 1;
+  const size = pageSize ?? 50;
+  const [items, total] = await prisma.$transaction([
+    prisma.shipment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: shipmentInclude,
+      skip: (currentPage - 1) * size,
+      take: size,
+    }),
+    prisma.shipment.count({ where }),
+  ]);
+
+  res.json({ items, total, page: currentPage, pageSize: size });
+});
+
+/**
+ * Complete filtered record set for the Records page Excel export — never
+ * paginated, and limited to the flat fields the workbook needs.
+ */
+router.get('/export', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = listQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid query' });
+  }
+
+  const records = await prisma.shipment.findMany({
+    where: await buildListWhere(req.auth!, parsed.data),
     orderBy: { createdAt: 'desc' },
-    include: shipmentInclude,
+    select: {
+      id: true,
+      trackingCode: true,
+      status: true,
+      deliveryType: true,
+      senderName: true,
+      senderNumber: true,
+      pickupRegion: true,
+      pickupLocation: true,
+      receiverName: true,
+      receiverNumber: true,
+      dropoffRegion: true,
+      dropoffLocation: true,
+      stationLocation: true,
+      deliveryFee: true,
+      createdAt: true,
+    },
   });
 
-  res.json(shipments);
+  res.json(records);
+});
+
+/** Distinct receiver regions, for the Records page region filter. */
+router.get('/regions', requireRole('operations', 'admin'), async (_req, res) => {
+  const rows = await prisma.shipment.findMany({
+    distinct: ['dropoffRegion'],
+    select: { dropoffRegion: true },
+    orderBy: { dropoffRegion: 'asc' },
+  });
+  res.json(rows.map(r => r.dropoffRegion).filter(Boolean));
 });
 
 router.get('/:trackingCode', async (req, res) => {
@@ -380,6 +502,10 @@ router.get('/:trackingCode', async (req, res) => {
   }
 
   if (req.auth!.role === 'customer' && shipment.customerId !== req.auth!.userId) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
+  if (req.auth!.role === 'rider' && !isAssignedRider(shipment, await riderProfileIdFor(req.auth!.userId))) {
     return res.status(404).json({ error: 'Shipment not found' });
   }
 
@@ -403,23 +529,42 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
   }
 
   if (req.auth!.role === 'rider') {
-    const riderProfileId = await riderProfileIdFor(req.auth!.userId);
-    if (
-      !riderProfileId ||
-      (shipment.assignedRiderId !== riderProfileId &&
-        shipment.pickupRiderId !== riderProfileId &&
-        shipment.dropoffRiderId !== riderProfileId)
-    ) {
+    if (!isAssignedRider(shipment, await riderProfileIdFor(req.auth!.userId))) {
       return res.status(403).json({ error: 'Not assigned to this shipment' });
+    }
+    if (!(RIDER_SETTABLE_STATUSES as readonly string[]).includes(parsed.data.status)) {
+      return res.status(400).json({ error: `Riders cannot set status to ${parsed.data.status}` });
     }
   }
 
-  const updated = await prisma.shipment.update({
+  if (parsed.data.status === 'awaiting_price') {
+    return res.status(400).json({ error: 'Use the process endpoint to price an order' });
+  }
+
+  if ((FINAL_STATUSES as readonly string[]).includes(shipment.status)) {
+    return res.status(409).json({ error: `Shipment is already ${shipment.status}` });
+  }
+
+  // Conditional on the status we validated against, so a concurrent update
+  // (e.g. a POD landing at the same time) cannot be silently overwritten.
+  const changed = await prisma.$transaction(async tx => {
+    const { count } = await tx.shipment.updateMany({
+      where: { id: shipment.id, status: shipment.status },
+      data: { status: parsed.data.status },
+    });
+    if (count === 0) return false;
+    await tx.shipmentStatusEvent.create({
+      data: { shipmentId: shipment.id, status: parsed.data.status, note: parsed.data.note },
+    });
+    return true;
+  });
+
+  if (!changed) {
+    return res.status(409).json({ error: 'Shipment was updated by someone else; refresh and try again' });
+  }
+
+  const updated = await prisma.shipment.findUniqueOrThrow({
     where: { id: shipment.id },
-    data: {
-      status: parsed.data.status,
-      statusEvents: { create: { status: parsed.data.status, note: parsed.data.note } },
-    },
     include: shipmentInclude,
   });
 
@@ -593,8 +738,7 @@ router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => 
 
   const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
   if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
-  const stationShipment = shipment as typeof shipment & { deliveryType: 'station' | 'doorstep'; stationLocation: string | null };
-  if (stationShipment.deliveryType !== 'station') {
+  if (shipment.deliveryType !== 'station') {
     return res.status(400).json({ error: 'This shipment is not a station delivery' });
   }
 
@@ -603,33 +747,43 @@ router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => 
     return res.status(403).json({ error: 'Not assigned to deliver this shipment' });
   }
 
+  if ((FINAL_STATUSES as readonly string[]).includes(shipment.status)) {
+    return res.status(409).json({ error: `Shipment is already ${shipment.status}` });
+  }
+
   const updated = await prisma.shipment.update({
-    where: { id: shipment.id },
+    where: { id: shipment.id, status: { notIn: [...FINAL_STATUSES] } },
     data: {
       ...parsed.data,
       stationHandoverAt: new Date(),
       status: 'delivered',
-      statusEvents: { create: { status: 'delivered', note: `Station handover completed at ${stationShipment.stationLocation}` } },
+      statusEvents: { create: { status: 'delivered', note: `Station handover completed at ${shipment.stationLocation}` } },
     },
     include: shipmentInclude,
-  } as any);
+  }).catch(() => null);
 
-  const updatedStationShipment = updated as typeof updated & { stationLocation: string | null };
+  if (!updated) {
+    return res.status(409).json({ error: 'Shipment was already completed' });
+  }
+
   if (updated.customerId) {
     notify(updated.customerId, 'station_handover', `Station handover completed for ${updated.trackingCode}`,
-      `Your package has been handed to the station vehicle at ${updatedStationShipment.stationLocation}.`, updated.id).catch(() => {});
+      `Your package has been handed to the station vehicle at ${updated.stationLocation}.`, updated.id).catch(() => {});
   }
   notifyRoles(['operations', 'admin'], 'station_handover', `Station handover completed: ${updated.trackingCode}`,
     `Driver and receipt details are ready for review.`, updated.id).catch(() => {});
 
-  const stationSms = `CPS Logistics: Package #${updated.trackingCode} has been delivered to ${updatedStationShipment.stationLocation || 'the station'} for onward travel. Driver: ${parsed.data.stationDriverName}, ${parsed.data.stationDriverNumber}. Car: ${parsed.data.stationCarNumber}.`;
+  const stationSms = `CPS Logistics: Package #${updated.trackingCode} has been delivered to ${updated.stationLocation || 'the station'} for onward travel. Driver: ${parsed.data.stationDriverName}, ${parsed.data.stationDriverNumber}. Car: ${parsed.data.stationCarNumber}.`;
   // Notify both parties independently; sendSms handles provider failures without failing the handover.
   [updated.senderNumber, updated.receiverNumber]
     .filter((phone, index, phones) => !!phone && phones.indexOf(phone) === index)
     .forEach(phone => { void sendSms(phone, stationSms); });
 
   const dRiderId = updated.dropoffRiderId || updated.assignedRiderId;
-  if (dRiderId) creditRiderBonus(updated.id, dRiderId, 'dropoff', updated.trackingCode);
+  if (dRiderId) {
+    creditRiderBonus(updated.id, dRiderId, 'dropoff', updated.trackingCode,
+      updated.dropoffRider?.userId || updated.assignedRider?.userId);
+  }
   res.json(updated);
 });
 
@@ -742,7 +896,7 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
 });
 
 const priceSchema = z.object({
-  deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+  deliveryFee: feeSchema,
 });
 
 router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) => {
@@ -778,10 +932,10 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
 });
 
 const processSchema = z.object({
-  deliveryFee: z.union([z.string(), z.number()]).transform((val) => Number(val)),
-  riderId: z.string().optional(),
-  pickupRiderId: z.string().optional(),
-  dropoffRiderId: z.string().optional(),
+  deliveryFee: feeSchema,
+  riderId: z.string().nullable().optional(),
+  pickupRiderId: z.string().nullable().optional(),
+  dropoffRiderId: z.string().nullable().optional(),
   opsRemarks: z.string().optional(),
 });
 
@@ -796,15 +950,26 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
     return res.status(404).json({ error: 'Shipment not found' });
   }
 
-  const pRiderId = parsed.data.pickupRiderId || parsed.data.riderId || undefined;
-  const dRiderId = parsed.data.dropoffRiderId || parsed.data.riderId || undefined;
-  const aRiderId = dRiderId || pRiderId || undefined;
+  // undefined = leave unchanged, null/'' = clear, string = assign (same semantics as /assign)
+  const pickupInput = parsed.data.pickupRiderId !== undefined ? parsed.data.pickupRiderId : parsed.data.riderId;
+  const dropoffInput = parsed.data.dropoffRiderId !== undefined ? parsed.data.dropoffRiderId : parsed.data.riderId;
+  const pRiderId = pickupInput === undefined ? shipment.pickupRiderId : pickupInput || null;
+  const dRiderId = dropoffInput === undefined ? shipment.dropoffRiderId : dropoffInput || null;
+
+  for (const [label, riderId] of [['Pickup', pRiderId], ['Dropoff', dRiderId]] as const) {
+    if (riderId && !(await prisma.riderProfile.findUnique({ where: { id: riderId }, select: { id: true } }))) {
+      return res.status(404).json({ error: `${label} rider not found` });
+    }
+  }
 
   const updated = await prisma.shipment.update({
     where: { id: shipment.id },
     data: {
       deliveryFee: parsed.data.deliveryFee,
-      assignedRiderId: aRiderId,
+      // Leave legacy assignedRiderId alone unless a rider field was actually sent.
+      assignedRiderId: pickupInput === undefined && dropoffInput === undefined
+        ? undefined
+        : dRiderId || pRiderId || null,
       pickupRiderId: pRiderId,
       dropoffRiderId: dRiderId,
       opsRemarks: parsed.data.opsRemarks,
@@ -854,36 +1019,117 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
 
 const bulkAcceptSchema = z.object({ pickupRiderId: z.string().optional(), opsRemarks: z.string().optional() });
 
+class BatchConflictError extends Error {
+  constructor() {
+    super('Bulk order was processed by someone else; refresh and try again');
+  }
+}
+
+/**
+ * Moves every `awaiting_price` member of a batch to `status` in one transaction.
+ * The member ids are re-read inside the transaction and updated with a status
+ * guard, so two concurrent accept/decline calls cannot both process the batch.
+ * Returns null when no eligible members remain.
+ */
+async function transitionAwaitingBatch(
+  batchId: string,
+  status: 'pending' | 'cancelled',
+  data: Prisma.ShipmentUncheckedUpdateManyInput,
+  note: string
+) {
+  const ids = await prisma.$transaction(async tx => {
+    const members = await tx.shipment.findMany({
+      where: { batchId, status: 'awaiting_price' },
+      select: { id: true },
+    });
+    if (!members.length) return null;
+    const memberIds = members.map(m => m.id);
+
+    const { count } = await tx.shipment.updateMany({
+      where: { id: { in: memberIds }, status: 'awaiting_price' },
+      data: { ...data, status },
+    });
+    // Another request processed part of the batch first: abort so it's all-or-nothing.
+    if (count !== memberIds.length) throw new BatchConflictError();
+
+    await tx.shipmentStatusEvent.createMany({
+      data: memberIds.map(shipmentId => ({ shipmentId, status, note })),
+    });
+    return memberIds;
+  });
+  if (!ids) return null;
+
+  return prisma.shipment.findMany({
+    where: { id: { in: ids } },
+    orderBy: { createdAt: 'asc' },
+    include: shipmentInclude,
+  });
+}
+
 router.patch('/batch/:batchId/accept', requireRole('operations', 'admin'), async (req, res) => {
   const parsed = bulkAcceptSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid bulk acceptance details' });
-  const batch = await prisma.shipment.findMany({ where: { batchId: req.params.batchId as string, status: 'awaiting_price' } });
-  if (!batch.length) return res.status(404).json({ error: 'Bulk order not found or already processed' });
-  const updated = await prisma.$transaction(batch.map(order => prisma.shipment.update({
-    where: { id: order.id },
-    data: {
-      // Bulk pickup is free. Individual delivery pricing happens after office processing.
-      deliveryFee: 0,
-      pickupRiderId: parsed.data.pickupRiderId || null,
-      assignedRiderId: parsed.data.pickupRiderId || null,
-      opsRemarks: parsed.data.opsRemarks,
-      status: 'pending',
-      statusEvents: { create: { status: 'pending', note: 'Bulk pickup accepted; awaiting office processing' } },
-    },
-    include: shipmentInclude,
-  })));
+
+  const pickupRiderId = parsed.data.pickupRiderId || null;
+  if (pickupRiderId && !(await prisma.riderProfile.findUnique({ where: { id: pickupRiderId }, select: { id: true } }))) {
+    return res.status(404).json({ error: 'Pickup rider not found' });
+  }
+
+  let updated;
+  try {
+    updated = await transitionAwaitingBatch(
+      req.params.batchId as string,
+      'pending',
+      {
+        // Bulk pickup is free. Individual delivery pricing happens after office processing.
+        deliveryFee: 0,
+        pickupRiderId,
+        assignedRiderId: pickupRiderId,
+        opsRemarks: parsed.data.opsRemarks,
+      },
+      'Bulk pickup accepted; awaiting office processing'
+    );
+  } catch (err) {
+    if (err instanceof BatchConflictError) return res.status(409).json({ error: err.message });
+    throw err;
+  }
+  if (!updated) return res.status(404).json({ error: 'Bulk order not found or already processed' });
+
+  const first = updated[0]!;
+  if (first.customerId) {
+    notify(first.customerId, 'shipment_price_updated', 'Bulk pickup accepted',
+      `Your bulk pickup of ${updated.length} package(s) from ${first.pickupLocation} has been accepted.`, first.id).catch(() => {});
+  }
+  if (first.pickupRider) {
+    notify(first.pickupRider.userId, 'shipment_assigned', 'Bulk pickup assigned',
+      `You've been assigned a bulk pickup of ${updated.length} package(s) from ${first.pickupLocation}.`, first.id).catch(() => {});
+  }
+
   res.json(updated);
 });
 
+const bulkDeclineSchema = z.object({ reason: z.string().trim().optional() });
+
 router.patch('/batch/:batchId/decline', requireRole('operations', 'admin'), async (req, res) => {
-  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim() : 'Bulk order declined by operations';
-  const batch = await prisma.shipment.findMany({ where: { batchId: req.params.batchId as string, status: 'awaiting_price' } });
-  if (!batch.length) return res.status(404).json({ error: 'Bulk order not found or already processed' });
-  const updated = await prisma.$transaction(batch.map(order => prisma.shipment.update({
-    where: { id: order.id },
-    data: { status: 'cancelled', opsRemarks: reason, statusEvents: { create: { status: 'cancelled', note: reason } } },
-    include: shipmentInclude,
-  })));
+  const parsed = bulkDeclineSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid bulk decline details' });
+  const reason = parsed.data.reason || 'Bulk order declined by operations';
+
+  let updated;
+  try {
+    updated = await transitionAwaitingBatch(req.params.batchId as string, 'cancelled', { opsRemarks: reason }, reason);
+  } catch (err) {
+    if (err instanceof BatchConflictError) return res.status(409).json({ error: err.message });
+    throw err;
+  }
+  if (!updated) return res.status(404).json({ error: 'Bulk order not found or already processed' });
+
+  const first = updated[0]!;
+  if (first.customerId) {
+    notify(first.customerId, 'shipment_cancelled', 'Bulk pickup declined',
+      `Your bulk pickup of ${updated.length} package(s) was declined: ${reason}`, first.id).catch(() => {});
+  }
+
   res.json(updated);
 });
 
