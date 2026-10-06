@@ -1,18 +1,18 @@
-name: Service Wakeup (before 7am UTC)
+name: Service Wakeup (before 7am UTC, Mon-Fri)
 
 on:
   # GitHub delays or drops scheduled runs under load, so several backup
   # times are listed. The check job makes the extra runs no-ops once the
-  # backend is already up.
+  # backend is already up. Weekdays only: CPS is closed on weekends.
   schedule:
-    - cron: '13 6 * * *'
-    - cron: '31 6 * * *'
-    - cron: '47 6 * * *'
-    - cron: '3 7 * * *'
-    - cron: '19 7 * * *'
-    - cron: '41 7 * * *'
-    - cron: '11 8 * * *'
-    - cron: '43 8 * * *'
+    - cron: '13 6 * * 1-5'
+    - cron: '31 6 * * 1-5'
+    - cron: '47 6 * * 1-5'
+    - cron: '3 7 * * 1-5'
+    - cron: '19 7 * * 1-5'
+    - cron: '41 7 * * 1-5'
+    - cron: '11 8 * * 1-5'
+    - cron: '43 8 * * 1-5'
   workflow_dispatch:
 
 concurrency:
