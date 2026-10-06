@@ -11,6 +11,7 @@ const PUBLIC_LINKS: { path: string; label: string }[] = [
   { path: '/services', label: 'Services' },
   { path: '/contact', label: 'Contact Us' },
   { path: '/faq', label: 'FAQ' },
+  { path: '/developers', label: 'Developers' },
 ];
 
 export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
@@ -39,6 +40,14 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
     { path: '/rider/station-deliveries', label: 'Station Deliveries' },
     { path: '/rider/earnings', label: 'Earnings' },
     { path: '/settings', label: 'Settings' },
+  ],
+  business: [
+    { path: '/business', label: 'Dashboard' },
+    { path: '/business/orders', label: 'Orders' },
+    { path: '/business/keys', label: 'API Keys' },
+    { path: '/business/webhooks', label: 'Webhooks' },
+    { path: '/business/statement', label: 'Statement' },
+    { path: '/developers', label: 'API Docs' },
   ],
 };
 

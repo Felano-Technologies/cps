@@ -1,14 +1,14 @@
-name: Service Shutdown (after 5pm UTC)
+name: Service Shutdown (8pm UTC)
 
 on:
   # Backup times cover delayed or dropped scheduled runs; the check job
   # makes the extra runs no-ops once the backend is already down.
+  # Same times as Shopyos, so the Partner API sleeps when Shopyos does.
   schedule:
-    - cron: '7 17 * * *'
-    - cron: '29 17 * * *'
-    - cron: '53 17 * * *'
-    - cron: '23 18 * * *'
-    - cron: '17 19 * * *'
+    - cron: '0 20 * * *'
+    - cron: '37 20 * * *'
+    - cron: '23 21 * * *'
+    - cron: '11 22 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -29,7 +29,7 @@ jobs:
           fi
           HOUR=$(date -u +%H)
           # A run delayed into the morning must not take the app down during work hours
-          if [ "$HOUR" -ge 6 ] && [ "$HOUR" -lt 17 ]; then
+          if [ "$HOUR" -ge 4 ] && [ "$HOUR" -lt 20 ]; then
             echo "Outside shutdown window ($HOUR UTC), skipping"
             echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
           fi

@@ -3,8 +3,10 @@ import { MOCK_MODE, mockFallback } from './mockApi';
 
 export const AUTH_TOKEN_STORAGE_KEY = 'cps_auth_token';
 
+export const API_BASE_URL: string = import.meta.env.VITE_API_URL || 'https://cps-production-6d97.up.railway.app/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://cps-production-6d97.up.railway.app/api',
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

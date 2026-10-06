@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { PageLoader } from '../../components/Spinner';
 import api from '../../services/api';
 import type { PodMethod, Shipment } from '../../types/models';
+import { needsDeliveryCode } from '../../types/models';
 
 interface RouteStop {
   id: string;
@@ -126,24 +127,24 @@ export default function RiderRoutePage() {
   const activeStop = stops.find(s => s.status === 'active');
   const allCompleted = stops.length > 0 && stops.every(s => s.status === 'completed' || s.status === 'failed');
 
-  const handlePodSubmit = async (method: PodMethod, recipientName: string, signatureData: string | null, photoUrl: string | null) => {
+  // Errors propagate to the modal, which stays open and shows them (e.g. a
+  // wrong delivery code) so the rider can correct and retry.
+  const handlePodSubmit = async (method: PodMethod, recipientName: string, signatureData: string | null, photoUrl: string | null, deliveryCode?: string) => {
     if (!activeStop) return;
-    try {
-      const response = await api.patch<Shipment>(`/shipments/${activeStop.id}/pod`, {
-        podMethod: method,
-        podRecipientName: recipientName,
-        podSignatureData: signatureData ?? undefined,
-        podPhotoUrl: photoUrl ?? undefined,
-      });
-      setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
-      setSelectedStopId(shipments.find(s => s.id !== activeStop.id && !['delivered', 'failed', 'cancelled'].includes(s.status))?.id ?? null);
-      setPodOpen(false);
-      toast.success('Delivery confirmed.');
-    } catch {
-      setError('Failed to submit proof of delivery. Please try again.');
-      toast.error('Failed to confirm delivery.');
-    }
+    const response = await api.patch<Shipment>(`/shipments/${activeStop.id}/pod`, {
+      podMethod: method,
+      podRecipientName: recipientName,
+      podSignatureData: signatureData ?? undefined,
+      podPhotoUrl: photoUrl ?? undefined,
+      deliveryCode,
+    });
+    setShipments(prev => prev.map(s => (s.id === activeStop.id ? response.data : s)));
+    setSelectedStopId(shipments.find(s => s.id !== activeStop.id && !['delivered', 'failed', 'cancelled'].includes(s.status))?.id ?? null);
+    setPodOpen(false);
+    toast.success('Delivery confirmed.');
   };
+
+  const activeShipment = activeStop ? shipments.find(s => s.id === activeStop.id) : undefined;
 
   const handleStationHandover = async (details: { stationDriverName: string; stationDriverNumber: string; stationCarNumber: string; stationReceiptUrl?: string }) => {
     if (!activeStop) return;
@@ -389,6 +390,7 @@ export default function RiderRoutePage() {
       {podOpen && activeStop && (
         <ProofOfDeliveryModal
           stopAddress={activeStop.address}
+          requiresDeliveryCode={!!activeShipment && needsDeliveryCode(activeShipment)}
           onClose={() => setPodOpen(false)}
           onSubmit={handlePodSubmit}
         />

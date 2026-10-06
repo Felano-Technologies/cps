@@ -31,8 +31,10 @@ import type { LucideIcon } from 'lucide-react';
 import OrderPrintModal from '../../components/OrderPrintModal';
 import CustomSelect from '../../components/Form/CustomSelect';
 import api from '../../services/api';
+import PartnerBadge from '../../components/PartnerBadge';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, ShipmentSpeed, PackageType } from '../../types/models';
+import { needsDeliveryCode } from '../../types/models';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
   awaiting_price: 'Awaiting Price',
@@ -182,6 +184,19 @@ export default function OpsTrackingPage() {
 
   const handleAssignDropoffRider = (riderId: string) => {
     handleAssignRider({ dropoffRiderId: riderId || null });
+  };
+
+  const handleOverrideDeliveryCode = async () => {
+    if (!shipment) return;
+    const note = window.prompt('Why is the delivery code being overridden? (e.g. "Customer lost the SMS, identity confirmed by phone")');
+    if (!note || note.trim().length < 5) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/delivery-code-override`, { note: note.trim() });
+      setShipment(data);
+      toast.success('Delivery code overridden. The rider can now complete delivery.');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Failed to override delivery code.'));
+    }
   };
 
   const handleStatusChange = async (status: string) => {
@@ -471,6 +486,12 @@ export default function OpsTrackingPage() {
                 {shipment.batchId && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px' }}>
                     Batch: {shipment.batchId.slice(0, 8)}...
+                  </span>
+                )}
+                <PartnerBadge shipment={shipment} />
+                {shipment.externalReference && (
+                  <span style={{ fontFamily: 'monospace', background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px' }}>
+                    Partner ref: {shipment.externalReference}
                   </span>
                 )}
               </div>
@@ -978,6 +999,27 @@ export default function OpsTrackingPage() {
                     Internal Operations Remarks
                   </span>
                   <p style={{ margin: 0, fontSize: '13px', color: '#334155' }}>{shipment.opsRemarks}</p>
+                </div>
+              )}
+
+              {shipment.deliveryCodeHash && (
+                <div style={{ marginTop: '8px', padding: '12px 14px', background: needsDeliveryCode(shipment) ? '#fffbeb' : '#f0fdf4', borderRadius: '10px', border: `1px solid ${needsDeliveryCode(shipment) ? '#fde68a' : '#bbf7d0'}` }}>
+                  <span style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Customer Delivery Code
+                  </span>
+                  {needsDeliveryCode(shipment) ? (
+                    <>
+                      <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#334155' }}>
+                        The rider must enter the customer's code to complete delivery.
+                        {(shipment.deliveryCodeAttempts ?? 0) > 0 && ` Wrong attempts: ${shipment.deliveryCodeAttempts}/5.`}
+                      </p>
+                      <button className="neutral-btn small" onClick={handleOverrideDeliveryCode}>Override code…</button>
+                    </>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
+                      {shipment.deliveryCodeOverrideNote ?? 'Verified by the rider at delivery.'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

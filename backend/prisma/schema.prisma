@@ -12,6 +12,13 @@ enum UserRole {
   operations
   admin
   rider
+  business
+}
+
+enum BusinessStatus {
+  pending
+  approved
+  suspended
 }
 
 enum VehicleType {
@@ -94,10 +101,74 @@ model User {
   updatedAt    DateTime @updatedAt
 
   riderProfile     RiderProfile?
+  business         Business?
   shipmentsAsOwner Shipment[]    @relation("CustomerShipments")
   notifications    Notification[]
 
   @@map("users")
+}
+
+/// A company integrating with CPS through the Partner API (e.g. Shopyos).
+/// Owned by a single `business` user; must be approved before keys work.
+model Business {
+  id            String         @id @default(cuid())
+  ownerUserId   String         @unique
+  owner         User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name          String
+  contactEmail  String?
+  contactPhone  String?
+  status        BusinessStatus @default(pending)
+  webhookUrl    String?
+  webhookSecret String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  apiKeys       ApiKey[]
+  shipments     Shipment[]
+  webhookEvents WebhookEvent[]
+
+  @@map("businesses")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  businessId String
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  /// First characters of the key, safe to display (e.g. "cps_live_ab12cd").
+  prefix     String
+  /// SHA-256 of the full key; the key itself is never stored.
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([businessId])
+  @@map("api_keys")
+}
+
+/// Outbox of webhook deliveries to a business. Rows are written in the same
+/// transaction as the shipment change, then sent (and retried) by the worker.
+model WebhookEvent {
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  shipmentId     String?
+  shipment       Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  type           String
+  payload        Json
+  sequence       Int       @default(autoincrement())
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+
+  @@index([deliveredAt, failedAt, nextAttemptAt])
+  @@index([businessId, createdAt])
+  @@map("webhook_events")
 }
 
 model RiderProfile {
@@ -178,13 +249,29 @@ model Shipment {
   additionalInstructions String?
   opsRemarks             String?
 
+  // Partner API (orders created by a Business through /api/partner/v1)
+  businessId        String?
+  business          Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  externalReference String?
+  /// Delivery fee already collected by the partner; never ask the receiver to pay.
+  prepaid           Boolean   @default(false)
+
+  // Partner-supplied delivery code the rider must enter at proof of delivery
+  deliveryCodeHash         String?
+  deliveryCodeAttempts     Int       @default(0)
+  deliveryCodeVerifiedAt   DateTime?
+  deliveryCodeOverrideNote String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   statusEvents  ShipmentStatusEvent[]
   notifications Notification[]
   bonuses       RiderBonus[]
+  webhookEvents WebhookEvent[]
 
+  @@unique([businessId, externalReference])
+  @@index([businessId, updatedAt])
   @@map("shipments")
 }
 

@@ -22,5 +22,11 @@ export async function createTestPrisma() {
     await pg.exec(readFileSync(join(MIGRATIONS_DIR, name, 'migration.sql'), 'utf8'));
   }
 
-  return new PrismaClient({ adapter: new PrismaPGlite(pg) });
+  const prisma = new PrismaClient({ adapter: new PrismaPGlite(pg) });
+  // Closing PGlite lets the test worker exit instead of being force-killed.
+  const close = async () => {
+    await prisma.$disconnect();
+    await pg.close();
+  };
+  return { prisma, close };
 }

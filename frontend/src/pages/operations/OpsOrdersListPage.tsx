@@ -22,6 +22,7 @@ import {
   StickyNote,
 } from 'lucide-react';
 import api from '../../services/api';
+import PartnerBadge from '../../components/PartnerBadge';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
@@ -559,7 +560,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                         <td style={{ padding: '16px' }}><span style={{ display: 'inline-flex', padding: '4px 9px', borderRadius: 7, background: isBulk ? '#dbeafe' : '#f1f5f9', color: isBulk ? '#1e40af' : '#475569', fontSize: 12, fontWeight: 800 }}>{isBulk ? `Bulk · ${bulkCounts.get(order.batchId!) || 0} orders` : 'Single'}</span></td>
                         {/* Order ID & Date */}
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{isBulk ? <><span style={{ color: '#1d4ed8' }}>Bulk</span><span style={{ display: 'block', fontSize: 12, color: '#64748b', marginTop: 3 }}>{order.trackingCode}</span></> : order.trackingCode}</div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{isBulk ? <><span style={{ color: '#1d4ed8' }}>Bulk</span><span style={{ display: 'block', fontSize: 12, color: '#64748b', marginTop: 3 }}>{order.trackingCode}</span></> : order.trackingCode}</div><PartnerBadge shipment={order} />
                           <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
                             {new Date(order.createdAt).toLocaleDateString()}
                           </div>

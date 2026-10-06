@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, KeyRound, User, ArrowRight } from 'lucide-react';
+import { Phone, KeyRound, User, ArrowRight, Building2, Mail } from 'lucide-react';
 import { useAuth, getRoleDashboard } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,10 +10,11 @@ interface PhoneAuthPanelProps {
   mode: 'signin' | 'signup';
 }
 
+// Staff accounts (operations, admin) are created by CPS, not self-registered.
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'customer', label: 'Customer' },
-  { value: 'operations', label: 'Operations / Dispatch' },
   { value: 'rider', label: 'Rider / Courier' },
+  { value: 'business', label: 'Business (API access)' },
 ];
 
 type Step = 'phone' | 'code' | 'profile';
@@ -28,6 +29,8 @@ export default function PhoneAuthPanel({ mode }: PhoneAuthPanelProps) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('customer');
+  const [businessName, setBusinessName] = useState('');
+  const [businessEmail, setBusinessEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -74,7 +77,8 @@ export default function PhoneAuthPanel({ mode }: PhoneAuthPanelProps) {
     setLocalError('');
     setIsSubmitting(true);
     try {
-      const user = await completePhoneSignup(phone, code, name, role);
+      const user = await completePhoneSignup(phone, code, name, role,
+        role === 'business' ? { businessName, businessEmail: businessEmail || undefined } : undefined);
       toast.success(`Welcome, ${user.name}.`);
       navigate(getRoleDashboard(user.role));
     } catch {
@@ -170,6 +174,39 @@ export default function PhoneAuthPanel({ mode }: PhoneAuthPanelProps) {
             <span>Account Type</span>
             <CustomSelect value={role} onChange={v => setRole(v as UserRole)} options={ROLE_OPTIONS} icon={<User size={17} />} />
           </label>
+          {role === 'business' && (
+            <>
+              <label className="auth-field">
+                <span>Business Name</span>
+                <div className="auth-input-wrap">
+                  <Building2 size={17} className="leading-icon" />
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    value={businessName}
+                    onChange={e => setBusinessName(e.target.value)}
+                    placeholder="Shopyos Ltd"
+                  />
+                </div>
+              </label>
+              <label className="auth-field">
+                <span>Business Email (optional)</span>
+                <div className="auth-input-wrap">
+                  <Mail size={17} className="leading-icon" />
+                  <input
+                    type="email"
+                    value={businessEmail}
+                    onChange={e => setBusinessEmail(e.target.value)}
+                    placeholder="tech@yourbusiness.com"
+                  />
+                </div>
+              </label>
+              <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px' }}>
+                CPS reviews new business accounts before API keys can be created.
+              </p>
+            </>
+          )}
           <button type="submit" disabled={isSubmitting} className="primary-green auth-submit">
             {isSubmitting ? 'Creating...' : 'Create Account'}
           </button>

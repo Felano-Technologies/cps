@@ -1,0 +1,696 @@
+openapi: 3.0.3
+info:
+  title: CPS Partner API
+  version: "1.0.0"
+  contact:
+    name: CPS Logistics
+    url: https://cpslogistics.com/contact
+  description: |
+    The CPS Partner API lets businesses (marketplaces, shops, platforms) send
+    deliveries to **CPS Logistics** programmatically, charge their customers
+    CPS's price, and follow every delivery live.
+
+    # Overview
+
+    A typical integration:
+
+    1. **Quote** — at checkout, call `POST /quotes` with the pickup and
+       drop-off regions. Show the returned `fee` to your customer.
+    2. **Create** — when the order is ready to collect, call
+       `POST /shipments` with your own order id as `externalReference` and the
+       quoted fee as `expectedFee`. CPS dispatches a rider.
+    3. **Follow** — CPS calls your **webhook** whenever the delivery changes
+       (rider assigned, picked up, out for delivery, delivered…). You can also
+       poll `GET /shipments/{ref}`.
+    4. **Settle** — pay CPS for delivered orders. Your Business portal has a
+       statement of every delivery and fee for any period.
+
+    CPS is based in **Kumasi**. Riders collect from the pickup regions listed by
+    `GET /coverage` and deliver to the drop-off regions listed there.
+
+    # Getting access
+
+    1. Sign up at CPS and choose **Business (API access)** as the account type.
+    2. CPS reviews and approves your business (you'll get a notification).
+    3. In the Business portal open **API keys → Create key**. Copy the key —
+       it is shown **once**.
+    4. In **Webhooks**, set the HTTPS URL CPS should call, and copy the signing secret.
+
+    # Authentication
+
+    Send your secret key on every request:
+
+    ```
+    Authorization: Bearer cps_live_xxxxxxxxxxxxxxxxxxxxxxxx
+    ```
+
+    (`X-API-Key: cps_live_…` is accepted too.)
+
+    - Keys are **server-side secrets**. Never put them in a mobile app, web page
+      or public repository.
+    - Use one key per environment/server so you can revoke one without downtime.
+    - If a key leaks, revoke it in the portal — it stops working immediately.
+    - Requests fail with `403 forbidden` while your business is pending
+      approval or suspended.
+
+    # Quickstart
+
+    ```bash
+    export CPS_KEY=cps_live_...
+    export CPS_API=https://cps-production-6d97.up.railway.app/api/partner/v1
+
+    # 1. Price a delivery
+    curl -s $CPS_API/quotes -H "Authorization: Bearer $CPS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"pickupRegion":"Kumasi","dropoffRegion":"Accra"}'
+    # => {"serviceable":true,"fee":45,"currency":"GHS",...}
+
+    # 2. Book it
+    curl -s $CPS_API/shipments -H "Authorization: Bearer $CPS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "externalReference": "order_10293",
+        "pickup":  {"name":"Ama Store","phone":"0241234567","region":"Kumasi","location":"Adum, Shop 12, near Kejetia"},
+        "dropoff": {"name":"Kofi Mensah","phone":"0209876543","region":"Accra","location":"Osu, Oxford Street, house 4"},
+        "package": {"type":"parcel","size":"medium"},
+        "expectedFee": 45,
+        "deliveryCode": "482913"
+      }'
+
+    # 3. Check on it
+    curl -s $CPS_API/shipments/order_10293 -H "Authorization: Bearer $CPS_KEY"
+    ```
+
+    # Pricing
+
+    - Prices are **binding**: the fee from `POST /quotes` is what CPS charges,
+      as long as rates haven't changed when you create the shipment.
+    - `POST /shipments` requires `expectedFee`. If CPS's current price differs
+      you get `409 fee_mismatch` with the current fee in `error.details.fee` —
+      nothing is created. Decide how to handle the difference, then retry.
+    - The fee depends on the drop-off region (and, inside Kumasi, the
+      sub-area). Get the live rate card from `GET /coverage`.
+    - Partner orders are **prepaid**: CPS never asks the receiver for money.
+
+    # Shipment lifecycle
+
+    | Status | Meaning |
+    |---|---|
+    | `pending` | Booked. Waiting for / assigned to a pickup rider (see `rider`). |
+    | `picked_up` | Rider has collected the package from the sender. |
+    | `in_transit` | On the way to the drop-off region. |
+    | `out_for_delivery` | With the delivery rider, heading to the receiver. |
+    | `delayed` | Temporarily held up; see the latest `events[].note`. It returns to an active status when resolved. |
+    | `delivered` | **Final.** Handed over. `proofOfDelivery` is set. |
+    | `failed` | **Final.** Could not be delivered; CPS operations will contact you. |
+    | `cancelled` | **Final.** Cancelled by you or CPS; see `cancellationReason`. |
+
+    `rider` is the rider currently responsible (the pickup rider until pickup,
+    then the delivery rider), with a phone number your customer can call.
+
+    # Delivery codes
+
+    To make sure a package is handed to the right person, send a
+    `deliveryCode` (4–8 digits) when creating the shipment and share it with
+    your customer (for example by SMS once the package is picked up).
+
+    - The CPS rider **cannot complete the delivery** without entering the code
+      the customer gives them.
+    - After 5 wrong attempts the delivery locks and CPS operations verify the
+      customer by phone. If they override the code, `proofOfDelivery.deliveryCodeVerified`
+      is still `true` and the reason is recorded in CPS's audit trail.
+    - CPS stores only a keyed hash of the code; it is never returned by the API.
+
+    # Webhooks
+
+    When one of your shipments changes, CPS sends a `POST` to your webhook URL:
+
+    ```http
+    POST /webhooks/cps HTTP/1.1
+    Content-Type: application/json
+    CPS-Event-Id: cmf2x9...
+    CPS-Event-Type: shipment.status_changed
+    CPS-Signature: t=1759740000,v1=5f2c...e9
+
+    {
+      "id": "cmf2x9...",
+      "type": "shipment.status_changed",
+      "createdAt": "2026-10-06T09:12:44.120Z",
+      "sequence": 1042,
+      "data": { "shipment": { "trackingCode": "CPS-7KQ2M9XA", "externalReference": "order_10293", "status": "picked_up", ... } }
+    }
+    ```
+
+    `data.shipment` has exactly the same shape as the API's `Shipment`.
+
+    **Event types**
+
+    | Type | Sent when |
+    |---|---|
+    | `shipment.created` | A shipment was created through the API. |
+    | `shipment.rider_assigned` | A pickup or delivery rider was assigned or changed. |
+    | `shipment.status_changed` | Any status change not covered below. |
+    | `shipment.delivered` | The shipment reached `delivered`. |
+    | `shipment.cancelled` | The shipment was cancelled. |
+    | `ping` | You pressed "Send test event" in the portal. |
+
+    **Responding.** Return any `2xx` within **10 seconds**. Do slow work
+    (database writes, notifications) after responding or in a queue.
+
+    **Retries.** Anything else (timeout, `4xx`, `5xx`, connection error) is
+    retried after 1 min, 5 min, 15 min, 1 h, 3 h, 6 h and 12 h (≈22 h total),
+    then marked failed. Every attempt is visible — and can be retried by hand —
+    under **Webhooks** in the Business portal.
+
+    **Duplicates & ordering.** You may receive an event more than once, and
+    events can arrive out of order after retries. Make your handler idempotent:
+
+    - Ignore an event whose `id` you have already processed.
+    - Ignore an event whose `sequence` is lower than the last one you applied
+      for that shipment — it describes an older state.
+
+    **Verifying signatures.** Always check `CPS-Signature` before trusting an
+    event. It is `t=<unix seconds>,v1=<hex HMAC-SHA256>` where the HMAC is
+    computed with your webhook signing secret over `"<t>.<raw request body>"`.
+    Reject events older than 5 minutes to stop replays.
+
+    ```js
+    // Node.js / Express — use the RAW body, not re-serialized JSON.
+    import crypto from 'node:crypto';
+
+    app.post('/webhooks/cps', express.raw({ type: 'application/json' }), (req, res) => {
+      const header = req.get('CPS-Signature') ?? '';
+      const parts = Object.fromEntries(header.split(',').map(p => p.split('=')));
+      const body = req.body.toString('utf8');
+      const expected = crypto.createHmac('sha256', process.env.CPS_WEBHOOK_SECRET)
+        .update(`${parts.t}.${body}`).digest('hex');
+      const fresh = Math.abs(Date.now() / 1000 - Number(parts.t)) < 300;
+      const valid = parts.v1 && expected.length === parts.v1.length &&
+        crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
+      if (!fresh || !valid) return res.status(400).send('bad signature');
+
+      res.sendStatus(200);              // acknowledge fast…
+      handleCpsEvent(JSON.parse(body)); // …then process (idempotently)
+    });
+    ```
+
+    **Missed events.** If your endpoint was down for longer than the retry
+    window, catch up with `GET /shipments?updatedSince=<last sync time>`.
+
+    # Idempotency
+
+    `externalReference` is your idempotency key. Creating a shipment with a
+    reference you've already used returns the **original** shipment with
+    `200 OK` instead of creating a duplicate — so it is always safe to retry a
+    create after a timeout. References are unique per business.
+
+    # Errors
+
+    Errors always use this shape:
+
+    ```json
+    { "error": { "code": "fee_mismatch", "message": "The delivery fee is GHS 45.00, not GHS 30.00. Re-quote and retry.", "details": { "fee": 45 } } }
+    ```
+
+    | HTTP | `code` | What to do |
+    |---|---|---|
+    | 400 | `invalid_request` | Fix the request. `details` lists each invalid field. |
+    | 401 | `unauthorized` | Missing, malformed or revoked key. |
+    | 403 | `forbidden` | Business pending approval or suspended. |
+    | 404 | `not_found` | No such shipment for your business (or unknown endpoint). |
+    | 409 | `fee_mismatch` | Price changed since your quote; see `details.fee`. |
+    | 409 | `conflict` | The shipment can no longer do that (e.g. cancel after pickup). |
+    | 422 | `not_serviceable` | CPS doesn't collect from / deliver to that region. `details.reason` says which. |
+    | 429 | `rate_limited` | Slow down; see the `RateLimit-*` headers. |
+    | 500 | `internal_error` | Retry with backoff; contact CPS if it persists. |
+
+    # Rate limits & hours
+
+    - **120 requests per minute per API key.** Responses include standard
+      `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` headers.
+    - **The API is available 05:00–20:00 GMT (Africa/Accra), every day.**
+      Outside those hours connections fail; queue requests and retry after
+      05:00. Webhooks queued overnight are delivered when the API comes back.
+    - Riders collect and deliver Monday–Saturday, 08:00–19:30. Shipments
+      created later are handled the next working day.
+
+    # Versioning
+
+    This is **v1**. Within v1 CPS only makes backward-compatible changes:
+    adding endpoints, optional request fields, response fields, enum values
+    and event types. Ignore fields and event types you don't recognise.
+    Breaking changes ship as `/api/partner/v2`, and v1 keeps working for at
+    least 6 months after v2 is announced.
+servers:
+  - url: https://cps-production-6d97.up.railway.app/api/partner/v1
+    description: Production
+  - url: http://localhost:3000/api/partner/v1
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: Coverage & pricing
+    description: Where CPS operates and what it costs.
+  - name: Shipments
+    description: Create, follow and cancel deliveries.
+paths:
+  /coverage:
+    get:
+      tags: [Coverage & pricing]
+      operationId: getCoverage
+      summary: Regions, fees and operating hours
+      description: The live rate card. Cache it for a few hours at most; rates can change.
+      responses:
+        "200":
+          description: Coverage
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Coverage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /quotes:
+    post:
+      tags: [Coverage & pricing]
+      operationId: createQuote
+      summary: Price a delivery
+      description: Returns the binding CPS fee for a route, or why CPS can't serve it. Region names are matched case-insensitively.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuoteRequest" }
+            examples:
+              accra:
+                summary: Kumasi to Accra
+                value: { pickupRegion: Kumasi, dropoffRegion: Accra }
+              campus:
+                summary: Within Kumasi, KNUST area
+                value: { pickupRegion: Kumasi, dropoffRegion: Kumasi, dropoffKumasiSubArea: CampusAndEnvirons }
+      responses:
+        "200":
+          description: Quote (check `serviceable`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quote" }
+              examples:
+                serviceable:
+                  value: { serviceable: true, fee: 45, currency: GHS, pickupRegion: Kumasi, dropoffRegion: Accra }
+                notServiceable:
+                  value: { serviceable: false, reason: pickup_region_not_served, message: 'CPS does not collect from "Accra". Pickup regions: Kumasi.' }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /shipments:
+    post:
+      tags: [Shipments]
+      operationId: createShipment
+      summary: Create a shipment
+      description: |
+        Books a delivery. Idempotent on `externalReference`: repeating a create
+        returns the original shipment with `200`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateShipmentRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Shipment" }
+        "200":
+          description: Already existed (same `externalReference`); the original is returned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Shipment" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: "`fee_mismatch` — the current fee differs from `expectedFee`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: { code: fee_mismatch, message: "The delivery fee is GHS 45.00, not GHS 30.00. Re-quote and retry.", details: { fee: 45 } } }
+        "422":
+          description: "`not_serviceable` — CPS doesn't serve this route"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    get:
+      tags: [Shipments]
+      operationId: listShipments
+      summary: List shipments
+      description: |
+        Your shipments, **least recently updated first**, for reconciliation.
+        To sync, remember the `updatedAt` of the last shipment you processed and
+        pass it as `updatedSince`; page with `cursor`.
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/ShipmentStatus" }
+        - name: updatedSince
+          in: query
+          description: Only shipments updated at or after this time (ISO 8601).
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          description: "`nextCursor` from the previous page."
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of shipments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, nextCursor]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Shipment" }
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Pass as `cursor` for the next page; `null` on the last page.
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /shipments/{ref}:
+    get:
+      tags: [Shipments]
+      operationId: getShipment
+      summary: Get a shipment
+      parameters:
+        - $ref: "#/components/parameters/ShipmentRef"
+      responses:
+        "200":
+          description: The shipment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Shipment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /shipments/{ref}/cancel:
+    post:
+      tags: [Shipments]
+      operationId: cancelShipment
+      summary: Cancel a shipment
+      description: |
+        Only possible before the rider picks the package up (status `pending`).
+        Cancelling an already-cancelled shipment returns it unchanged. After
+        pickup, contact CPS operations.
+      parameters:
+        - $ref: "#/components/parameters/ShipmentRef"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500, example: Customer cancelled the order }
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Shipment" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`conflict` — already picked up or finished"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /openapi.yaml:
+    get:
+      tags: [Coverage & pricing]
+      operationId: getOpenApi
+      summary: This specification
+      security: []
+      responses:
+        "200":
+          description: OpenAPI 3 document (YAML)
+          content:
+            application/yaml:
+              schema: { type: string }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "cps_live_…"
+      description: Secret API key from the CPS Business portal.
+  parameters:
+    ShipmentRef:
+      name: ref
+      in: path
+      required: true
+      description: Your `externalReference`, or the CPS `trackingCode`.
+      schema: { type: string }
+      example: order_10293
+  responses:
+    InvalidRequest:
+      description: "`invalid_request`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: invalid_request, message: "deliveryCode: must be 4 to 8 digits", details: [{ path: deliveryCode, message: must be 4 to 8 digits }] } }
+    Unauthorized:
+      description: "`unauthorized` — missing, malformed or revoked key"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: "`forbidden` — business pending approval or suspended"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: "`not_found`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: "`rate_limited`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, unauthorized, forbidden, not_found, fee_mismatch, conflict, not_serviceable, rate_limited, internal_error]
+            message: { type: string }
+            details: { description: Extra machine-readable context; shape depends on `code`. }
+    Region:
+      type: string
+      description: Region name as listed by `GET /coverage` (case-insensitive).
+      example: Accra
+    KumasiSubArea:
+      type: string
+      enum: [CampusAndEnvirons, Other]
+      description: |
+        Only for drop-offs in Kumasi. `CampusAndEnvirons` = KNUST campus,
+        Ayeduase, Ayigya, Bomso, Kotei. Defaults to `Other`.
+    ShipmentStatus:
+      type: string
+      enum: [pending, picked_up, in_transit, out_for_delivery, delayed, delivered, failed, cancelled]
+      description: See "Shipment lifecycle". New values may be added; treat unknown values as "in progress".
+    Coverage:
+      type: object
+      required: [currency, pickupRegions, dropoffRegions, operatingHours]
+      properties:
+        currency: { type: string, example: GHS }
+        pickupRegions:
+          type: array
+          items: { $ref: "#/components/schemas/Region" }
+          example: [Kumasi]
+        dropoffRegions:
+          type: array
+          items:
+            type: object
+            required: [region, fee]
+            properties:
+              region: { $ref: "#/components/schemas/Region" }
+              kumasiSubArea:
+                allOf: [{ $ref: "#/components/schemas/KumasiSubArea" }]
+                nullable: true
+              description: { type: string, nullable: true }
+              fee: { type: number, example: 45 }
+        operatingHours:
+          type: object
+          properties:
+            timezone: { type: string, example: Africa/Accra }
+            api:
+              type: object
+              properties:
+                days: { type: string, example: Mon-Sun }
+                open: { type: string, example: "05:00" }
+                close: { type: string, example: "20:00" }
+            riders:
+              type: object
+              properties:
+                days: { type: string, example: Mon-Sat }
+                open: { type: string, example: "08:00" }
+                close: { type: string, example: "19:30" }
+    QuoteRequest:
+      type: object
+      required: [pickupRegion, dropoffRegion]
+      properties:
+        pickupRegion: { $ref: "#/components/schemas/Region" }
+        dropoffRegion: { $ref: "#/components/schemas/Region" }
+        dropoffKumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
+    Quote:
+      oneOf:
+        - type: object
+          title: Serviceable
+          required: [serviceable, fee, currency, pickupRegion, dropoffRegion]
+          properties:
+            serviceable: { type: boolean, enum: [true] }
+            fee: { type: number, example: 45 }
+            currency: { type: string, example: GHS }
+            pickupRegion: { $ref: "#/components/schemas/Region" }
+            dropoffRegion: { $ref: "#/components/schemas/Region" }
+        - type: object
+          title: Not serviceable
+          required: [serviceable, reason, message]
+          properties:
+            serviceable: { type: boolean, enum: [false] }
+            reason: { type: string, enum: [pickup_region_not_served, dropoff_region_not_served] }
+            message: { type: string }
+    Contact:
+      type: object
+      required: [name, phone, region, location]
+      properties:
+        name: { type: string, maxLength: 120, example: Ama Store }
+        phone: { type: string, minLength: 7, maxLength: 20, example: "0241234567" }
+        region: { $ref: "#/components/schemas/Region" }
+        location:
+          type: string
+          maxLength: 300
+          description: Street address and landmarks the rider can find.
+          example: Adum, Shop 12, near Kejetia
+    CreateShipmentRequest:
+      type: object
+      required: [externalReference, pickup, dropoff, expectedFee]
+      properties:
+        externalReference:
+          type: string
+          maxLength: 100
+          description: Your id for this delivery (e.g. your order id). Unique per business; makes creates idempotent.
+          example: order_10293
+        pickup: { $ref: "#/components/schemas/Contact" }
+        dropoff:
+          allOf:
+            - $ref: "#/components/schemas/Contact"
+            - type: object
+              properties:
+                kumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
+                latitude: { type: number, minimum: -90, maximum: 90, description: Optional; gives the rider a map link. }
+                longitude: { type: number, minimum: -180, maximum: 180 }
+        package:
+          type: object
+          properties:
+            type: { type: string, enum: [document, parcel, electronics, fragile, food, other], default: parcel }
+            size: { type: string, enum: [small, medium, big], default: medium }
+            weightKg: { type: number, exclusiveMinimum: true, minimum: 0 }
+            description: { type: string, maxLength: 300, example: "2 pairs of shoes" }
+        speed: { type: string, enum: [same_day, next_day, express], default: next_day }
+        priority: { type: string, enum: [standard, high], default: standard }
+        expectedFee:
+          type: number
+          description: The fee you quoted to your customer. Must equal CPS's current fee, or the request fails with `fee_mismatch`.
+          example: 45
+        deliveryCode:
+          type: string
+          pattern: "^\\d{4,8}$"
+          description: Code your customer must give the rider to receive the package. See "Delivery codes".
+          example: "482913"
+        instructions: { type: string, maxLength: 1000, example: Call on arrival; gate is blue. }
+    RiderContact:
+      type: object
+      nullable: true
+      properties:
+        name: { type: string, example: Yaw Boateng }
+        phone: { type: string, nullable: true, example: "0551234567" }
+    Shipment:
+      type: object
+      required: [trackingCode, externalReference, status, fee, pickup, dropoff, package, rider, riders, deliveryCodeRequired, proofOfDelivery, cancellationReason, events, createdAt, updatedAt]
+      properties:
+        trackingCode: { type: string, example: CPS-7KQ2M9XA, description: CPS's tracking code. }
+        externalReference: { type: string, nullable: true, example: order_10293 }
+        status: { $ref: "#/components/schemas/ShipmentStatus" }
+        deliveryType: { type: string, enum: [doorstep, station] }
+        fee:
+          type: object
+          properties:
+            amount: { type: number, example: 45 }
+            currency: { type: string, example: GHS }
+        pickup: { $ref: "#/components/schemas/Contact" }
+        dropoff:
+          allOf:
+            - $ref: "#/components/schemas/Contact"
+            - type: object
+              properties:
+                kumasiSubArea:
+                  allOf: [{ $ref: "#/components/schemas/KumasiSubArea" }]
+                  nullable: true
+        package:
+          type: object
+          properties:
+            type: { type: string }
+            size: { type: string }
+        rider:
+          allOf: [{ $ref: "#/components/schemas/RiderContact" }]
+          description: The rider currently responsible — pickup rider until pickup, then the delivery rider. `null` until assigned.
+        riders:
+          type: object
+          properties:
+            pickup: { $ref: "#/components/schemas/RiderContact" }
+            dropoff: { $ref: "#/components/schemas/RiderContact" }
+        deliveryCodeRequired: { type: boolean }
+        proofOfDelivery:
+          type: object
+          nullable: true
+          description: Set once `status` is `delivered`.
+          properties:
+            method: { type: string, enum: [signature, photo], nullable: true }
+            recipientName: { type: string, nullable: true }
+            photoUrl: { type: string, nullable: true }
+            deliveryCodeVerified: { type: boolean }
+        cancellationReason: { type: string, nullable: true }
+        events:
+          type: array
+          description: Status history, oldest first.
+          items:
+            type: object
+            properties:
+              status: { $ref: "#/components/schemas/ShipmentStatus" }
+              note: { type: string, nullable: true }
+              at: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    WebhookEvent:
+      type: object
+      description: Body CPS POSTs to your webhook URL.
+      required: [id, type, createdAt, sequence, data]
+      properties:
+        id: { type: string, description: Unique event id — use it to de-duplicate. }
+        type: { type: string, enum: [shipment.created, shipment.rider_assigned, shipment.status_changed, shipment.delivered, shipment.cancelled, ping] }
+        createdAt: { type: string, format: date-time }
+        sequence: { type: integer, description: Increases with every event; ignore events older than the last one you applied for a shipment. }
+        data:
+          type: object
+          properties:
+            shipment: { $ref: "#/components/schemas/Shipment" }

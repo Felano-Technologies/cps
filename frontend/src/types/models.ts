@@ -92,9 +92,92 @@ export interface Shipment {
   packageImageUrl?: string | null;
   additionalInstructions: string | null;
   opsRemarks?: string;
+  // Partner API orders
+  businessId?: string | null;
+  business?: { id: string; name: string } | null;
+  externalReference?: string | null;
+  prepaid?: boolean;
+  deliveryCodeHash?: string | null;
+  deliveryCodeAttempts?: number;
+  deliveryCodeVerifiedAt?: string | null;
+  deliveryCodeOverrideNote?: string | null;
   createdAt: string;
   updatedAt: string;
   statusEvents?: ShipmentStatusEvent[];
+}
+
+/** True when the rider must collect the partner's delivery code before POD. */
+export function needsDeliveryCode(s: Pick<Shipment, 'deliveryCodeHash' | 'deliveryCodeVerifiedAt'>) {
+  return !!s.deliveryCodeHash && !s.deliveryCodeVerifiedAt;
+}
+
+// ── Business portal / Partner API ───────────────────────────────────────────
+
+export type BusinessStatus = 'pending' | 'approved' | 'suspended';
+
+export interface BusinessProfile {
+  id: string;
+  name: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  status: BusinessStatus;
+  webhookUrl: string | null;
+  createdAt: string;
+  activeKeys: number;
+  shipmentCounts: Partial<Record<ShipmentStatus, number>>;
+}
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface WebhookEventView {
+  id: string;
+  type: string;
+  sequence: number;
+  trackingCode: string | null;
+  externalReference: string | null;
+  state: 'pending' | 'delivered' | 'failed';
+  attempts: number;
+  lastStatusCode: number | null;
+  lastError: string | null;
+  nextAttemptAt: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+  body: unknown;
+}
+
+/** Shipment as returned by the Partner API (see backend lib/partnerSerializer.ts). */
+export interface PartnerShipment {
+  trackingCode: string;
+  externalReference: string | null;
+  status: ShipmentStatus;
+  deliveryType: DeliveryType;
+  fee: { amount: number; currency: 'GHS' };
+  pickup: { name: string; phone: string; region: string; location: string };
+  dropoff: { name: string; phone: string; region: string; kumasiSubArea: string | null; location: string };
+  package: { type: PackageType; size: PackageSize };
+  rider: { name: string; phone: string | null } | null;
+  deliveryCodeRequired: boolean;
+  proofOfDelivery: { method: PodMethod | null; recipientName: string | null; photoUrl: string | null; deliveryCodeVerified: boolean } | null;
+  cancellationReason: string | null;
+  events: { status: ShipmentStatus; note: string | null; at: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BusinessStatement {
+  from: string;
+  to: string;
+  currency: 'GHS';
+  count: number;
+  totalFees: number;
+  rows: { trackingCode: string; externalReference: string | null; receiverName: string; dropoffRegion: string; deliveredAt: string; fee: number }[];
 }
 
 export interface Notification {

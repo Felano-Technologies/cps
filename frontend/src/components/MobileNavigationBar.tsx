@@ -44,7 +44,8 @@ export default function MobileNavigationBar() {
       `}</style>
       
       {links.map((link) => {
-        const isActive = location.pathname.startsWith(link.path);
+        // '/business' is a prefix of every business page, so match it exactly.
+        const isActive = link.path === '/business' ? location.pathname === link.path : location.pathname.startsWith(link.path);
         return (
           <div 
             key={link.path}

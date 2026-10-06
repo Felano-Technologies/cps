@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton, SkeletonCircle, SkeletonStatCard, SkeletonListItem } from '../../components/Skeleton';
 import type { RiderProfile, RiderStatus, Shipment, ShipmentStatus, RiderDeduction, RiderBonus } from '../../types/models';
+import { needsDeliveryCode } from '../../types/models';
 
 const DEDUCTION_CATEGORY_LABELS: Record<string, string> = {
   late_delivery: 'Late Delivery',
@@ -161,23 +162,21 @@ export default function RiderDashboardPage() {
   const interactingStop = shipments.find(s => s.id === interactingStopId) ?? null;
   const detailsStop = shipments.find(s => s.id === detailsStopId) ?? null;
 
-  const handlePodSubmit = async (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null) => {
+  // Errors propagate to the modal, which stays open and shows them (e.g. a
+  // wrong delivery code) so the rider can correct and retry.
+  const handlePodSubmit = async (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null, deliveryCode?: string) => {
     if (!interactingStopId) return;
-    try {
-      const { data } = await api.patch<Shipment>(`/shipments/${interactingStopId}/pod`, {
-        podMethod: method,
-        podRecipientName: recipientName,
-        podSignatureData: signatureData ?? undefined,
-        podPhotoUrl: photoUrl ?? undefined,
-      });
-      setShipments(prev => prev.map(s => (s.id === data.id ? data : s)));
-      toast.success('Delivery confirmed.');
-    } catch (err) {
-      toast.error(extractErrorMessage(err, 'Failed to confirm delivery.'));
-    } finally {
-      setPodOpen(false);
-      setInteractingStopId(null);
-    }
+    const { data } = await api.patch<Shipment>(`/shipments/${interactingStopId}/pod`, {
+      podMethod: method,
+      podRecipientName: recipientName,
+      podSignatureData: signatureData ?? undefined,
+      podPhotoUrl: photoUrl ?? undefined,
+      deliveryCode,
+    });
+    setShipments(prev => prev.map(s => (s.id === data.id ? data : s)));
+    toast.success('Delivery confirmed.');
+    setPodOpen(false);
+    setInteractingStopId(null);
   };
 
   const handleIssueSubmit = async (reason: string) => {
@@ -510,7 +509,7 @@ export default function RiderDashboardPage() {
       </main>
 
       {podOpen && interactingStop && (
-        <ProofOfDeliveryModal stopAddress={interactingStop.dropoffLocation} onClose={() => { setPodOpen(false); setInteractingStopId(null); }} onSubmit={handlePodSubmit} />
+        <ProofOfDeliveryModal stopAddress={interactingStop.dropoffLocation} requiresDeliveryCode={needsDeliveryCode(interactingStop)} onClose={() => { setPodOpen(false); setInteractingStopId(null); }} onSubmit={handlePodSubmit} />
       )}
       {stationHandoverOpen && interactingStop && <StationHandoverModal stopAddress={interactingStop.stationLocation || interactingStop.dropoffLocation} onClose={() => { setStationHandoverOpen(false); setInteractingStopId(null); }} onSubmit={handleStationHandover} />}
 

@@ -5,13 +5,56 @@ import { prisma } from '../../server/lib/prisma';
 import { signToken } from '../../server/lib/auth';
 import shipmentsRoutes from '../../server/routes/shipments';
 import bonusesRoutes from '../../server/routes/bonuses';
+import businessRoutes from '../../server/routes/business';
+import businessAdminRoutes from '../../server/routes/businessAdmin';
+import partnerV1Routes, { partnerErrorHandler } from '../../server/routes/partner/v1';
+import { generateApiKey, generateWebhookSecret } from '../../server/lib/apiKeys';
 
 export function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/api/shipments', shipmentsRoutes);
   app.use('/api/bonuses', bonusesRoutes);
+  app.use('/api/business', businessRoutes);
+  app.use('/api/admin/businesses', businessAdminRoutes);
+  app.use('/api/partner/v1', partnerV1Routes, partnerErrorHandler);
   return app;
+}
+
+export interface TestBusiness extends TestUser {
+  businessId: string;
+  apiKey: string;
+  webhookSecret: string;
+}
+
+/** A business account (approved by default) with one active API key. */
+export async function createBusiness(options: {
+  status?: 'pending' | 'approved' | 'suspended';
+  webhookUrl?: string | null;
+} = {}): Promise<TestBusiness> {
+  const owner = await createUser('business');
+  const webhookSecret = generateWebhookSecret();
+  const business = await prisma.business.create({
+    data: {
+      ownerUserId: owner.id,
+      name: `Shop ${unique()}`,
+      status: options.status ?? 'approved',
+      webhookUrl: options.webhookUrl === undefined ? 'https://partner.test/webhooks/cps' : options.webhookUrl,
+      webhookSecret,
+    },
+  });
+  const { key, prefix, keyHash } = generateApiKey();
+  await prisma.apiKey.create({ data: { businessId: business.id, name: 'test', prefix, keyHash } });
+  return { ...owner, businessId: business.id, apiKey: key, webhookSecret };
+}
+
+/** supertest request authenticated with a Partner API key. */
+export function withKey(app: express.Express, apiKey: string) {
+  const auth = { Authorization: `Bearer ${apiKey}` };
+  return {
+    get: (url: string) => request(app).get(url).set(auth),
+    post: (url: string, body?: object) => request(app).post(url).set(auth).send(body ?? {}),
+  };
 }
 
 let counter = 0;
@@ -88,6 +131,8 @@ export function as(app: express.Express, user: TestUser) {
     get: (url: string) => request(app).get(url).set(auth),
     post: (url: string, body?: object) => request(app).post(url).set(auth).send(body ?? {}),
     patch: (url: string, body?: object) => request(app).patch(url).set(auth).send(body ?? {}),
+    put: (url: string, body?: object) => request(app).put(url).set(auth).send(body ?? {}),
+    delete: (url: string) => request(app).delete(url).set(auth),
   };
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { PenLine, Camera, CheckCircle2 } from 'lucide-react';
+import { PenLine, Camera, CheckCircle2, KeyRound } from 'lucide-react';
 import api from '../services/api';
 import Modal from './Modal';
 import SignaturePad from './SignaturePad';
@@ -8,8 +8,11 @@ import FileUpload from './Form/FileUpload';
 
 interface ProofOfDeliveryModalProps {
   onClose: () => void;
-  onSubmit: (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null) => void | Promise<void>;
+  /** Throw (e.g. rethrow the API error) to keep the modal open and show the message. */
+  onSubmit: (method: 'signature' | 'photo', recipientName: string, signatureData: string | null, photoUrl: string | null, deliveryCode?: string) => void | Promise<void>;
   stopAddress: string;
+  /** Partner orders: the customer gives the rider a code that must be entered to complete delivery. */
+  requiresDeliveryCode?: boolean;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -19,9 +22,12 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }: ProofOfDeliveryModalProps) {
+export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress, requiresDeliveryCode = false }: ProofOfDeliveryModalProps) {
   const [method, setMethod] = useState<'signature' | 'photo'>('signature');
   const [name, setName] = useState('');
+  const [deliveryCode, setDeliveryCode] = useState('');
+  // Keep an uploaded photo across retries (e.g. after a wrong delivery code).
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -31,6 +37,7 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
   const canSubmit =
     name.trim().length > 0 &&
     (method === 'signature' ? signatureData !== null : photoFile !== null) &&
+    (!requiresDeliveryCode || /^\d{4,8}$/.test(deliveryCode)) &&
     !isSubmitting;
 
   const handleSubmit = async () => {
@@ -38,16 +45,23 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
     setError(null);
     setIsSubmitting(true);
     try {
-      let photoUrl: string | null = null;
-      if (method === 'photo' && photoFile) {
+      let photoUrl: string | null = uploadedPhotoUrl;
+      if (method === 'photo' && photoFile && !photoUrl) {
         const formData = new FormData();
         formData.append('photo', photoFile);
         const { data } = await api.post<{ url: string }>('/uploads', formData);
         photoUrl = data.url;
+        setUploadedPhotoUrl(photoUrl);
       }
-      await onSubmit(method, name, method === 'signature' ? signatureData : null, photoUrl);
+      await onSubmit(
+        method,
+        name,
+        method === 'signature' ? signatureData : null,
+        method === 'photo' ? photoUrl : null,
+        requiresDeliveryCode ? deliveryCode : undefined
+      );
     } catch (err) {
-      const message = extractErrorMessage(err, 'Failed to upload delivery photo. Please try again.');
+      const message = extractErrorMessage(err, 'Failed to complete delivery. Please try again.');
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -120,6 +134,28 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
         />
       </div>
 
+      {requiresDeliveryCode && (
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <KeyRound size={14} /> Customer's Delivery Code
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={8}
+            value={deliveryCode}
+            onChange={e => setDeliveryCode(e.target.value.replace(/\D/g, ''))}
+            disabled={isSubmitting}
+            placeholder="Ask the customer for their code"
+            style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#f8fafc', border: '2px solid #e2e8f0', color: '#0f172a', fontSize: '20px', letterSpacing: '0.3em', outline: 'none', boxSizing: 'border-box' }}
+          />
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+            The customer received this code by SMS/app. Don't hand over the package without it.
+          </div>
+        </div>
+      )}
+
       {method === 'signature' ? (
         <div>
           <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '8px', display: 'block' }}>Digital Signature</label>
@@ -134,10 +170,12 @@ export default function ProofOfDeliveryModal({ onClose, onSubmit, stopAddress }:
             onFilesSelected={(files) => {
               setPhotoFile(files[0]);
               setPhotoPreview(URL.createObjectURL(files[0]));
+              setUploadedPhotoUrl(null);
             }}
             onRemove={() => {
               setPhotoFile(null);
               setPhotoPreview(null);
+              setUploadedPhotoUrl(null);
             }}
             icon={<Camera size={18} />}
           />

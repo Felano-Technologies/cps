@@ -56,6 +56,14 @@ import RiderRoutePage from './pages/rider/RiderRoutePage';
 import RiderStationDeliveriesPage from './pages/rider/RiderStationDeliveriesPage';
 import RiderEarningsPage from './pages/rider/RiderEarningsPage';
 
+// Business (Partner API) Pages
+import BusinessDashboardPage from './pages/business/BusinessDashboardPage';
+import BusinessOrdersPage from './pages/business/BusinessOrdersPage';
+import ApiKeysPage from './pages/business/ApiKeysPage';
+import WebhooksPage from './pages/business/WebhooksPage';
+import BusinessStatementPage from './pages/business/BusinessStatementPage';
+import DevelopersPage from './pages/public/DevelopersPage';
+
 // 404
 import NotFoundPage from './pages/public/NotFoundPage';
 
@@ -277,6 +285,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* BUSINESS (PARTNER API) ROUTES */}
+          <Route path="/developers" element={<DevelopersPage />} />
+          <Route path="/business" element={<ProtectedRoute requiredRole="business"><BusinessDashboardPage /></ProtectedRoute>} />
+          <Route path="/business/orders" element={<ProtectedRoute requiredRole="business"><BusinessOrdersPage /></ProtectedRoute>} />
+          <Route path="/business/keys" element={<ProtectedRoute requiredRole="business"><ApiKeysPage /></ProtectedRoute>} />
+          <Route path="/business/webhooks" element={<ProtectedRoute requiredRole="business"><WebhooksPage /></ProtectedRoute>} />
+          <Route path="/business/statement" element={<ProtectedRoute requiredRole="business"><BusinessStatementPage /></ProtectedRoute>} />
 
           {/* SHARED ROUTES */}
           <Route

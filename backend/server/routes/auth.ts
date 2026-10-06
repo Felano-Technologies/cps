@@ -8,6 +8,8 @@ import { clearSessionCookie, setSessionCookie, signToken } from '../lib/auth';
 import { requireAuth } from '../middleware/auth';
 import { sendSms } from '../lib/sms';
 import { uploadImageBuffer } from '../lib/cloudinary';
+import { generateWebhookSecret } from '../lib/apiKeys';
+import { notifyRoles } from '../lib/notifications';
 
 const router = Router();
 
@@ -277,11 +279,16 @@ router.post('/phone/verify-otp', async (req, res) => {
   res.json({ exists: true, user: toPublicUser(user, token) });
 });
 
+// Staff roles (operations, admin) are never self-assigned; they're created by an admin.
 const phoneSignupSchema = z.object({
   phone: z.string().min(7),
   code: z.string().length(6),
   name: z.string().min(1),
-  role: z.enum(['customer', 'operations', 'admin', 'rider']),
+  role: z.enum(['customer', 'rider', 'business']),
+  businessName: z.string().trim().min(2).optional(),
+  businessEmail: z.string().email().optional(),
+}).refine(data => data.role !== 'business' || !!data.businessName, {
+  message: 'Business name is required', path: ['businessName'],
 });
 
 router.post('/phone/signup', async (req, res) => {
@@ -289,7 +296,7 @@ router.post('/phone/signup', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
-  const { phone, code, name, role } = parsed.data;
+  const { phone, code, name, role, businessName, businessEmail } = parsed.data;
 
   const otp = await findValidOtp(phone, code);
   if (!otp) {
@@ -312,8 +319,25 @@ router.post('/phone/signup', async (req, res) => {
       role,
       phone,
       ...(role === 'rider' ? { riderProfile: { create: {} } } : {}),
+      ...(role === 'business'
+        ? {
+            business: {
+              create: {
+                name: businessName!,
+                contactEmail: businessEmail,
+                contactPhone: phone,
+                webhookSecret: generateWebhookSecret(),
+              },
+            },
+          }
+        : {}),
     },
   });
+
+  if (role === 'business') {
+    notifyRoles(['admin', 'operations'], 'business_signup', 'New business awaiting approval',
+      `${businessName} (${name}, ${phone}) signed up for Partner API access.`).catch(() => {});
+  }
 
   const token = signToken({ userId: user.id, role: user.role });
   setSessionCookie(res, token);

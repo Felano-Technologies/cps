@@ -8,6 +8,9 @@ import { generateTrackingCode } from '../lib/trackingCode';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { notify, notifyRoles } from '../lib/notifications';
 import { sendSms } from '../lib/sms';
+import { FINAL_STATUSES, notifyReceiverOfStatus, shipmentInclude } from '../lib/shipmentService';
+import { eventTypeForStatus, recordShipmentEvent } from '../lib/webhooks';
+import { MAX_DELIVERY_CODE_ATTEMPTS, deliveryCodeMatches } from '../lib/deliveryCode';
 
 const router = Router();
 router.use(requireAuth);
@@ -56,8 +59,8 @@ const shipmentInputBaseSchema = z.object({
 });
 
 const STATION_REGION = 'Station Delivery';
-const FINAL_STATUSES = ['delivered', 'cancelled', 'failed'] as const;
-const RIDER_SETTABLE_STATUSES = ['picked_up', 'in_transit', 'out_for_delivery', 'delayed'] as const;
+const STAFF_ROLES = ['operations', 'admin'];
+const RIDER_SETTABLE_STATUSES =['picked_up', 'in_transit', 'out_for_delivery', 'delayed'] as const;
 
 function isStationDelivery(data: { deliveryType?: string; dropoffRegion: string }) {
   return data.deliveryType === 'station' || data.dropoffRegion === STATION_REGION;
@@ -98,69 +101,6 @@ function isAssignedRider(
     shipment.pickupRiderId === riderProfileId ||
     shipment.dropoffRiderId === riderProfileId
   );
-}
-
-const shipmentInclude = {
-  statusEvents: { orderBy: { createdAt: 'asc' as const } },
-  assignedRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-  pickupRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-  dropoffRider: { include: { user: { select: { id: true, name: true, email: true, phone: true } } } },
-  bonuses: true,
-  customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
-};
-
-async function notifyReceiverOfStatus(
-  shipment: {
-    trackingCode: string;
-    receiverNumber: string;
-    deliveryFee: any;
-    productFee?: any;
-    dropoffLocation: string;
-    dropoffRider?: { user?: { name: string; phone?: string | null } } | null;
-  },
-  status: string,
-  note?: string
-) {
-  if (!shipment.receiverNumber) return;
-
-  const fee = Number(shipment.deliveryFee || 0).toFixed(2);
-  const cod = shipment.productFee && Number(shipment.productFee) > 0 
-    ? ` + COD: GHS ${Number(shipment.productFee).toFixed(2)}` 
-    : '';
-  const total = (Number(shipment.deliveryFee || 0) + Number(shipment.productFee || 0)).toFixed(2);
-
-  let message = '';
-  switch (status) {
-    case 'pending':
-      message = `CPS Logistics: Your package #${shipment.trackingCode} is confirmed! Delivery Fee: GHS ${fee}${cod}. Track: https://cpslogistics.com/track/${shipment.trackingCode}`;
-      break;
-    case 'picked_up':
-      message = `CPS Logistics: Package #${shipment.trackingCode} has been picked up from sender and is heading to our hub. Total to pay: GHS ${total}.`;
-      break;
-    case 'in_transit':
-      message = `CPS Logistics: Package #${shipment.trackingCode} is in transit towards ${shipment.dropoffLocation}.`;
-      break;
-    case 'out_for_delivery': {
-      const riderName = shipment.dropoffRider?.user?.name || 'our rider';
-      const riderPhone = shipment.dropoffRider?.user?.phone ? ` (${shipment.dropoffRider.user.phone})` : '';
-      message = `CPS Logistics: Package #${shipment.trackingCode} is OUT FOR DELIVERY by ${riderName}${riderPhone}. Amount to pay: GHS ${total}.`;
-      break;
-    }
-    case 'delivered':
-      message = `CPS Logistics: Package #${shipment.trackingCode} was delivered successfully. Thank you for choosing CPS!`;
-      break;
-    case 'delayed':
-      message = `CPS Logistics: Package #${shipment.trackingCode} has encountered a temporary delay${note ? `: ${note}` : ''}. Our dispatch team is working on it.`;
-      break;
-    default:
-      return;
-  }
-
-  try {
-    await sendSms(shipment.receiverNumber, message);
-  } catch (err) {
-    console.error('[sms] Failed to send receiver status SMS:', err);
-  }
 }
 
 async function creditRiderBonus(
@@ -380,6 +320,9 @@ async function buildListWhere(
   } else if (auth.role === 'rider') {
     const riderProfileId = await riderProfileIdFor(auth.userId);
     filters.push(riderScope(riderProfileId ?? '__none__'));
+  } else if (!STAFF_ROLES.includes(auth.role)) {
+    // Any other role (e.g. business accounts, which use /api/business) sees nothing here.
+    filters.push({ id: '__none__' });
   }
 
   if (status && (STATUSES as readonly string[]).includes(status)) {
@@ -509,6 +452,10 @@ router.get('/:trackingCode', async (req, res) => {
     return res.status(404).json({ error: 'Shipment not found' });
   }
 
+  if (!['customer', 'rider', ...STAFF_ROLES].includes(req.auth!.role)) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+
   res.json(shipment);
 });
 
@@ -543,6 +490,12 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
 
   if ((FINAL_STATUSES as readonly string[]).includes(shipment.status)) {
     return res.status(409).json({ error: `Shipment is already ${shipment.status}` });
+  }
+
+  // A partner's delivery code protects their payment release; ops can't skip it
+  // by setting delivered directly — they must use the audited override.
+  if (parsed.data.status === 'delivered' && shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt) {
+    return res.status(409).json({ error: 'This order needs the customer\'s delivery code. Use proof of delivery, or override the code with a reason.' });
   }
 
   // Conditional on the status we validated against, so a concurrent update
@@ -632,7 +585,8 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
   }
 
   // Send real-time SMS to package receiver
-  notifyReceiverOfStatus(updated, parsed.data.status, parsed.data.note);
+  void notifyReceiverOfStatus(updated, parsed.data.status, parsed.data.note);
+  await recordShipmentEvent(updated.id, eventTypeForStatus(parsed.data.status));
 
   res.json(updated);
 });
@@ -642,6 +596,7 @@ const podSchema = z.object({
   podRecipientName: z.string().min(1),
   podSignatureData: z.string().optional(),
   podPhotoUrl: z.string().url().optional(),
+  deliveryCode: z.string().trim().optional(),
 }).refine(data => data.podMethod !== 'photo' || !!data.podPhotoUrl, {
   message: 'A delivery photo is required for photo proof of delivery',
   path: ['podPhotoUrl'],
@@ -674,9 +629,37 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     return res.json(shipment);
   }
 
+  if (shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt) {
+    if (shipment.deliveryCodeAttempts >= MAX_DELIVERY_CODE_ATTEMPTS) {
+      return res.status(423).json({ error: 'Too many wrong codes. Operations must verify this delivery.', code: 'delivery_code_locked' });
+    }
+    if (!parsed.data.deliveryCode) {
+      return res.status(400).json({ error: 'Enter the delivery code the customer gives you.', code: 'delivery_code_required' });
+    }
+    if (!deliveryCodeMatches(shipment.trackingCode, parsed.data.deliveryCode, shipment.deliveryCodeHash)) {
+      const { deliveryCodeAttempts: attempts } = await prisma.shipment.update({
+        where: { id: shipment.id },
+        data: { deliveryCodeAttempts: { increment: 1 } },
+        select: { deliveryCodeAttempts: true },
+      });
+      const remaining = MAX_DELIVERY_CODE_ATTEMPTS - attempts;
+      if (remaining <= 0) {
+        notifyRoles(['operations', 'admin'], 'delivery_code_locked', `Delivery code locked: ${shipment.trackingCode}`,
+          `The rider entered a wrong delivery code ${MAX_DELIVERY_CODE_ATTEMPTS} times. Confirm with the customer and override if appropriate.`,
+          shipment.id).catch(() => {});
+        return res.status(423).json({ error: 'Too many wrong codes. Operations must verify this delivery.', code: 'delivery_code_locked' });
+      }
+      return res.status(400).json({
+        error: `Wrong delivery code. ${remaining} attempt${remaining === 1 ? '' : 's'} left.`,
+        code: 'delivery_code_invalid',
+      });
+    }
+  }
+
   const updated = await prisma.shipment.update({
     where: { id: shipment.id, status: { not: 'delivered' } },
     data: {
+      ...(shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt ? { deliveryCodeVerifiedAt: new Date() } : {}),
       status: 'delivered',
       podMethod: parsed.data.podMethod,
       podRecipientName: parsed.data.podRecipientName,
@@ -718,8 +701,39 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
   }
 
   // Notify package receiver via SMS
-  notifyReceiverOfStatus(updated, 'delivered');
+  void notifyReceiverOfStatus(updated, 'delivered');
+  await recordShipmentEvent(updated.id, 'shipment.delivered');
 
+  res.json(updated);
+});
+
+const deliveryCodeOverrideSchema = z.object({ note: z.string().trim().min(5, 'Explain why the code is being overridden') });
+
+/**
+ * Ops/admin: accept a delivery without the partner's code (customer lost it,
+ * rider locked out). Audited on the shipment and in its status history.
+ */
+router.patch('/:id/delivery-code-override', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = deliveryCodeOverrideSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
+  if (!shipment.deliveryCodeHash) return res.status(400).json({ error: 'This shipment has no delivery code' });
+  if (shipment.deliveryCodeVerifiedAt) return res.status(409).json({ error: 'Delivery code already verified' });
+
+  const actor = await prisma.user.findUnique({ where: { id: req.auth!.userId }, select: { name: true } });
+  const note = `Delivery code overridden by ${actor?.name ?? 'operations'}: ${parsed.data.note}`;
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: {
+      deliveryCodeVerifiedAt: new Date(),
+      deliveryCodeOverrideNote: note,
+      statusEvents: { create: { status: shipment.status, note } },
+    },
+    include: shipmentInclude,
+  });
   res.json(updated);
 });
 
@@ -784,6 +798,7 @@ router.patch('/:id/station-handover', requireRole('rider'), async (req, res) => 
     creditRiderBonus(updated.id, dRiderId, 'dropoff', updated.trackingCode,
       updated.dropoffRider?.userId || updated.assignedRider?.userId);
   }
+  await recordShipmentEvent(updated.id, 'shipment.delivered');
   res.json(updated);
 });
 
@@ -892,8 +907,19 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
     ).catch(() => {});
   }
 
+  if (nextPickupRiderId !== existingShipment.pickupRiderId || nextDropoffRiderId !== existingShipment.dropoffRiderId) {
+    await recordShipmentEvent(shipment.id, 'shipment.rider_assigned');
+  }
+
   res.json(shipment);
 });
+
+/** Partner (prepaid) orders keep the fee the partner already charged its customer. */
+function prepaidFeeConflict(shipment: { prepaid: boolean; deliveryFee: Prisma.Decimal }, newFee: number) {
+  return shipment.prepaid && Math.round(Number(shipment.deliveryFee) * 100) !== Math.round(newFee * 100);
+}
+
+const PREPAID_FEE_ERROR = 'This is a prepaid partner order; its delivery fee was agreed at booking and cannot be changed.';
 
 const priceSchema = z.object({
   deliveryFee: feeSchema,
@@ -908,6 +934,9 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
   const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
   if (!shipment) {
     return res.status(404).json({ error: 'Shipment not found' });
+  }
+  if (prepaidFeeConflict(shipment, parsed.data.deliveryFee)) {
+    return res.status(409).json({ error: PREPAID_FEE_ERROR });
   }
 
   const updated = await prisma.shipment.update({
@@ -948,6 +977,9 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
   const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
   if (!shipment) {
     return res.status(404).json({ error: 'Shipment not found' });
+  }
+  if (prepaidFeeConflict(shipment, parsed.data.deliveryFee)) {
+    return res.status(409).json({ error: PREPAID_FEE_ERROR });
   }
 
   // undefined = leave unchanged, null/'' = clear, string = assign (same semantics as /assign)
@@ -1012,7 +1044,13 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
   }
 
   // Notify receiver via SMS of confirmed price
-  notifyReceiverOfStatus(updated, 'pending');
+  void notifyReceiverOfStatus(updated, 'pending');
+
+  if (updated.pickupRiderId !== shipment.pickupRiderId || updated.dropoffRiderId !== shipment.dropoffRiderId) {
+    await recordShipmentEvent(updated.id, 'shipment.rider_assigned');
+  } else if (updated.status !== shipment.status) {
+    await recordShipmentEvent(updated.id, 'shipment.status_changed');
+  }
 
   res.json(updated);
 });
@@ -1152,8 +1190,10 @@ router.patch('/:id/cancel', async (req, res) => {
     return res.status(404).json({ error: 'Shipment not found' });
   }
 
-  // Check authorization for customer
-  if (req.auth!.role === 'customer' && shipment.customerId !== req.auth!.userId) {
+  // Customers cancel their own orders; staff cancel any. Riders and business
+  // accounts can't (businesses cancel through the Partner API).
+  const role = req.auth!.role;
+  if (!['customer', 'operations', 'admin'].includes(role) || (role === 'customer' && shipment.customerId !== req.auth!.userId)) {
     return res.status(403).json({ error: 'Not authorized to cancel this shipment' });
   }
 
@@ -1230,6 +1270,7 @@ router.patch('/:id/cancel', async (req, res) => {
     ).catch(() => {});
   }
 
+  await recordShipmentEvent(updated.id, 'shipment.cancelled');
   res.json(updated);
 });
 

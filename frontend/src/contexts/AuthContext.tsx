@@ -3,7 +3,12 @@ import axios from 'axios';
 import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
 import { MOCK_MODE, clearMockUser, getMockUser, setMockUser, type MockRole } from '../services/mockApi';
 
-export type UserRole = 'customer' | 'operations' | 'rider' | 'admin';
+export type UserRole = 'customer' | 'operations' | 'rider' | 'admin' | 'business';
+
+export interface BusinessSignupDetails {
+  businessName: string;
+  businessEmail?: string;
+}
 
 export const getRoleDashboard = (role?: UserRole): string => {
   switch (role) {
@@ -11,6 +16,7 @@ export const getRoleDashboard = (role?: UserRole): string => {
     case 'operations': return '/ops-board';
     case 'admin': return '/admin';
     case 'rider': return '/rider-board';
+    case 'business': return '/business';
     default: return '/';
   }
 };
@@ -34,7 +40,7 @@ interface AuthContextType {
   signup: (name: string, phone: string, password: string) => Promise<User>;
   requestPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, code: string) => Promise<{ exists: boolean; user?: User }>;
-  completePhoneSignup: (phone: string, code: string, name: string, role: UserRole) => Promise<User>;
+  completePhoneSignup: (phone: string, code: string, name: string, role: UserRole, business?: BusinessSignupDetails) => Promise<User>;
   requestPhoneVerification: () => Promise<void>;
   confirmPhoneVerification: (code: string) => Promise<User>;
   logout: () => void;
@@ -159,10 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const completePhoneSignup = async (phone: string, code: string, name: string, role: UserRole) => {
+  const completePhoneSignup = async (phone: string, code: string, name: string, role: UserRole, business?: BusinessSignupDetails) => {
     setError(null);
     try {
-      const { data } = await api.post<User>('/auth/phone/signup', { phone, code, name, role });
+      const { data } = await api.post<User>('/auth/phone/signup', { phone, code, name, role, ...business });
       persistAuthToken(data);
       setUser(data);
       return data;
