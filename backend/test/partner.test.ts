@@ -71,13 +71,17 @@ describe('authentication', () => {
 });
 
 describe('coverage and quotes', () => {
-  it('lists pickup regions and dropoff fees', async () => {
+  it('lists all five cities and a priced route for every pair', async () => {
     const res = await withKey(app, shop.apiKey).get('/api/partner/v1/coverage');
     expect(res.status).toBe(200);
-    expect(res.body.pickupRegions).toEqual(['Kumasi']);
-    expect(res.body.dropoffRegions).toEqual(expect.arrayContaining([
-      expect.objectContaining({ region: 'Accra', fee: 45 }),
-      expect.objectContaining({ region: 'Kumasi', kumasiSubArea: 'CampusAndEnvirons', fee: 20 }),
+    const cities = ['Kumasi', 'Sunyani', 'Tamale', 'Takoradi', 'Accra'];
+    expect(res.body.pickupRegions).toEqual(expect.arrayContaining(cities));
+    expect(res.body.dropoffRegions).toEqual(expect.arrayContaining(cities));
+    // 5×5 pairs, with Kumasi→Kumasi split into two sub-areas
+    expect(res.body.routes).toHaveLength(26);
+    expect(res.body.routes).toEqual(expect.arrayContaining([
+      { pickupRegion: 'Accra', dropoffRegion: 'Kumasi', kumasiSubArea: null, fee: 45 },
+      { pickupRegion: 'Kumasi', dropoffRegion: 'Kumasi', kumasiSubArea: 'CampusAndEnvirons', fee: 20 },
     ]));
   });
 
@@ -86,8 +90,30 @@ describe('coverage and quotes', () => {
     expect(res.body).toMatchObject({ serviceable: true, fee: 45, currency: 'GHS', dropoffRegion: 'Accra' });
   });
 
-  it('reports pickups outside CPS pickup zones as not serviceable', async () => {
-    const res = await withKey(app, shop.apiKey).post('/api/partner/v1/quotes', { pickupRegion: 'Accra', dropoffRegion: 'Kumasi' });
+  it.each([
+    // Kumasi out and back are priced the same both ways
+    ['Kumasi', 'Accra', undefined, 45],
+    ['Accra', 'Kumasi', undefined, 45],
+    ['Tamale', 'Kumasi', undefined, 60],
+    // Inside a city: 35 (KNUST campus area 20)
+    ['Accra', 'Accra', undefined, 35],
+    ['Tamale', 'Tamale', undefined, 35],
+    ['Kumasi', 'Kumasi', 'Other', 35],
+    ['Kumasi', 'Kumasi', 'CampusAndEnvirons', 20],
+    // Campus rate only applies within Kumasi
+    ['Accra', 'Kumasi', 'CampusAndEnvirons', 45],
+    // Between two non-Kumasi cities: the higher of their Kumasi rates
+    ['Accra', 'Takoradi', undefined, 55],
+    ['Accra', 'Tamale', undefined, 60],
+    ['Takoradi', 'Sunyani', undefined, 55],
+    ['Sunyani', 'Tamale', undefined, 60],
+  ])('prices %s → %s (%s) at GHS %d', async (pickupRegion, dropoffRegion, dropoffKumasiSubArea, fee) => {
+    const res = await withKey(app, shop.apiKey).post('/api/partner/v1/quotes', { pickupRegion, dropoffRegion, dropoffKumasiSubArea });
+    expect(res.body).toMatchObject({ serviceable: true, fee });
+  });
+
+  it('reports pickups outside CPS cities as not serviceable', async () => {
+    const res = await withKey(app, shop.apiKey).post('/api/partner/v1/quotes', { pickupRegion: 'Cape Coast', dropoffRegion: 'Kumasi' });
     expect(res.body).toMatchObject({ serviceable: false, reason: 'pickup_region_not_served' });
   });
 
@@ -140,10 +166,19 @@ describe('creating shipments', () => {
 
   it('rejects routes CPS does not serve', async () => {
     const res = await withKey(app, shop.apiKey).post('/api/partner/v1/shipments', shipmentBody({
-      pickup: { name: 'Accra Shop', phone: '+233200001002', region: 'Accra', location: 'Osu' },
+      pickup: { name: 'Coast Shop', phone: '+233200001002', region: 'Cape Coast', location: 'Kotokuraba' },
     }));
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('not_serviceable');
+  });
+
+  it('creates a same-city delivery outside Kumasi', async () => {
+    const body = await createPartnerShipment({
+      pickup: { name: 'Osu Shop', phone: '+233200001004', region: 'Accra', location: 'Osu, Oxford St' },
+      dropoff: { name: 'Akua', phone: '+233200001005', region: 'Accra', location: 'East Legon' },
+      expectedFee: 35,
+    });
+    expect(body).toMatchObject({ fee: { amount: 35 }, pickup: { region: 'Accra' }, dropoff: { region: 'Accra' } });
   });
 
   it('returns field-level validation errors', async () => {

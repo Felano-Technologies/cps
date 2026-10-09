@@ -1,12 +1,13 @@
-import { DELIVERY_RATES, KUMASI_RATES, calculateDeliveryCost } from './pricing';
+import { CPS_CITIES, KUMASI_RATES, calculateRouteCost } from './pricing';
 
 /**
- * Regions CPS riders collect from. CPS is based in Kumasi; add a region here
- * (or via CPS_PICKUP_ZONES="Kumasi,Accra") once riders operate there.
+ * Cities CPS riders collect from. CPS has people in every city it delivers
+ * to, so by default that's all of them. Override with
+ * CPS_PICKUP_ZONES="Kumasi,Accra" to narrow it.
  */
 export function pickupZones(): string[] {
   const fromEnv = process.env.CPS_PICKUP_ZONES?.split(',').map(z => z.trim()).filter(Boolean);
-  return fromEnv?.length ? fromEnv : ['Kumasi'];
+  return fromEnv?.length ? fromEnv : [...CPS_CITIES];
 }
 
 export const OPERATING_HOURS = {
@@ -27,21 +28,33 @@ function canonicalRegion(region: string, known: string[]): string | null {
   return known.find(k => k.toLowerCase() === wanted) ?? null;
 }
 
-const DROPOFF_REGIONS = ['Kumasi', ...Object.keys(DELIVERY_RATES)];
+/** Every priced route, so partners can price locally from a cached copy. */
+function routes() {
+  const rows: { pickupRegion: string; dropoffRegion: string; kumasiSubArea: string | null; fee: number }[] = [];
+  for (const from of pickupZones()) {
+    for (const to of CPS_CITIES) {
+      if (from === 'Kumasi' && to === 'Kumasi') {
+        for (const subArea of Object.keys(KUMASI_RATES) as (keyof typeof KUMASI_RATES)[]) {
+          rows.push({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: subArea, fee: calculateRouteCost({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: subArea })! });
+        }
+      } else {
+        rows.push({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: null, fee: calculateRouteCost({ pickupRegion: from, dropoffRegion: to })! });
+      }
+    }
+  }
+  return rows;
+}
 
 export function coverage() {
   return {
     currency: 'GHS',
     pickupRegions: pickupZones(),
-    dropoffRegions: [
-      ...(Object.keys(KUMASI_RATES) as (keyof typeof KUMASI_RATES)[]).map(subArea => ({
-        region: 'Kumasi',
-        kumasiSubArea: subArea,
-        description: KUMASI_SUB_AREA_LABELS[subArea],
-        fee: KUMASI_RATES[subArea],
-      })),
-      ...Object.entries(DELIVERY_RATES).map(([region, fee]) => ({ region, kumasiSubArea: null, description: null, fee })),
-    ],
+    dropoffRegions: [...CPS_CITIES],
+    kumasiSubAreas: (Object.keys(KUMASI_RATES) as (keyof typeof KUMASI_RATES)[]).map(subArea => ({
+      kumasiSubArea: subArea,
+      description: KUMASI_SUB_AREA_LABELS[subArea],
+    })),
+    routes: routes(),
     operatingHours: OPERATING_HOURS,
   };
 }
@@ -65,15 +78,15 @@ export function quote(input: {
     };
   }
 
-  const dropoffRegion = canonicalRegion(input.dropoffRegion, DROPOFF_REGIONS);
+  const dropoffRegion = canonicalRegion(input.dropoffRegion, CPS_CITIES);
   const fee = dropoffRegion
-    ? calculateDeliveryCost({ region: dropoffRegion, kumasiSubArea: input.dropoffKumasiSubArea })
+    ? calculateRouteCost({ pickupRegion, dropoffRegion, kumasiSubArea: input.dropoffKumasiSubArea })
     : null;
   if (!dropoffRegion || fee === null) {
     return {
       serviceable: false,
       reason: 'dropoff_region_not_served',
-      message: `CPS does not deliver to "${input.dropoffRegion}". Delivery regions: ${DROPOFF_REGIONS.join(', ')}.`,
+      message: `CPS does not deliver to "${input.dropoffRegion}". Delivery regions: ${CPS_CITIES.join(', ')}.`,
     };
   }
 

@@ -25,8 +25,9 @@ info:
     4. **Settle** — pay CPS for delivered orders. Your Business portal has a
        statement of every delivery and fee for any period.
 
-    CPS is based in **Kumasi**. Riders collect from the pickup regions listed by
-    `GET /coverage` and deliver to the drop-off regions listed there.
+    CPS operates in **Kumasi, Accra, Takoradi, Sunyani and Tamale**. Riders
+    collect from and deliver to any of these cities, both within a city and
+    between cities. `GET /coverage` lists them with every route's price.
 
     # Getting access
 
@@ -88,8 +89,22 @@ info:
     - `POST /shipments` requires `expectedFee`. If CPS's current price differs
       you get `409 fee_mismatch` with the current fee in `error.details.fee` —
       nothing is created. Decide how to handle the difference, then retry.
-    - The fee depends on the drop-off region (and, inside Kumasi, the
-      sub-area). Get the live rate card from `GET /coverage`.
+    - The fee depends on the **pickup city and the drop-off city**, and is the
+      same in both directions:
+
+      | From \ To | Kumasi | Accra | Takoradi | Sunyani | Tamale |
+      |---|---|---|---|---|---|
+      | **Kumasi** | 35 (KNUST area 20) | 45 | 55 | 55 | 60 |
+      | **Accra** | 45 | 35 | 55 | 55 | 60 |
+      | **Takoradi** | 55 | 55 | 35 | 55 | 60 |
+      | **Sunyani** | 55 | 55 | 55 | 35 | 60 |
+      | **Tamale** | 60 | 60 | 60 | 60 | 35 |
+
+      Within a city costs 35. Inside Kumasi, drop-offs on/around KNUST campus
+      (`dropoffKumasiSubArea: CampusAndEnvirons`) cost 20. Between cities, the
+      price is the same either way.
+    - `GET /coverage` returns this as `routes`, so you can price locally from a
+      cached copy (refresh at least hourly). `POST /quotes` gives the same answer.
     - Partner orders are **prepaid**: CPS never asks the receiver for money.
 
     # Shipment lifecycle
@@ -286,6 +301,12 @@ paths:
               campus:
                 summary: Within Kumasi, KNUST area
                 value: { pickupRegion: Kumasi, dropoffRegion: Kumasi, dropoffKumasiSubArea: CampusAndEnvirons }
+              accraToKumasi:
+                summary: Accra to Kumasi
+                value: { pickupRegion: Accra, dropoffRegion: Kumasi }
+              withinAccra:
+                summary: Within Accra
+                value: { pickupRegion: Accra, dropoffRegion: Accra }
       responses:
         "200":
           description: Quote (check `serviceable`)
@@ -296,7 +317,7 @@ paths:
                 serviceable:
                   value: { serviceable: true, fee: 45, currency: GHS, pickupRegion: Kumasi, dropoffRegion: Accra }
                 notServiceable:
-                  value: { serviceable: false, reason: pickup_region_not_served, message: 'CPS does not collect from "Accra". Pickup regions: Kumasi.' }
+                  value: { serviceable: false, reason: pickup_region_not_served, message: 'CPS does not collect from "Cape Coast". Pickup regions: Kumasi, Sunyani, Tamale, Takoradi, Accra.' }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /shipments:
@@ -501,33 +522,54 @@ components:
       type: string
       enum: [CampusAndEnvirons, Other]
       description: |
-        Only for drop-offs in Kumasi. `CampusAndEnvirons` = KNUST campus,
-        Ayeduase, Ayigya, Bomso, Kotei. Defaults to `Other`.
+        Only matters for deliveries within Kumasi (pickup and drop-off both in
+        Kumasi). `CampusAndEnvirons` = KNUST campus, Ayeduase, Ayigya, Bomso,
+        Kotei (GHS 20). Defaults to `Other` (GHS 35). Ignored for other routes.
     ShipmentStatus:
       type: string
       enum: [pending, picked_up, in_transit, out_for_delivery, delayed, delivered, failed, cancelled]
       description: See "Shipment lifecycle". New values may be added; treat unknown values as "in progress".
     Coverage:
       type: object
-      required: [currency, pickupRegions, dropoffRegions, operatingHours]
+      required: [currency, pickupRegions, dropoffRegions, kumasiSubAreas, routes, operatingHours]
       properties:
         currency: { type: string, example: GHS }
         pickupRegions:
           type: array
+          description: Cities CPS collects from.
           items: { $ref: "#/components/schemas/Region" }
-          example: [Kumasi]
+          example: [Kumasi, Accra, Takoradi, Sunyani, Tamale]
         dropoffRegions:
+          type: array
+          description: Cities CPS delivers to.
+          items: { $ref: "#/components/schemas/Region" }
+          example: [Kumasi, Accra, Takoradi, Sunyani, Tamale]
+        kumasiSubAreas:
           type: array
           items:
             type: object
-            required: [region, fee]
             properties:
-              region: { $ref: "#/components/schemas/Region" }
+              kumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
+              description: { type: string, example: "KNUST campus, Ayeduase, Ayigya, Bomso, Kotei" }
+        routes:
+          type: array
+          description: |
+            The full price list: one row per pickup → drop-off pair. Kumasi → Kumasi
+            has one row per `kumasiSubArea`; every other row has `kumasiSubArea: null`.
+          items:
+            type: object
+            required: [pickupRegion, dropoffRegion, kumasiSubArea, fee]
+            properties:
+              pickupRegion: { $ref: "#/components/schemas/Region" }
+              dropoffRegion: { $ref: "#/components/schemas/Region" }
               kumasiSubArea:
                 allOf: [{ $ref: "#/components/schemas/KumasiSubArea" }]
                 nullable: true
-              description: { type: string, nullable: true }
               fee: { type: number, example: 45 }
+          example:
+            - { pickupRegion: Kumasi, dropoffRegion: Accra, kumasiSubArea: null, fee: 45 }
+            - { pickupRegion: Accra, dropoffRegion: Accra, kumasiSubArea: null, fee: 35 }
+            - { pickupRegion: Kumasi, dropoffRegion: Kumasi, kumasiSubArea: CampusAndEnvirons, fee: 20 }
         operatingHours:
           type: object
           properties:

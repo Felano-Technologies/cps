@@ -64,7 +64,12 @@ Partner server ─(API key)► /api/partner/v1/*    coverage, quotes, shipments
 ### Operating it
 
 - **Approving a business:** Admin panel → *Business accounts* → Approve. Suspending a business disables all its keys immediately.
-- **Expanding pickup coverage:** set `CPS_PICKUP_ZONES=Kumasi,Accra` (comma-separated) once riders operate there. Pickup zones and drop-off rates are both read live, so partners see the change in `GET /coverage` straight away.
+- **Coverage and prices:** CPS collects from and delivers to Kumasi, Accra, Takoradi, Sunyani and Tamale. The route price list is `calculateRouteCost` in `lib/pricing.ts`:
+  - Within a city: 35 (KNUST area of Kumasi: 20).
+  - Kumasi ↔ another city: that city's rate, both ways (Accra 45, Takoradi/Sunyani 55, Tamale 60).
+  - Between two non-Kumasi cities: the higher of the two rates.
+
+  To stop collecting from a city temporarily, set `CPS_PICKUP_ZONES` (comma-separated, e.g. `Kumasi,Accra`). Partners see changes in `GET /coverage` straight away.
 - **Webhook failures:** partners can see and retry deliveries under *Webhooks* in the portal. Events are stored in the `webhook_events` table: `deliveredAt` set means delivered, `failedAt` set means retries ran out.
 - **Environment:** `DELIVERY_CODE_SECRET` (recommended; don't change it once codes exist, or open codes stop verifying) and `CPS_PICKUP_ZONES` (optional).
 
