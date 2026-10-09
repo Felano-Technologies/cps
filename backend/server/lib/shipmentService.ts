@@ -13,6 +13,9 @@ export const shipmentInclude = {
 
 export const FINAL_STATUSES = ['delivered', 'cancelled', 'failed'] as const;
 
+/** Public web app, used for links in SMS messages. */
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://www.cpsdeliverygh.com').replace(/\/+$/, '');
+
 /** SMS the receiver about a status change. Never throws. */
 export async function notifyReceiverOfStatus(
   shipment: {
@@ -43,7 +46,7 @@ export async function notifyReceiverOfStatus(
     case 'pending':
       message = shipment.prepaid
         ? `CPS Logistics: Your package #${shipment.trackingCode} has been booked for delivery.`
-        : `CPS Logistics: Your package #${shipment.trackingCode} is confirmed! Delivery Fee: GHS ${fee}${cod}. Track: https://cpslogistics.com/track/${shipment.trackingCode}`;
+        : `CPS Logistics: Your package #${shipment.trackingCode} is confirmed! Delivery Fee: GHS ${fee}${cod}. Track: ${FRONTEND_URL}/tracking/${shipment.trackingCode}`;
       break;
     case 'picked_up':
       message = `CPS Logistics: Package #${shipment.trackingCode} has been picked up from sender and is heading to our hub.${amountDue}`;
