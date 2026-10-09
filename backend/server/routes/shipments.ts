@@ -462,7 +462,45 @@ router.get('/:trackingCode', async (req, res) => {
 const statusUpdateSchema = z.object({
   status: z.enum(STATUSES),
   note: z.string().optional(),
+  /** Required to mark a partner order delivered when it carries a delivery code. */
+  deliveryCode: z.string().trim().optional(),
 });
+
+/**
+ * Checks the customer's delivery code for a partner order that has one.
+ * Returns null when delivery may proceed, otherwise the HTTP error to send.
+ * Wrong entries count toward the lock (shared by riders and ops).
+ */
+async function checkDeliveryCode(
+  shipment: { id: string; trackingCode: string; deliveryCodeHash: string | null; deliveryCodeVerifiedAt: Date | null; deliveryCodeAttempts: number },
+  code: string | undefined
+): Promise<{ status: number; body: { error: string; code: string } } | null> {
+  if (!shipment.deliveryCodeHash || shipment.deliveryCodeVerifiedAt) return null;
+  if (shipment.deliveryCodeAttempts >= MAX_DELIVERY_CODE_ATTEMPTS) {
+    return { status: 423, body: { error: 'Too many wrong codes. Confirm with the customer and override the code with a reason.', code: 'delivery_code_locked' } };
+  }
+  if (!code) {
+    return { status: 400, body: { error: 'Enter the delivery code the customer gives you.', code: 'delivery_code_required' } };
+  }
+  if (deliveryCodeMatches(shipment.trackingCode, code, shipment.deliveryCodeHash)) return null;
+
+  const { deliveryCodeAttempts: attempts } = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: { deliveryCodeAttempts: { increment: 1 } },
+    select: { deliveryCodeAttempts: true },
+  });
+  const remaining = MAX_DELIVERY_CODE_ATTEMPTS - attempts;
+  if (remaining <= 0) {
+    notifyRoles(['operations', 'admin'], 'delivery_code_locked', `Delivery code locked: ${shipment.trackingCode}`,
+      `A wrong delivery code was entered ${MAX_DELIVERY_CODE_ATTEMPTS} times. Confirm with the customer and override if appropriate.`,
+      shipment.id).catch(() => {});
+    return { status: 423, body: { error: 'Too many wrong codes. Confirm with the customer and override the code with a reason.', code: 'delivery_code_locked' } };
+  }
+  return {
+    status: 400,
+    body: { error: `Wrong delivery code. ${remaining} attempt${remaining === 1 ? '' : 's'} left.`, code: 'delivery_code_invalid' },
+  };
+}
 
 router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (req, res) => {
   const parsed = statusUpdateSchema.safeParse(req.body);
@@ -492,10 +530,12 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
     return res.status(409).json({ error: `Shipment is already ${shipment.status}` });
   }
 
-  // A partner's delivery code protects their payment release; ops can't skip it
-  // by setting delivered directly — they must use the audited override.
-  if (parsed.data.status === 'delivered' && shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt) {
-    return res.status(409).json({ error: 'This order needs the customer\'s delivery code. Use proof of delivery, or override the code with a reason.' });
+  // A partner's delivery code protects their payment release: marking a coded
+  // order delivered needs the customer's code (or the audited override).
+  const codeRequired = parsed.data.status === 'delivered' && !!shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt;
+  if (codeRequired) {
+    const codeFailure = await checkDeliveryCode(shipment, parsed.data.deliveryCode);
+    if (codeFailure) return res.status(codeFailure.status).json(codeFailure.body);
   }
 
   // Conditional on the status we validated against, so a concurrent update
@@ -503,7 +543,7 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
   const changed = await prisma.$transaction(async tx => {
     const { count } = await tx.shipment.updateMany({
       where: { id: shipment.id, status: shipment.status },
-      data: { status: parsed.data.status },
+      data: { status: parsed.data.status, ...(codeRequired ? { deliveryCodeVerifiedAt: new Date() } : {}) },
     });
     if (count === 0) return false;
     await tx.shipmentStatusEvent.create({
@@ -629,32 +669,8 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
     return res.json(shipment);
   }
 
-  if (shipment.deliveryCodeHash && !shipment.deliveryCodeVerifiedAt) {
-    if (shipment.deliveryCodeAttempts >= MAX_DELIVERY_CODE_ATTEMPTS) {
-      return res.status(423).json({ error: 'Too many wrong codes. Operations must verify this delivery.', code: 'delivery_code_locked' });
-    }
-    if (!parsed.data.deliveryCode) {
-      return res.status(400).json({ error: 'Enter the delivery code the customer gives you.', code: 'delivery_code_required' });
-    }
-    if (!deliveryCodeMatches(shipment.trackingCode, parsed.data.deliveryCode, shipment.deliveryCodeHash)) {
-      const { deliveryCodeAttempts: attempts } = await prisma.shipment.update({
-        where: { id: shipment.id },
-        data: { deliveryCodeAttempts: { increment: 1 } },
-        select: { deliveryCodeAttempts: true },
-      });
-      const remaining = MAX_DELIVERY_CODE_ATTEMPTS - attempts;
-      if (remaining <= 0) {
-        notifyRoles(['operations', 'admin'], 'delivery_code_locked', `Delivery code locked: ${shipment.trackingCode}`,
-          `The rider entered a wrong delivery code ${MAX_DELIVERY_CODE_ATTEMPTS} times. Confirm with the customer and override if appropriate.`,
-          shipment.id).catch(() => {});
-        return res.status(423).json({ error: 'Too many wrong codes. Operations must verify this delivery.', code: 'delivery_code_locked' });
-      }
-      return res.status(400).json({
-        error: `Wrong delivery code. ${remaining} attempt${remaining === 1 ? '' : 's'} left.`,
-        code: 'delivery_code_invalid',
-      });
-    }
-  }
+  const codeFailure = await checkDeliveryCode(shipment, parsed.data.deliveryCode);
+  if (codeFailure) return res.status(codeFailure.status).json(codeFailure.body);
 
   const updated = await prisma.shipment.update({
     where: { id: shipment.id, status: { not: 'delivered' } },

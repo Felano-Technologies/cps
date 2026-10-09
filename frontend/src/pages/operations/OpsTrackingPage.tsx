@@ -201,8 +201,19 @@ export default function OpsTrackingPage() {
 
   const handleStatusChange = async (status: string) => {
     if (!shipment) return;
+    // Partner orders with a delivery code: ask for the code the customer gives.
+    let deliveryCode: string | undefined;
+    if (status === 'delivered' && needsDeliveryCode(shipment)) {
+      const entered = window.prompt("Enter the customer's delivery code (from their SMS/app):");
+      if (entered === null) return;
+      deliveryCode = entered.replace(/\D/g, '');
+      if (!deliveryCode) {
+        toast.error('Enter the delivery code to mark this order delivered.');
+        return;
+      }
+    }
     try {
-      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/status`, { status });
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/status`, { status, deliveryCode });
       setShipment(data);
       toast.success('Status updated successfully.');
     } catch (err) {

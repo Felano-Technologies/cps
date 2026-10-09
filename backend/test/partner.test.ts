@@ -259,11 +259,22 @@ describe('ops on partner shipments', () => {
     expect(res.status).toBe(409);
   });
 
-  it('cannot mark a coded order delivered without the code', async () => {
+  it('needs the customer code to mark a coded order delivered', async () => {
     const created = await createPartnerShipment({ deliveryCode: '1234' });
     const s = await internalShipment(created.trackingCode);
-    const res = await as(app, ops).patch(`/api/shipments/${s.id}/status`, { status: 'delivered' });
-    expect(res.status).toBe(409);
+
+    const missing = await as(app, ops).patch(`/api/shipments/${s.id}/status`, { status: 'delivered' });
+    expect(missing.status).toBe(400);
+    expect(missing.body.code).toBe('delivery_code_required');
+
+    const wrong = await as(app, ops).patch(`/api/shipments/${s.id}/status`, { status: 'delivered', deliveryCode: '9999' });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.code).toBe('delivery_code_invalid');
+
+    const right = await as(app, ops).patch(`/api/shipments/${s.id}/status`, { status: 'delivered', deliveryCode: '1234' });
+    expect(right.status).toBe(200);
+    expect(right.body.status).toBe('delivered');
+    expect(right.body.deliveryCodeVerifiedAt).toBeTruthy();
   });
 
   it('can override the code with an audited note', async () => {
