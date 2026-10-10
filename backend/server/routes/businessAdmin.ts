@@ -30,6 +30,7 @@ function view(b: BusinessRow) {
     contactEmail: b.contactEmail,
     contactPhone: b.contactPhone,
     webhookUrl: b.webhookUrl,
+    cpsSharePercent: Number(b.cpsSharePercent),
     owner: b.owner,
     shipmentCount: b._count.shipments,
     activeKeyCount: b._count.apiKeys,
@@ -56,13 +57,14 @@ const createSchema = z.object({
   phone: z.string().trim().min(7),
   email: z.string().trim().email().optional(),
   webhookUrl: z.string().trim().url().optional(),
+  cpsSharePercent: z.number().min(0).max(100).optional(),
 });
 
 /** Registers a business (approved) and texts the owner their login details. */
 router.post('/', async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-  const { businessName, ownerName, phone, email, webhookUrl } = parsed.data;
+  const { businessName, ownerName, phone, email, webhookUrl, cpsSharePercent } = parsed.data;
   if (await prisma.user.findUnique({ where: { phone }, select: { id: true } })) {
     return res.status(409).json({ error: 'Another account already uses this phone number' });
   }
@@ -77,6 +79,7 @@ router.post('/', async (req, res) => {
         contactPhone: phone,
         status: 'approved',
         webhookUrl,
+        cpsSharePercent,
         webhookSecret: generateWebhookSecret(),
         owner: {
           create: {
@@ -110,6 +113,8 @@ const updateSchema = z.object({
   ownerName: z.string().trim().min(1).max(120).optional(),
   /** Changes the number the owner signs in with. */
   ownerPhone: z.string().trim().min(7).optional(),
+  /** CPS's cut of each delivery fee. Applies to invoices raised from now on. */
+  cpsSharePercent: z.number().min(0).max(100).optional(),
 });
 
 router.patch('/:id', async (req, res) => {

@@ -14,6 +14,7 @@ interface StaffBusiness {
   contactEmail: string | null;
   contactPhone: string | null;
   webhookUrl: string | null;
+  cpsSharePercent: number;
   owner: { id: string; name: string; phone: string | null; email: string };
   shipmentCount: number;
   activeKeyCount: number;
@@ -48,6 +49,7 @@ function BusinessFormModal({ business, onClose, onSaved }: {
   const [ownerName, setOwnerName] = useState(business?.owner.name ?? '');
   const [phone, setPhone] = useState(business?.owner.phone ?? '');
   const [email, setEmail] = useState(business?.contactEmail ?? '');
+  const [cpsShare, setCpsShare] = useState(String(business?.cpsSharePercent ?? 85));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +65,7 @@ function BusinessFormModal({ business, onClose, onSaved }: {
           ownerPhone: phone.trim(),
           contactPhone: phone.trim(),
           contactEmail: email.trim() || null,
+          cpsSharePercent: Number(cpsShare),
         });
         onSaved(data);
       } else {
@@ -71,6 +74,7 @@ function BusinessFormModal({ business, onClose, onSaved }: {
           ownerName: ownerName.trim(),
           phone: phone.trim(),
           ...(email.trim() ? { email: email.trim() } : {}),
+          cpsSharePercent: Number(cpsShare),
         });
         const { tempPassword, ...created } = data;
         onSaved(created, { tempPassword, sentTo: phone.trim() });
@@ -99,6 +103,14 @@ function BusinessFormModal({ business, onClose, onSaved }: {
           <input style={inputStyle} type="tel" required minLength={7} value={phone} onChange={e => setPhone(e.target.value)} placeholder="0241234567" />
         </div>
         <div><label style={labelStyle}>Email (optional)</label><input style={inputStyle} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tech@business.com" /></div>
+        <div>
+          <label style={labelStyle}>CPS share of each delivery fee (%)</label>
+          <input style={inputStyle} type="number" required min={0} max={100} step="0.01" value={cpsShare} onChange={e => setCpsShare(e.target.value)} />
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+            The business keeps {Number.isFinite(Number(cpsShare)) ? Math.max(0, 100 - Number(cpsShare)).toFixed(2).replace(/\.00$/, '') : '—'}%.
+            {editing && ' A new rate applies to invoices raised from now on; existing invoices keep their rate.'}
+          </div>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
           <button type="button" className="neutral-btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="primary-green" disabled={saving}>
@@ -196,19 +208,19 @@ export default function BusinessesPage() {
         </div>
 
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+          <table style={{ width: '100%', minWidth: 940, borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Business', 'Owner', 'Orders', 'API keys', 'Status', ''].map(h => (
+                {['Business', 'Owner', 'Orders', 'CPS share', 'API keys', 'Status', ''].map(h => (
                   <th key={h} style={{ padding: '14px 16px', color: '#64748b', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</td></tr>
+                <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading…</td></tr>
               ) : shown.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
+                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
                   <Building2 size={28} style={{ display: 'block', margin: '0 auto 8px', color: '#cbd5e1' }} />
                   {businesses.length === 0 ? 'No businesses yet. Register one to give them API access.' : 'No businesses match your search.'}
                 </td></tr>
@@ -223,6 +235,7 @@ export default function BusinessesPage() {
                     </td>
                     <td style={{ padding: '14px 16px' }}>{b.owner.name}<div style={{ fontSize: 12, color: '#078c35' }}>{b.owner.phone ?? '—'}</div></td>
                     <td style={{ padding: '14px 16px' }}>{b.shipmentCount}</td>
+                    <td style={{ padding: '14px 16px' }}><strong>{b.cpsSharePercent}%</strong><div style={{ fontSize: 12, color: '#64748b' }}>keeps {Math.round((100 - b.cpsSharePercent) * 100) / 100}%</div></td>
                     <td style={{ padding: '14px 16px' }}>{b.activeKeyCount}</td>
                     <td style={{ padding: '14px 16px' }}>
                       <span style={{ background: st.bg, color: st.fg, borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{st.label}</span>

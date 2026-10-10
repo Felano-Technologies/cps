@@ -1,6 +1,7 @@
 /**
  * Self-service portal for business (Partner API) accounts: profile, API keys,
- * webhook settings and delivery log, their shipments, and a statement.
+ * webhook settings and delivery log, their shipments, a statement, what they
+ * owe CPS, and their invoices.
  */
 import { Router } from 'express';
 import { z } from 'zod';
@@ -11,6 +12,7 @@ import { generateApiKey, generateWebhookSecret } from '../lib/apiKeys';
 import { shipmentInclude } from '../lib/shipmentService';
 import { toPartnerShipment } from '../lib/partnerSerializer';
 import { deliverWebhookEvent, webhookEnvelope } from '../lib/webhooks';
+import { businessBalance, deliveredLines, invoiceInclude, invoiceView, invoiceWithLines, summarize } from '../lib/invoicing';
 
 const router = Router();
 router.use(requireAuth, requireRole('business'));
@@ -40,6 +42,7 @@ function publicBusiness(b: BusinessRow) {
     contactPhone: b.contactPhone,
     status: b.status,
     webhookUrl: b.webhookUrl,
+    cpsSharePercent: Number(b.cpsSharePercent),
     createdAt: b.createdAt,
   };
 }
@@ -247,45 +250,53 @@ const statementQuery = z.object({
   to: z.coerce.date(),
 });
 
-/** Deliveries completed in [from, to), by the time CPS marked them delivered. */
+/** Deliveries completed in [from, to), by the time CPS marked them delivered, with CPS's share of each fee. */
 router.get('/statement', async (req, res) => {
   const parsed = statementQuery.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: 'from and to dates are required' });
   const { from, to } = parsed.data;
+  const percent = Number(current(res).cpsSharePercent);
 
-  const events = await prisma.shipmentStatusEvent.findMany({
-    where: {
-      status: 'delivered',
-      createdAt: { gte: from, lt: to },
-      shipment: { businessId: current(res).id, status: 'delivered' },
-    },
-    orderBy: { createdAt: 'asc' },
-    include: {
-      shipment: { select: { trackingCode: true, externalReference: true, dropoffRegion: true, receiverName: true, deliveryFee: true } },
-    },
-  });
-
-  // A shipment has one delivered event, but guard against duplicates anyway.
-  const seen = new Set<string>();
-  const rows = events
-    .filter(e => !seen.has(e.shipmentId) && seen.add(e.shipmentId))
-    .map(e => ({
-      trackingCode: e.shipment.trackingCode,
-      externalReference: e.shipment.externalReference,
-      receiverName: e.shipment.receiverName,
-      dropoffRegion: e.shipment.dropoffRegion,
-      deliveredAt: e.createdAt,
-      fee: Number(e.shipment.deliveryFee),
-    }));
-
+  const lines = await deliveredLines(current(res).id, percent, { from, to });
+  const totals = summarize(lines);
   res.json({
     from,
     to,
     currency: 'GHS',
-    count: rows.length,
-    totalFees: Math.round(rows.reduce((sum, r) => sum + r.fee, 0) * 100) / 100,
-    rows,
+    cpsSharePercent: percent,
+    count: totals.count,
+    totalFees: totals.totalFees,
+    cpsShare: totals.cpsShare,
+    businessShare: totals.businessShare,
+    rows: lines.map(({ shipmentId: _id, invoiceId, ...line }) => ({ ...line, invoiced: !!invoiceId })),
   });
+});
+
+// ── Money owed to CPS & invoices ─────────────────────────────────────────────
+
+/** What the business owes CPS for today's deliveries, not yet invoiced, and on unpaid invoices. */
+router.get('/balance', async (_req, res) => {
+  const business = current(res);
+  res.json({ currency: 'GHS', ...(await businessBalance(business.id, Number(business.cpsSharePercent))) });
+});
+
+router.get('/invoices', async (_req, res) => {
+  const invoices = await prisma.invoice.findMany({
+    where: { businessId: current(res).id, status: { not: 'void' } },
+    orderBy: { createdAt: 'desc' },
+    include: invoiceInclude,
+  });
+  res.json(invoices.map(invoiceView));
+});
+
+router.get('/invoices/:id', async (req, res) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: req.params.id as string, businessId: current(res).id, status: { not: 'void' } },
+    include: invoiceInclude,
+  });
+  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+  const { lines, ...rest } = await invoiceWithLines(invoice);
+  res.json({ ...rest, lines: lines.map(({ shipmentId: _id, invoiceId: _inv, ...line }) => line) });
 });
 
 export default router;

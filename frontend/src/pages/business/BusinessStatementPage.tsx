@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import type { BusinessStatement } from '../../types/models';
 import { BusinessPage, Panel } from './ui';
-import { formatDateTime, inputStyle, primaryButton, tableStyle, tdStyle, thStyle } from './businessShared';
+import { formatDateTime, ghs, inputStyle, primaryButton, tableStyle, tdStyle, thStyle } from './businessShared';
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -34,15 +34,17 @@ export default function BusinessStatementPage() {
       Region: r.dropoffRegion,
       'Delivered at': new Date(r.deliveredAt).toLocaleString(),
       'Fee (GHS)': r.fee,
+      [`Due to CPS (${statement.cpsSharePercent}%)`]: r.cpsShare,
+      Invoiced: r.invoiced ? 'Yes' : 'No',
     })));
-    XLSX.utils.sheet_add_aoa(sheet, [[], ['Total', '', '', '', '', statement.totalFees]], { origin: -1 });
+    XLSX.utils.sheet_add_aoa(sheet, [[], ['Total', '', '', '', '', statement.totalFees, statement.cpsShare]], { origin: -1 });
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, 'Statement');
     XLSX.writeFile(book, `cps-statement-${from}-to-${to}.xlsx`);
   };
 
   return (
-    <BusinessPage title="Statement" subtitle="Deliveries CPS completed for you in a period, with the fee for each. Use it to reconcile what you owe CPS.">
+    <BusinessPage title="Statement" subtitle="Deliveries CPS completed for you in a period, with the fee for each and CPS's share. Use it to reconcile what you owe CPS.">
       <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap', marginBottom: 16 }}>
         <label style={{ fontSize: 13, color: '#64748b' }}>From<input type="date" style={{ ...inputStyle, display: 'block', marginTop: 4 }} value={from} onChange={e => setFrom(e.target.value)} /></label>
         <label style={{ fontSize: 13, color: '#64748b' }}>To<input type="date" style={{ ...inputStyle, display: 'block', marginTop: 4 }} value={to} onChange={e => setTo(e.target.value)} /></label>
@@ -56,7 +58,15 @@ export default function BusinessStatementPage() {
         </div>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
           <div style={{ color: '#64748b', fontSize: 13 }}>Total delivery fees</div>
-          <div style={{ fontSize: 28, fontWeight: 800 }}>GHS {statement ? statement.totalFees.toFixed(2) : '…'}</div>
+          <div style={{ fontSize: 28, fontWeight: 800 }}>{statement ? ghs(statement.totalFees) : '…'}</div>
+        </div>
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: 18 }}>
+          <div style={{ color: '#166534', fontSize: 13 }}>Due to CPS{statement ? ` (${statement.cpsSharePercent}%)` : ''}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#166534' }}>{statement ? ghs(statement.cpsShare) : '…'}</div>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
+          <div style={{ color: '#64748b', fontSize: 13 }}>You keep</div>
+          <div style={{ fontSize: 28, fontWeight: 800 }}>{statement ? ghs(statement.businessShare) : '…'}</div>
         </div>
       </div>
 
@@ -65,8 +75,8 @@ export default function BusinessStatementPage() {
           <p style={{ color: '#64748b', margin: 0 }}>No deliveries completed in this period.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ ...tableStyle, minWidth: 680 }}>
-              <thead><tr>{['Tracking', 'Your reference', 'Receiver', 'Region', 'Delivered', 'Fee'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+            <table style={{ ...tableStyle, minWidth: 780 }}>
+              <thead><tr>{['Tracking', 'Your reference', 'Receiver', 'Region', 'Delivered', 'Fee', 'Due to CPS'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
               <tbody>
                 {statement.rows.map(r => (
                   <tr key={r.trackingCode}>
@@ -75,7 +85,8 @@ export default function BusinessStatementPage() {
                     <td style={tdStyle}>{r.receiverName}</td>
                     <td style={tdStyle}>{r.dropoffRegion}</td>
                     <td style={tdStyle}>{formatDateTime(r.deliveredAt)}</td>
-                    <td style={tdStyle}>GHS {r.fee.toFixed(2)}</td>
+                    <td style={tdStyle}>{ghs(r.fee)}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700 }}>{ghs(r.cpsShare)}{r.invoiced && <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>Invoiced</div>}</td>
                   </tr>
                 ))}
               </tbody>

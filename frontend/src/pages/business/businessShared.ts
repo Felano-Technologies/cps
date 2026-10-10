@@ -38,3 +38,13 @@ export const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '11
 export const primaryButton = { border: 0, borderRadius: 10, padding: '11px 16px', background: '#078c35', color: '#fff', fontWeight: 700, cursor: 'pointer' } as const;
 export const secondaryButton = { border: '1px solid #cbd5e1', borderRadius: 10, padding: '10px 14px', background: '#fff', color: '#0f172a', fontWeight: 600, cursor: 'pointer' } as const;
 export const dangerButton = { ...secondaryButton, color: '#b91c1c', borderColor: '#fecaca' } as const;
+
+export const ghs = (amount: number) => `GHS ${amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** "1 Oct 2026" or "1 – 7 Oct 2026" for an invoice period whose end is exclusive. */
+export function formatPeriod(start: string, endExclusive: string) {
+  const from = new Date(start);
+  const to = new Date(new Date(endExclusive).getTime() - 1);
+  const day = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return day(from) === day(to) ? day(from) : `${day(from)} – ${day(to)}`;
+}

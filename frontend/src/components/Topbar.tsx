@@ -45,6 +45,7 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
     { path: '/business/keys', label: 'API Keys' },
     { path: '/business/webhooks', label: 'Webhooks' },
     { path: '/business/statement', label: 'Statement' },
+    { path: '/business/invoices', label: 'Invoices' },
     { path: '/developers', label: 'API Docs' },
   ],
 };
@@ -64,6 +65,7 @@ const ROLE_NAV: Record<string, NavItem[]> = {
     { label: 'Fleet & Partners', children: [
       { path: '/fleet', label: 'Fleet Management' },
       { path: '/ops/businesses', label: 'Businesses' },
+      { path: '/ops/invoices', label: 'Business Invoices' },
       { path: '/ops/deductions', label: 'Rider Payroll & Bonuses' },
     ] },
     { label: 'Insights', children: [

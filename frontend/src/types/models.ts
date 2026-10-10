@@ -128,6 +128,8 @@ export interface BusinessProfile {
   contactPhone: string | null;
   status: BusinessStatus;
   webhookUrl: string | null;
+  /** CPS's cut of each delivery fee, in percent. */
+  cpsSharePercent: number;
   createdAt: string;
   activeKeys: number;
   shipmentCounts: Partial<Record<ShipmentStatus, number>>;
@@ -177,13 +179,63 @@ export interface PartnerShipment {
   updatedAt: string;
 }
 
-export interface BusinessStatement {
+export interface DeliveryLine {
+  trackingCode: string;
+  externalReference: string | null;
+  receiverName: string;
+  dropoffRegion: string;
+  deliveredAt: string;
+  fee: number;
+  /** CPS's share of this delivery's fee. */
+  cpsShare: number;
+}
+
+export interface MoneyTotals {
+  count: number;
+  totalFees: number;
+  cpsShare: number;
+  businessShare: number;
+}
+
+export interface BusinessStatement extends MoneyTotals {
   from: string;
   to: string;
   currency: 'GHS';
-  count: number;
+  cpsSharePercent: number;
+  rows: (DeliveryLine & { invoiced: boolean })[];
+}
+
+/** What a business owes CPS right now. */
+export interface BusinessBalance {
+  cpsSharePercent: number;
+  today: MoneyTotals & { from: string; to: string };
+  uninvoiced: MoneyTotals;
+  unpaidInvoices: { count: number; amountDue: number };
+}
+
+export type InvoiceStatus = 'unpaid' | 'paid' | 'void';
+
+export interface Invoice {
+  id: string;
+  number: string;
+  business: { id: string; name: string };
+  periodStart: string;
+  /** Exclusive end of the period. */
+  periodEnd: string;
+  deliveryCount: number;
   totalFees: number;
-  rows: { trackingCode: string; externalReference: string | null; receiverName: string; dropoffRegion: string; deliveredAt: string; fee: number }[];
+  cpsSharePercent: number;
+  amountDue: number;
+  businessShare: number;
+  status: InvoiceStatus;
+  paidAt: string | null;
+  paymentReference: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceDetail extends Invoice {
+  lines: DeliveryLine[];
 }
 
 export interface Notification {

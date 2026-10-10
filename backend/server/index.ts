@@ -13,6 +13,7 @@ import deductionsRoutes from './routes/deductions';
 import bonusesRoutes from './routes/bonuses';
 import businessRoutes from './routes/business';
 import businessAdminRoutes from './routes/businessAdmin';
+import invoicesAdminRoutes from './routes/invoicesAdmin';
 import partnerV1Routes, { partnerErrorHandler } from './routes/partner/v1';
 import { startWebhookWorker } from './lib/webhooks';
 
@@ -56,6 +57,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/admin/businesses', businessAdminRoutes);
+app.use('/api/admin/invoices', invoicesAdminRoutes);
 app.use('/api/partner/v1', partnerV1Routes, partnerErrorHandler);
 
 const server = app.listen(port, () => {

@@ -45,6 +45,7 @@ import RiderDeductionsPage from './pages/operations/RiderDeductionsPage';
 import StationDeliveryPage from './pages/operations/StationDeliveryPage';
 import OpsRecordsPage from './pages/operations/OpsRecordsPage';
 import BusinessesPage from './pages/operations/BusinessesPage';
+import InvoicesPage from './pages/operations/InvoicesPage';
 
 // Shared Pages
 import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
@@ -63,6 +64,7 @@ import BusinessOrdersPage from './pages/business/BusinessOrdersPage';
 import ApiKeysPage from './pages/business/ApiKeysPage';
 import WebhooksPage from './pages/business/WebhooksPage';
 import BusinessStatementPage from './pages/business/BusinessStatementPage';
+import BusinessInvoicesPage from './pages/business/BusinessInvoicesPage';
 import DevelopersPage from './pages/public/DevelopersPage';
 
 // 404
@@ -244,6 +246,7 @@ function App() {
           <Route path="/ops/station-deliveries" element={<ProtectedRoute requiredRole="operations"><StationDeliveryPage /></ProtectedRoute>} />
           <Route path="/ops/records" element={<ProtectedRoute requiredRole="operations"><OpsRecordsPage /></ProtectedRoute>} />
           <Route path="/ops/businesses" element={<ProtectedRoute requiredRole="operations"><BusinessesPage /></ProtectedRoute>} />
+          <Route path="/ops/invoices" element={<ProtectedRoute requiredRole="operations"><InvoicesPage /></ProtectedRoute>} />
           <Route
             path="/admin"
             element={
@@ -295,6 +298,7 @@ function App() {
           <Route path="/business/keys" element={<ProtectedRoute requiredRole="business"><ApiKeysPage /></ProtectedRoute>} />
           <Route path="/business/webhooks" element={<ProtectedRoute requiredRole="business"><WebhooksPage /></ProtectedRoute>} />
           <Route path="/business/statement" element={<ProtectedRoute requiredRole="business"><BusinessStatementPage /></ProtectedRoute>} />
+          <Route path="/business/invoices" element={<ProtectedRoute requiredRole="business"><BusinessInvoicesPage /></ProtectedRoute>} />
 
           {/* SHARED ROUTES */}
           <Route

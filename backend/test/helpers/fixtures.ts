@@ -9,6 +9,7 @@ import businessRoutes from '../../server/routes/business';
 import ridersRoutes from '../../server/routes/riders';
 import authRoutes from '../../server/routes/auth';
 import businessAdminRoutes from '../../server/routes/businessAdmin';
+import invoicesAdminRoutes from '../../server/routes/invoicesAdmin';
 import partnerV1Routes, { partnerErrorHandler } from '../../server/routes/partner/v1';
 import { generateApiKey, generateWebhookSecret } from '../../server/lib/apiKeys';
 
@@ -21,6 +22,7 @@ export function createApp() {
   app.use('/api/bonuses', bonusesRoutes);
   app.use('/api/business', businessRoutes);
   app.use('/api/admin/businesses', businessAdminRoutes);
+  app.use('/api/admin/invoices', invoicesAdminRoutes);
   app.use('/api/partner/v1', partnerV1Routes, partnerErrorHandler);
   return app;
 }

@@ -21,6 +21,12 @@ enum BusinessStatus {
   suspended
 }
 
+enum InvoiceStatus {
+  unpaid
+  paid
+  void
+}
+
 enum VehicleType {
   motorbike
   van
@@ -122,12 +128,15 @@ model Business {
   status        BusinessStatus @default(pending)
   webhookUrl    String?
   webhookSecret String
+  /// CPS's cut of each delivery fee, in percent; the business keeps the rest.
+  cpsSharePercent Decimal      @default(85) @db.Decimal(5, 2)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   apiKeys       ApiKey[]
   shipments     Shipment[]
   webhookEvents WebhookEvent[]
+  invoices      Invoice[]
 
   @@map("businesses")
 }
@@ -264,6 +273,10 @@ model Shipment {
   deliveryCodeVerifiedAt   DateTime?
   deliveryCodeOverrideNote String?
 
+  /// The invoice that billed this delivery to its business (each delivery is billed once).
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -274,7 +287,36 @@ model Shipment {
 
   @@unique([businessId, externalReference])
   @@index([businessId, updatedAt])
+  @@index([invoiceId])
   @@map("shipments")
+}
+
+/// What a business owes CPS for the deliveries in a period.
+model Invoice {
+  id              String        @id @default(cuid())
+  seq             Int           @unique @default(autoincrement())
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  periodStart     DateTime
+  /// Exclusive end of the period.
+  periodEnd       DateTime
+  deliveryCount   Int
+  totalFees       Decimal       @db.Decimal(12, 2)
+  /// The business's CPS share when the invoice was raised; later rate changes don't touch it.
+  cpsSharePercent Decimal       @db.Decimal(5, 2)
+  amountDue       Decimal       @db.Decimal(12, 2)
+  status          InvoiceStatus @default(unpaid)
+  paidAt          DateTime?
+  paymentReference String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  shipments Shipment[]
+
+  @@index([businessId, createdAt])
+  @@map("invoices")
 }
 
 model ShipmentStatusEvent {
