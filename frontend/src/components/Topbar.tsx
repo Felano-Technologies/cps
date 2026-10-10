@@ -20,15 +20,13 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
     { path: '/shipments', label: 'My Shipments' },
     { path: '/settings', label: 'Settings' },
   ],
+  // Mobile bottom bar: the pages ops use most. Everything is in the top menu.
   operations: [
-    { path: '/ops-board', label: 'Live Ops Board' },
-    { path: '/ops/station-deliveries', label: 'Station Deliveries' },
-    { path: '/ops/records', label: 'Order Records' },
-    { path: '/fleet', label: 'Fleet Management' },
-    { path: '/ops/deductions', label: 'Rider Payroll & Bonuses' },
+    { path: '/ops-board', label: 'Live Board' },
+    { path: '/ops/records', label: 'Records' },
+    { path: '/fleet', label: 'Fleet' },
+    { path: '/ops/businesses', label: 'Businesses' },
     { path: '/ops-alerts', label: 'Alerts' },
-    { path: '/ops-analytics', label: 'Analytics' },
-    { path: '/settings', label: 'Settings' },
   ],
   admin: [
     { path: '/admin', label: 'Admin Panel' },
@@ -51,9 +49,36 @@ export const ROLE_LINKS: Record<string, { path: string; label: string }[]> = {
   ],
 };
 
+type NavLinkItem = { path: string; label: string };
+type NavGroup = { label: string; children: NavLinkItem[] };
+type NavItem = NavLinkItem | NavGroup;
+
+/** Grouped top menu, for roles with too many pages for a flat bar. */
+const ROLE_NAV: Record<string, NavItem[]> = {
+  operations: [
+    { path: '/ops-board', label: 'Live Board' },
+    { label: 'Orders', children: [
+      { path: '/ops/station-deliveries', label: 'Station Deliveries' },
+      { path: '/ops/records', label: 'Order Records' },
+    ] },
+    { label: 'Fleet & Partners', children: [
+      { path: '/fleet', label: 'Fleet Management' },
+      { path: '/ops/businesses', label: 'Businesses' },
+      { path: '/ops/deductions', label: 'Rider Payroll & Bonuses' },
+    ] },
+    { label: 'Insights', children: [
+      { path: '/ops-alerts', label: 'Alerts' },
+      { path: '/ops-analytics', label: 'Analytics' },
+    ] },
+  ],
+};
+
+const isGroup = (item: NavItem): item is NavGroup => 'children' in item;
+
 export default function Topbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,7 +86,18 @@ export default function Topbar() {
   useEffect(() => {
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
+    setOpenGroup(null);
   }, [location.pathname]);
+
+  // Close an open dropdown when clicking anywhere else.
+  useEffect(() => {
+    if (!openGroup) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.nav-group')) setOpenGroup(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openGroup]);
 
   const handleLogout = () => {
     logout();
@@ -69,7 +105,9 @@ export default function Topbar() {
     navigate('/');
   };
 
-  const links = isAuthenticated && user ? ROLE_LINKS[user.role] || [] : PUBLIC_LINKS;
+  const navItems: NavItem[] = isAuthenticated && user
+    ? ROLE_NAV[user.role] || ROLE_LINKS[user.role] || []
+    : PUBLIC_LINKS;
 
   return (
     <>
@@ -90,16 +128,76 @@ export default function Topbar() {
         </button>
 
         <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`} aria-label="Main Navigation">
-          {links.map((link) => (
-            <NavLink
-              key={link.path}
-              to={link.path}
-              className={({ isActive }) => (isActive ? 'active' : '')}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          <style>{`
+            .nav-group { position: relative; display: flex; align-items: center; }
+            .nav-group-trigger { display: inline-flex !important; align-items: center; gap: 4px; background: transparent; border: none; font: inherit; }
+            .nav-dropdown {
+              position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+              min-width: 220px; padding: 8px; border-radius: 12px; z-index: 60;
+              background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 12px 40px rgba(15, 23, 42, 0.15);
+              display: flex; flex-direction: column; gap: 2px;
+            }
+            .nav-links .nav-dropdown a { color: #0f172a; white-space: nowrap; padding: 10px 12px; }
+            .nav-links .nav-dropdown a:hover { color: #078c35; background: #f1f5f9; }
+            .nav-links .nav-dropdown a.active { color: #078c35; background: #f0fdf4; border: 1px solid #bbf7d0; }
+            .nav-group-label-mobile { display: none; }
+            @media (max-width: 1024px) {
+              .nav-group { flex-direction: column; align-items: stretch; }
+              .nav-group-trigger { display: none !important; }
+              .nav-group-label-mobile {
+                display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+                text-transform: uppercase; color: rgba(255,255,255,0.45); padding: 14px 12px 2px;
+              }
+              .nav-dropdown { position: static; transform: none; display: flex !important; background: transparent; border: none; box-shadow: none; padding: 0; min-width: 0; }
+              .nav-links .nav-dropdown a { color: rgba(255, 255, 255, 0.75); }
+              .nav-links .nav-dropdown a.active { color: var(--lime); background: rgba(131, 211, 20, 0.14); border: 1px solid rgba(131, 211, 20, 0.25); }
+            }
+          `}</style>
+          {navItems.map((item) => {
+            if (!isGroup(item)) {
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => (isActive ? 'active' : '')}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              );
+            }
+            const groupActive = item.children.some(c => location.pathname.startsWith(c.path));
+            const open = openGroup === item.label;
+            return (
+              <div key={item.label} className="nav-group">
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-haspopup="true"
+                  aria-expanded={open}
+                  className={`nav-group-trigger${groupActive ? ' active' : ''}`}
+                  onClick={() => setOpenGroup(open ? null : item.label)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenGroup(open ? null : item.label); } }}
+                >
+                  {item.label}
+                  <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }} />
+                </span>
+                <div className="nav-group-label-mobile">{item.label}</div>
+                <div className="nav-dropdown" style={{ display: open ? 'flex' : 'none' }}>
+                  {item.children.map(child => (
+                    <NavLink
+                      key={child.path}
+                      to={child.path}
+                      className={({ isActive }) => (isActive ? 'active' : '')}
+                      onClick={() => { setMobileMenuOpen(false); setOpenGroup(null); }}
+                    >
+                      {child.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
           
           <div className="mobile-auth-links">
             {!isAuthenticated ? (

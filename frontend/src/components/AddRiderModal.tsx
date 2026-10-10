@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { User, Mail, Phone, Lock, Truck, Hash } from 'lucide-react';
+import { User, Mail, Phone, Truck, Hash } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import CustomSelect from './Form/CustomSelect';
 import Modal from './Modal';
-import type { RiderProfile, VehicleType } from '../types/models';
+import type { IssuedCredentials, RiderProfile, VehicleType } from '../types/models';
 
 interface AddRiderModalProps {
   onClose: () => void;
-  onCreate: (rider: RiderProfile) => void;
+  /** Receives the new rider and the temporary password that was texted to them. */
+  onCreate: (rider: RiderProfile, credentials: IssuedCredentials) => void;
 }
 
 const VEHICLE_OPTIONS: { value: VehicleType | ''; label: string }[] = [
@@ -31,7 +32,6 @@ export default function AddRiderModal({ onClose, onCreate }: AddRiderModalProps)
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [vehicleId, setVehicleId] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,16 +42,16 @@ export default function AddRiderModal({ onClose, onCreate }: AddRiderModalProps)
     setError(null);
     setIsSubmitting(true);
     try {
-      const { data } = await api.post<RiderProfile>('/riders', {
+      const { data } = await api.post<RiderProfile & IssuedCredentials>('/riders', {
         name,
-        email,
+        email: email.trim() || undefined,
         phone,
-        password,
         vehicleId: vehicleId.trim() || undefined,
         vehicleType: vehicleType || undefined,
       });
-      onCreate(data);
-      toast.success('Rider account created.');
+      const { tempPassword, ...rider } = data;
+      onCreate(rider, { tempPassword, sentTo: phone });
+      toast.success('Rider account created. Login details sent by SMS.');
       onClose();
     } catch (err) {
       const message = extractErrorMessage(err, 'Failed to create rider account. Please try again.');
@@ -67,7 +67,7 @@ export default function AddRiderModal({ onClose, onCreate }: AddRiderModalProps)
       <div style={{ background: '#fff', borderRadius: '16px', width: '100%', overflow: 'hidden' }}>
         <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
           <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Add Rider</h2>
-          <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Create a rider account. They'll need verification before going online.</div>
+          <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Their login details are texted to their phone. They'll need verification before going online.</div>
         </div>
 
         <div style={{ padding: '24px' }}>
@@ -88,10 +88,10 @@ export default function AddRiderModal({ onClose, onCreate }: AddRiderModalProps)
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Email</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Email (optional)</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={17} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="rider@example.com"
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="rider@example.com"
                   style={{ width: '100%', padding: '10px 14px 10px 40px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }} />
               </div>
             </div>
@@ -105,15 +105,6 @@ export default function AddRiderModal({ onClose, onCreate }: AddRiderModalProps)
               </div>
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>Initial Password</label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={17} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                <input type="text" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters"
-                  style={{ width: '100%', padding: '10px 14px 10px 40px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }} />
-              </div>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>Share this with the rider — they can change it later in Settings.</div>
-            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>

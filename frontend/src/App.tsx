@@ -44,6 +44,7 @@ import OpsOrdersListPage from './pages/operations/OpsOrdersListPage';
 import RiderDeductionsPage from './pages/operations/RiderDeductionsPage';
 import StationDeliveryPage from './pages/operations/StationDeliveryPage';
 import OpsRecordsPage from './pages/operations/OpsRecordsPage';
+import BusinessesPage from './pages/operations/BusinessesPage';
 
 // Shared Pages
 import CustomerTrackingPage from './pages/customer/CustomerTrackingPage';
@@ -242,6 +243,7 @@ function App() {
           />
           <Route path="/ops/station-deliveries" element={<ProtectedRoute requiredRole="operations"><StationDeliveryPage /></ProtectedRoute>} />
           <Route path="/ops/records" element={<ProtectedRoute requiredRole="operations"><OpsRecordsPage /></ProtectedRoute>} />
+          <Route path="/ops/businesses" element={<ProtectedRoute requiredRole="operations"><BusinessesPage /></ProtectedRoute>} />
           <Route
             path="/admin"
             element={

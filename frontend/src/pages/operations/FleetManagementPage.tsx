@@ -1,14 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch, Printer } from 'lucide-react';
+import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch, Printer, Pencil, Ban, RotateCcw, KeyRound, Trash2 } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
 import { SkeletonTableRows } from '../../components/Skeleton';
 import AssignVehicleModal from '../../components/AssignVehicleModal';
 import AddRiderModal from '../../components/AddRiderModal';
 import RiderManifestModal from '../../components/RiderManifestModal';
+import EditRiderModal from '../../components/EditRiderModal';
+import CredentialsModal from '../../components/CredentialsModal';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
-import type { RiderProfile, RiderStatus, VehicleType } from '../../types/models';
+import axios from 'axios';
+import type { IssuedCredentials, RiderProfile, RiderStatus, VehicleType } from '../../types/models';
 
 const STATUS_OPTIONS: RiderStatus[] = ['available', 'en_route', 'loading', 'maintenance', 'offline'];
 
@@ -40,6 +43,9 @@ export default function FleetManagementPage() {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [selectedManifestRiderId, setSelectedManifestRiderId] = useState<string | undefined>(undefined);
+  const [editingRider, setEditingRider] = useState<RiderProfile | null>(null);
+  const [credentials, setCredentials] = useState<{ title: string; name: string; phone: string; password: string } | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRiders = async () => {
@@ -86,6 +92,53 @@ export default function FleetManagementPage() {
     }
   };
 
+  const apiError = (err: unknown, fallback: string) =>
+    axios.isAxiosError(err) && typeof err.response?.data?.error === 'string' ? err.response.data.error : fallback;
+
+  const replaceRider = (updated: RiderProfile) => setRiders(prev => prev.map(r => (r.id === updated.id ? updated : r)));
+
+  const handleSuspend = async (rider: RiderProfile) => {
+    const suspend = !rider.user.suspendedAt;
+    if (suspend && !window.confirm(`Suspend ${rider.user.name}? They'll be signed out, taken offline and can't be assigned orders until reactivated.`)) return;
+    setBusyId(rider.id);
+    try {
+      const { data } = await api.post<RiderProfile>(`/riders/${rider.id}/suspend`, { suspended: suspend });
+      replaceRider(data);
+      toast.success(suspend ? `${rider.user.name} suspended.` : `${rider.user.name} reactivated.`);
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to update rider.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleResendDetails = async (rider: RiderProfile) => {
+    if (!window.confirm(`Send ${rider.user.name} new login details by SMS? Their current password will stop working.`)) return;
+    setBusyId(rider.id);
+    try {
+      const { data } = await api.post<IssuedCredentials>(`/riders/${rider.id}/resend-details`);
+      setCredentials({ title: 'New login details sent', name: rider.user.name, phone: data.sentTo ?? rider.user.phone ?? '', password: data.tempPassword });
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to send login details.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (rider: RiderProfile) => {
+    if (!window.confirm(`Permanently delete ${rider.user.name}'s account? This can't be undone. Past orders stay but will no longer show this rider, and their bonus and deduction records are deleted.`)) return;
+    setBusyId(rider.id);
+    try {
+      await api.delete(`/riders/${rider.id}`);
+      setRiders(prev => prev.filter(r => r.id !== rider.id));
+      toast.success(`${rider.user.name} deleted.`);
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to delete rider.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const filteredFleet = useMemo(() => {
     return riders.filter(member => {
       let matchesTab = true;
@@ -93,6 +146,7 @@ export default function FleetManagementPage() {
       if (activeTab === 'Vans') matchesTab = member.vehicleType === 'van';
       if (activeTab === 'Maintenance') matchesTab = member.currentStatus === 'maintenance';
       if (activeTab === 'Unverified') matchesTab = !member.isVerified;
+      if (activeTab === 'Suspended') matchesTab = !!member.user.suspendedAt;
 
       const query = searchQuery.toLowerCase();
       const matchesSearch =
@@ -244,7 +298,7 @@ export default function FleetManagementPage() {
           
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: '12px', background: '#fff', padding: '6px', borderRadius: '12px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
-              {['All Vehicles', 'Motorbikes', 'Vans', 'Maintenance', 'Unverified'].map(tab => (
+              {['All Vehicles', 'Motorbikes', 'Vans', 'Maintenance', 'Unverified', 'Suspended'].map(tab => (
                 <button
                   key={tab}
                   className={`filter-tab ${activeTab === tab ? 'active' : ''}`}
@@ -350,6 +404,9 @@ export default function FleetManagementPage() {
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px' }}>{member.user.name}</span>
+                                  {member.user.suspendedAt && (
+                                    <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Suspended</span>
+                                  )}
                                   {member.isVerified ? (
                                     <span title="Verified" style={{ display: 'inline-flex', color: '#078c35' }}><ShieldCheck size={14} /></span>
                                   ) : (
@@ -449,6 +506,32 @@ export default function FleetManagementPage() {
                                   <ShieldCheck size={16} /> {verifyingId === member.id ? 'Verifying…' : 'Verify'}
                                 </button>
                               )}
+                              {[
+                                { key: 'edit', title: 'Edit rider', icon: <Pencil size={16} />, color: '#475569', onClick: () => setEditingRider(member) },
+                                member.user.suspendedAt
+                                  ? { key: 'activate', title: 'Reactivate rider', icon: <RotateCcw size={16} />, color: '#078c35', onClick: () => handleSuspend(member) }
+                                  : { key: 'suspend', title: 'Suspend rider', icon: <Ban size={16} />, color: '#c2410c', onClick: () => handleSuspend(member) },
+                                { key: 'resend', title: 'Resend login details by SMS', icon: <KeyRound size={16} />, color: '#1d4ed8', onClick: () => handleResendDetails(member) },
+                                { key: 'delete', title: 'Delete rider', icon: <Trash2 size={16} />, color: '#b91c1c', onClick: () => handleDelete(member) },
+                              ].map(action => (
+                                <button
+                                  key={action.key}
+                                  type="button"
+                                  onClick={action.onClick}
+                                  disabled={busyId === member.id}
+                                  title={action.title}
+                                  aria-label={action.title}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '44px', height: '44px', flexShrink: 0,
+                                    border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
+                                    color: action.color, cursor: busyId === member.id ? 'not-allowed' : 'pointer',
+                                    opacity: busyId === member.id ? 0.5 : 1,
+                                  }}
+                                >
+                                  {action.icon}
+                                </button>
+                              ))}
                             </div>
                           </td>
                         </tr>
@@ -515,8 +598,19 @@ export default function FleetManagementPage() {
       {isAddRiderOpen && (
         <AddRiderModal
           onClose={() => setIsAddRiderOpen(false)}
-          onCreate={(rider) => setRiders(prev => [...prev, rider])}
+          onCreate={(rider, creds) => {
+            setRiders(prev => [...prev, rider]);
+            setCredentials({ title: 'Rider account created', name: rider.user.name, phone: creds.sentTo ?? rider.user.phone ?? '', password: creds.tempPassword });
+          }}
         />
+      )}
+
+      {editingRider && (
+        <EditRiderModal rider={editingRider} onClose={() => setEditingRider(null)} onSaved={replaceRider} />
+      )}
+
+      {credentials && (
+        <CredentialsModal {...credentials} onClose={() => setCredentials(null)} />
       )}
 
       {isManifestOpen && (
