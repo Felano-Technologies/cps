@@ -59,18 +59,23 @@ function CreateInvoiceModal({ businesses, initialBusinessId, onClose, onCreated 
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [notes, setNotes] = useState('');
-  const [preview, setPreview] = useState<Preview | null>(null);
+  // Keyed by the query it answers, so a stale preview never shows for new inputs.
+  const [previewFor, setPreviewFor] = useState<{ key: string; data: Preview | null } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const validPeriod = !!businessId && !!from && !!to && to >= from;
+  const previewKey = `${businessId}|${from}|${to}`;
+  const preview = validPeriod && previewFor?.key === previewKey ? previewFor.data : null;
 
   // The UI's end date is inclusive; the API takes an exclusive end.
   useEffect(() => {
-    if (!businessId || !from || !to || to < from) { setPreview(null); return; }
+    if (!validPeriod) return;
     let cancelled = false;
     api.get<Preview>('/admin/invoices/preview', { params: { businessId, from, to: addDays(to, 1) } })
-      .then(r => { if (!cancelled) setPreview(r.data); })
-      .catch(() => { if (!cancelled) setPreview(null); });
+      .then(r => { if (!cancelled) setPreviewFor({ key: previewKey, data: r.data }); })
+      .catch(() => { if (!cancelled) setPreviewFor({ key: previewKey, data: null }); });
     return () => { cancelled = true; };
-  }, [businessId, from, to]);
+  }, [validPeriod, previewKey, businessId, from, to]);
 
   const quick = (label: string, start: string, end: string) => (
     <button type="button" className="neutral-btn" onClick={() => { setFrom(start); setTo(end); }} style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>{label}</button>
@@ -160,22 +165,17 @@ export default function InvoicesPage() {
   const [detailVersion, setDetailVersion] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [o, i] = await Promise.all([
-        api.get<Outstanding[]>('/admin/invoices/outstanding'),
-        api.get<Invoice[]>('/admin/invoices'),
-      ]);
-      setOutstanding(o.data);
-      setInvoices(i.data);
-    } catch {
-      toast.error('Failed to load invoices.');
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const load = useCallback(() => Promise.all([
+    api.get<Outstanding[]>('/admin/invoices/outstanding'),
+    api.get<Invoice[]>('/admin/invoices'),
+  ])
+    .then(([o, i]) => { setOutstanding(o.data); setInvoices(i.data); })
+    .catch(() => toast.error('Failed to load invoices.'))
+    .finally(() => setLoading(false)), [toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const shown = useMemo(() => invoices.filter(i =>
     (!statusFilter || i.status === statusFilter) && (!businessFilter || i.business.id === businessFilter)), [invoices, statusFilter, businessFilter]);
