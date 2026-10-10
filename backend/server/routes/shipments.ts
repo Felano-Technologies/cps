@@ -941,6 +941,54 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
   res.json(shipment);
 });
 
+const editSchema = z.object({
+  senderName: z.string().trim().min(1).optional(),
+  senderNumber: z.string().trim().min(1).optional(),
+  pickupRegion: z.string().trim().min(1).optional(),
+  pickupLocation: z.string().trim().min(1).optional(),
+  receiverName: z.string().trim().min(1).optional(),
+  receiverNumber: z.string().trim().min(1).optional(),
+  dropoffRegion: z.string().trim().min(1).optional(),
+  dropoffLocation: z.string().trim().min(1).optional(),
+  stationLocation: z.string().trim().min(1).nullable().optional(),
+  packageType: z.enum(PACKAGE_TYPES).optional(),
+  packageSize: z.enum(PACKAGE_SIZES).optional(),
+  productFee: z.number().nonnegative().nullable().optional(),
+  additionalInstructions: z.string().trim().nullable().optional(),
+  opsRemarks: z.string().trim().nullable().optional(),
+  packageImageUrl: z.string().url().nullable().optional(),
+});
+
+/** Ops corrects an order's details (contacts, addresses, package, notes, photo). The fee has its own endpoint. */
+router.patch('/:id', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = editSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  }
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) {
+    return res.status(404).json({ error: 'Shipment not found' });
+  }
+  if ((FINAL_STATUSES as readonly string[]).includes(shipment.status)) {
+    return res.status(409).json({ error: `Shipment is already ${shipment.status} and can't be edited` });
+  }
+  // A partner's route was priced and paid at booking, so its regions are fixed.
+  const regionChanged = (parsed.data.pickupRegion !== undefined && parsed.data.pickupRegion !== shipment.pickupRegion)
+    || (parsed.data.dropoffRegion !== undefined && parsed.data.dropoffRegion !== shipment.dropoffRegion);
+  if (shipment.prepaid && regionChanged) {
+    return res.status(409).json({ error: 'This is a prepaid partner order; its pickup and drop-off regions were agreed at booking and cannot be changed.' });
+  }
+
+  const updated = await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: parsed.data,
+    include: shipmentInclude,
+  });
+
+  res.json(updated);
+});
+
 /** Partner (prepaid) orders keep the fee the partner already charged its customer. */
 function prepaidFeeConflict(shipment: { prepaid: boolean; deliveryFee: Prisma.Decimal }, newFee: number) {
   return shipment.prepaid && Math.round(Number(shipment.deliveryFee) * 100) !== Math.round(newFee * 100);

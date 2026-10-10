@@ -20,7 +20,11 @@ import {
   UserCheck,
   Train,
   StickyNote,
+  Eye,
+  Pencil,
+  ImageIcon,
 } from 'lucide-react';
+import axios from 'axios';
 import api from '../../services/api';
 import PartnerBadge from '../../components/PartnerBadge';
 import EmptyState from '../../components/EmptyState';
@@ -28,8 +32,11 @@ import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
 import CustomSelect from '../../components/Form/CustomSelect';
 import RiderManifestModal from '../../components/RiderManifestModal';
+import OrderPrintModal from '../../components/OrderPrintModal';
+import EditOrderModal from '../../components/EditOrderModal';
+import OrderPhotosModal from '../../components/OrderPhotosModal';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus, RiderProfile } from '../../types/models';
+import { needsDeliveryCode, type Shipment, type ShipmentStatus, type RiderProfile } from '../../types/models';
 import { formatPackageSize, getPackageSizeBadgeColors } from '../../utils/packageSize';
 
 interface OpsOrdersListPageProps {
@@ -59,6 +66,16 @@ const STATUS_COLORS: Record<ShipmentStatus, { bg: string; text: string; dot: str
   failed: { bg: '#fee2e2', text: '#991b1b', dot: '#ef4444' },
   cancelled: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
 };
+
+const FINAL: ShipmentStatus[] = ['delivered', 'failed', 'cancelled'];
+
+function apiError(err: unknown, fallback: string): string {
+  return axios.isAxiosError(err) && typeof err.response?.data?.error === 'string' ? err.response.data.error : fallback;
+}
+
+function hasPhotos(order: Shipment) {
+  return !!(order.packageImageUrl || order.podPhotoUrl || order.stationReceiptUrl);
+}
 
 function getCancellationReason(order: Shipment): string {
   const cancelEvents = order.statusEvents?.filter((e) => e.status === 'cancelled');
@@ -121,6 +138,12 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
   const [applyAssignmentToBulk, setApplyAssignmentToBulk] = useState(false);
 
+  // Row icon actions and inline dropdowns
+  const [editingOrder, setEditingOrder] = useState<Shipment | null>(null);
+  const [photosOrder, setPhotosOrder] = useState<Shipment | null>(null);
+  const [printOrder, setPrintOrder] = useState<Shipment | null>(null);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+
   const titleMap = {
     new: 'New Orders',
     active: 'Active Orders',
@@ -163,6 +186,54 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
     { value: '', label: 'Unassigned' },
     ...riders.map(r => ({ value: r.id, label: r.user.name })),
   ], [riders]);
+
+  // Suspended riders can't take new work, but keep whoever is already on the order visible.
+  const riderOptionsFor = (currentId: string | null | undefined) => [
+    { value: '', label: 'Unassigned' },
+    ...riders
+      .filter(r => !r.user.suspendedAt || r.id === currentId)
+      .map(r => ({ value: r.id, label: r.user.name })),
+  ];
+
+  const replaceOrder = (updated: Shipment) => setOrders(prev => prev.map(o => (o.id === updated.id ? updated : o)));
+
+  const handleInlineAssign = async (order: Shipment, leg: 'pickup' | 'dropoff', riderId: string) => {
+    setRowBusyId(order.id);
+    try {
+      const body = leg === 'pickup' ? { pickupRiderId: riderId || null } : { dropoffRiderId: riderId || null };
+      const { data } = await api.patch<Shipment>(`/shipments/${order.id}/assign`, body);
+      replaceOrder(data);
+      const name = riders.find(r => r.id === riderId)?.user.name;
+      toast.success(name ? `${name} assigned to ${leg} for ${order.trackingCode}.` : `${leg === 'pickup' ? 'Pickup' : 'Drop-off'} rider removed from ${order.trackingCode}.`);
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to update the rider.'));
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  const handleInlineStatus = async (order: Shipment, status: ShipmentStatus) => {
+    if (status === order.status) return;
+    // Partner orders with a delivery code need the code the customer gives.
+    let deliveryCode: string | undefined;
+    if (status === 'delivered' && needsDeliveryCode(order)) {
+      const entered = window.prompt("Enter the customer's delivery code (from their SMS/app):");
+      if (entered === null) return;
+      deliveryCode = entered.replace(/\D/g, '');
+      if (!deliveryCode) { toast.error('Enter the delivery code to mark this order delivered.'); return; }
+    }
+    if (FINAL.includes(status) && status !== 'delivered' && !window.confirm(`Mark ${order.trackingCode} as ${STATUS_LABELS[status].toLowerCase()}? This can't be undone.`)) return;
+    setRowBusyId(order.id);
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${order.id}/status`, { status, deliveryCode });
+      replaceOrder(data);
+      toast.success(`${order.trackingCode} is now ${STATUS_LABELS[status].toLowerCase()}.`);
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to update the status.'));
+    } finally {
+      setRowBusyId(null);
+    }
+  };
 
   const counts = useMemo(
     () => ({
@@ -344,11 +415,25 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           .ops-orders-page .ops-table th:nth-child(5), .ops-orders-page .ops-table td:nth-child(5) { min-width: 115px; }
           .ops-orders-page .ops-table th:nth-child(6), .ops-orders-page .ops-table td:nth-child(6) { min-width: 135px; }
           .ops-orders-page .ops-table th:nth-child(7), .ops-orders-page .ops-table td:nth-child(7) { min-width: 160px; }
-          .ops-orders-page .ops-table th:last-child, .ops-orders-page .ops-table td:last-child { min-width: 180px; }
+          .ops-orders-page .ops-table th:last-child, .ops-orders-page .ops-table td:last-child { min-width: 160px; }
           .ops-orders-page .ops-table td button, .ops-orders-page .ops-table td a { white-space: normal; }
           .ops-orders-page .ops-page-title { font-size: 32px; line-height: 1.1; font-weight: 850; color: #0f172a; margin: 0 0 8px; letter-spacing: -.03em; }
           .ops-orders-page .ops-search { background: #fff; border: 1px solid #cbd5e1; box-shadow: 0 3px 10px rgba(15,23,42,.04); }
           .ops-orders-page .ops-search:focus { outline: 3px solid rgba(59,130,246,.14); border-color: #3b82f6; }
+          .ops-orders-page .row-select { width: 100%; min-width: 130px; padding: 6px 28px 6px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size: 12px; font-weight: 600; color: #0f172a; cursor: pointer; font-family: inherit; }
+          .ops-orders-page .row-select:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+          .ops-orders-page .row-select.unassigned { color: #94a3b8; }
+          .ops-orders-page .rider-leg { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 6px; }
+          .ops-orders-page .rider-leg + .rider-leg { margin-top: 6px; }
+          .ops-orders-page .rider-leg span { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+          .ops-orders-page .icon-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
+          .ops-orders-page .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; text-decoration: none; flex-shrink: 0; transition: background .15s ease, border-color .15s ease; }
+          .ops-orders-page .icon-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+          .ops-orders-page .icon-btn.view { color: #2563eb; border-color: #bfdbfe; }
+          .ops-orders-page .icon-btn.edit { color: #ea580c; border-color: #fed7aa; }
+          .ops-orders-page .icon-btn.print { color: #0f766e; border-color: #99f6e4; }
+          .ops-orders-page .icon-btn.photos { color: #7c3aed; border-color: #ddd6fe; }
+          .ops-orders-page .icon-btn.muted { color: #cbd5e1; border-color: #e2e8f0; }
           .ops-orders-page .ops-tab-strip { background: #eef2f7; border: 1px solid #e2e8f0; box-shadow: inset 0 1px 2px rgba(15,23,42,.04); }
           @media (max-width: 768px) { .ops-orders-page .ops-page-title { font-size: 26px; } .ops-orders-page main { padding-left: 16px !important; padding-right: 16px !important; } }
         `}</style>
@@ -510,7 +595,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   {filterType === 'new' && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fee</th>
                   )}
-                  {filterType === 'active' && (
+                  {(filterType === 'active' || filterType === 'delayed' || filterType === 'station') && (
                     <th style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Riders</th>
                   )}
                   {filterType === 'delayed' && (
@@ -591,25 +676,27 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
 
                         {/* Pickup & Dropoff Location (merged) */}
                         <td style={{ padding: '16px' }}>
-                          {/* Pickup row */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
+                          {/* Pickup: region on top, area underneath */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '46px' }}>Pickup</span>
                             <MapPin size={12} color="#0f172a" style={{ flexShrink: 0 }} />
-                            <span>{order.pickupLocation}</span>
+                            <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: 900 }}>{order.pickupRegion}</span>
                           </div>
-                          <div style={{ fontSize: '14px', color: '#334155', marginTop: '2px', marginLeft: '62px', fontWeight: 900 }}>
-                            {order.pickupRegion}
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', marginLeft: '70px', fontWeight: 600 }}>
+                            {order.pickupLocation}
                           </div>
                           {/* Divider */}
                           <div style={{ borderTop: '1px dashed #e2e8f0', margin: '6px 0' }} />
-                          {/* Dropoff row */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#078c35', fontWeight: 600 }}>
+                          {/* Drop-off: region on top, area underneath */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '46px' }}>Dropoff</span>
                             <MapPin size={12} color="#078c35" style={{ flexShrink: 0 }} />
-                            {filterType === 'new' && isBulk ? <span>{bulkCounts.get(order.batchId!) || 0} packages at drop-off</span> : <span>{order.dropoffLocation}</span>}
+                            <span style={{ fontSize: '14px', color: '#078c35', fontWeight: 900 }}>
+                              {filterType === 'new' && isBulk ? 'Multiple destinations' : order.deliveryType === 'station' ? 'Station Delivery' : order.dropoffRegion}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '14px', color: '#334155', marginTop: '2px', marginLeft: '62px', fontWeight: 900 }}>
-                            {filterType === 'new' && isBulk ? 'Multiple destinations' : order.deliveryType === 'station' ? 'Station Delivery' : order.dropoffRegion}
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', marginLeft: '70px', fontWeight: 600 }}>
+                            {filterType === 'new' && isBulk ? `${bulkCounts.get(order.batchId!) || 0} packages at drop-off` : order.dropoffLocation}
                           </div>
                           {order.deliveryType === 'station' && (
                             <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800 }}>
@@ -639,40 +726,27 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           </td>
                         )}
 
-                        {filterType === 'active' && (
+                        {(filterType === 'active' || filterType === 'delayed' || filterType === 'station') && (
                           <td style={{ padding: '16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ color: '#64748b', fontWeight: 600, minWidth: '48px' }}>Pickup:</span>
-                                <span
-                                  style={{
-                                    background: (order.pickupRider || order.assignedRider) ? '#dbeafe' : '#f1f5f9',
-                                    color: (order.pickupRider || order.assignedRider) ? '#1d4ed8' : '#94a3b8',
-                                    padding: '2px 8px',
-                                    borderRadius: '6px',
-                                    fontWeight: 700,
-                                    fontSize: '11px',
-                                  }}
-                                >
-                                  {order.pickupRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ color: '#64748b', fontWeight: 600, minWidth: '48px' }}>Dropoff:</span>
-                                <span
-                                  style={{
-                                    background: (order.dropoffRider || order.assignedRider) ? '#dcfce7' : '#f1f5f9',
-                                    color: (order.dropoffRider || order.assignedRider) ? '#15803d' : '#94a3b8',
-                                    padding: '2px 8px',
-                                    borderRadius: '6px',
-                                    fontWeight: 700,
-                                    fontSize: '11px',
-                                  }}
-                                >
-                                  {order.dropoffRider?.user.name ?? order.assignedRider?.user.name ?? 'Unassigned'}
-                                </span>
-                              </div>
-                            </div>
+                            {(['pickup', 'dropoff'] as const).map(leg => {
+                              const current = leg === 'pickup'
+                                ? (order.pickupRiderId ?? order.assignedRiderId ?? '')
+                                : (order.dropoffRiderId ?? order.assignedRiderId ?? '');
+                              return (
+                                <label key={leg} className="rider-leg">
+                                  <span>{leg === 'pickup' ? 'Pickup' : 'Dropoff'}</span>
+                                  <select
+                                    className={`row-select${current ? '' : ' unassigned'}`}
+                                    value={current}
+                                    disabled={rowBusyId === order.id}
+                                    onChange={e => handleInlineAssign(order, leg, e.target.value)}
+                                    aria-label={`${leg === 'pickup' ? 'Pickup' : 'Drop-off'} rider for ${order.trackingCode}`}
+                                  >
+                                    {riderOptionsFor(current).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                  </select>
+                                </label>
+                              );
+                            })}
                           </td>
                         )}
 
@@ -712,74 +786,77 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                         )}
 
                         <td style={{ padding: '16px' }}>
-                          <span style={{
-                            background: colors.bg, color: colors.text,
-                            padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
-                            display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
-                          }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.dot }}></span>
-                            {STATUS_LABELS[order.status]}
-                          </span>
+                          {filterType !== 'new' && !FINAL.includes(order.status) ? (
+                            <select
+                              className="row-select"
+                              value={order.status}
+                              disabled={rowBusyId === order.id}
+                              onChange={e => handleInlineStatus(order, e.target.value as ShipmentStatus)}
+                              aria-label={`Status of ${order.trackingCode}`}
+                              style={{ background: colors.bg, color: colors.text, borderColor: colors.dot, fontWeight: 700 }}
+                            >
+                              {(Object.keys(STATUS_LABELS) as ShipmentStatus[])
+                                .filter(st => st !== 'awaiting_price')
+                                .map(st => <option key={st} value={st}>{STATUS_LABELS[st]}</option>)}
+                            </select>
+                          ) : (
+                            <span style={{
+                              background: colors.bg, color: colors.text,
+                              padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                              display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+                            }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.dot }}></span>
+                              {STATUS_LABELS[order.status]}
+                            </span>
+                          )}
                         </td>
 
                         <td style={{ padding: '16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            {filterType === 'new' && isBulk ? (
-                              <>
-                                <button onClick={() => handleAcceptBulk(order)} disabled={isProcessingBulk} className="primary-green" style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: 'none' }}>Accept bulk pickup</button>
-                                <button onClick={() => handleDeclineBulk(order)} disabled={isProcessingBulk} style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b' }}>Decline</button>
-                              </>
-                            ) : filterType === 'new' ? (
-                              <button
-                                onClick={() => handleOpenPricingModal(order)}
-                                className="primary-green"
-                                style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                              >
-                                <DollarSign size={14} /> Set Price
-                              </button>
-                            ) : (
-                              <Link
-                                to={`/ops/tracking/${order.trackingCode}`}
-                                className="primary-green"
-                                style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-block' }}
-                              >
-                                View Details
-                              </Link>
-                            )}
-                            {(filterType === 'active' || filterType === 'delayed' || (filterType === 'new' && isBulk)) && (
-                              <button
-                                onClick={() => handleOpenAssignModal(order)}
-                                style={{
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontSize: '12px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  border: '1px solid #cbd5e1',
-                                  background: '#f8fafc',
-                                  color: '#334155',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  transition: 'all 0.15s ease',
-                                  whiteSpace: 'nowrap',
-                                }}
-                                title="Assign / change pickup and dropoff riders"
-                              >
-                                <UserCheck size={13} /> Assign Riders
+                          {/* New orders only need pricing; the icon actions start once they reach the active queues. */}
+                          {filterType === 'new' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              {isBulk ? (
+                                <>
+                                  <button onClick={() => handleAcceptBulk(order)} disabled={isProcessingBulk} className="primary-green" style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: 'none' }}>Accept bulk pickup</button>
+                                  <button onClick={() => handleDeclineBulk(order)} disabled={isProcessingBulk} style={{ padding: '8px 13px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b' }}>Decline</button>
+                                  <button onClick={() => handleOpenAssignModal(order)} title="Assign the pickup rider for this bulk order" style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                                    <UserCheck size={13} /> Assign Riders
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenPricingModal(order)}
+                                  className="primary-green"
+                                  style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                  <DollarSign size={14} /> Set Price
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                          <div className="icon-actions">
+                            <Link to={`/ops/tracking/${order.trackingCode}`} className="icon-btn view" title="View details" aria-label={`View details of ${order.trackingCode}`}>
+                              <Eye size={16} />
+                            </Link>
+                            {!FINAL.includes(order.status) && (
+                              <button type="button" className="icon-btn edit" onClick={() => setEditingOrder(order)} title="Edit order" aria-label={`Edit ${order.trackingCode}`}>
+                                <Pencil size={16} />
                               </button>
                             )}
-                            {filterType !== 'new' && (
-                              <Link
-                                to={`/ops/tracking/${order.trackingCode}`}
-                                className="contact-btn contact-btn-copy"
-                                style={{ padding: '8px 12px', fontSize: '12px' }}
-                                title="View Full Details"
-                              >
-                                Details
-                              </Link>
-                            )}
+                            <button type="button" className="icon-btn print" onClick={() => setPrintOrder(order)} title="Print waybill" aria-label={`Print ${order.trackingCode}`}>
+                              <Printer size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className={`icon-btn photos${hasPhotos(order) ? '' : ' muted'}`}
+                              onClick={() => setPhotosOrder(order)}
+                              title={hasPhotos(order) ? 'View package photos' : 'No photos yet: add one'}
+                              aria-label={`Photos for ${order.trackingCode}`}
+                            >
+                              <ImageIcon size={16} />
+                            </button>
                           </div>
+                          )}
                         </td>
                       </tr>
                       </Fragment>
@@ -787,7 +864,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7} style={{ padding: '32px' }}>
+                    <td colSpan={10} style={{ padding: '32px' }}>
                       <EmptyState
                         icon={<PackageSearch size={36} />}
                         title={`No ${title} Found`}
@@ -841,7 +918,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Pickup:</span>
-                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.pickupLocation}, {selectedOrderForPricing.pickupRegion}</strong>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.pickupRegion} · {selectedOrderForPricing.pickupLocation}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Recipient:</span>
@@ -849,7 +926,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Dropoff:</span>
-                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.dropoffLocation}, {selectedOrderForPricing.deliveryType === 'station' ? 'Station Delivery' : selectedOrderForPricing.dropoffRegion}</strong>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForPricing.deliveryType === 'station' ? 'Station Delivery' : selectedOrderForPricing.dropoffRegion} · {selectedOrderForPricing.dropoffLocation}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748b' }}>Package:</span>
@@ -1013,7 +1090,17 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
           />
         )}
 
-        {/* ASSIGN RIDERS MODAL (for active/delayed orders) */}
+        {editingOrder && <EditOrderModal order={editingOrder} onClose={() => setEditingOrder(null)} onSaved={replaceOrder} />}
+        {photosOrder && (
+          <OrderPhotosModal
+            order={photosOrder}
+            onClose={() => setPhotosOrder(null)}
+            onSaved={updated => { replaceOrder(updated); setPhotosOrder(updated); }}
+          />
+        )}
+        {printOrder && <OrderPrintModal shipment={printOrder} onClose={() => setPrintOrder(null)} />}
+
+        {/* ASSIGN RIDERS MODAL (for bulk orders) */}
         {selectedOrderForAssign && (
           <Modal onClose={() => setSelectedOrderForAssign(null)} maxWidth="520px" padding="0">
             <div style={{ padding: '24px' }}>
@@ -1027,7 +1114,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                     Assign Riders
                   </h3>
                   <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                    Order #{selectedOrderForAssign.trackingCode} — {selectedOrderForAssign.pickupLocation} → {selectedOrderForAssign.dropoffLocation}
+                    Order #{selectedOrderForAssign.trackingCode} — {selectedOrderForAssign.pickupRegion} → {selectedOrderForAssign.dropoffRegion}
                   </div>
                 </div>
                 <button
@@ -1046,11 +1133,11 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b' }}>Pickup:</span>
-                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.pickupLocation}, {selectedOrderForAssign.pickupRegion}</strong>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.pickupRegion} · {selectedOrderForAssign.pickupLocation}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b' }}>Dropoff:</span>
-                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.dropoffLocation}, {selectedOrderForAssign.dropoffRegion}</strong>
+                  <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.dropoffRegion} · {selectedOrderForAssign.dropoffLocation}</strong>
                 </div>
               </div>
 
@@ -1065,7 +1152,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                     </div>
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e3a8a' }}>Pickup Rider</div>
-                      <div style={{ fontSize: '11px', color: '#3b82f6' }}>Collects from: {selectedOrderForAssign.pickupLocation}</div>
+                      <div style={{ fontSize: '11px', color: '#3b82f6' }}>Collects from: {selectedOrderForAssign.pickupRegion} · {selectedOrderForAssign.pickupLocation}</div>
                     </div>
                     {(selectedOrderForAssign.pickupRider || selectedOrderForAssign.assignedRider) && (
                       <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px' }}>
@@ -1076,7 +1163,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <CustomSelect
                     value={assignPickupRiderId}
                     onChange={setAssignPickupRiderId}
-                    options={riderOptions}
+                    options={riderOptionsFor(selectedOrderForAssign.pickupRiderId)}
                     icon={<User size={15} />}
                   />
                 </div>
@@ -1089,7 +1176,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                     </div>
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 800, color: '#14532d' }}>Dropoff Rider</div>
-                      <div style={{ fontSize: '11px', color: '#16a34a' }}>Delivers to: {selectedOrderForAssign.dropoffLocation}</div>
+                      <div style={{ fontSize: '11px', color: '#16a34a' }}>Delivers to: {selectedOrderForAssign.dropoffRegion} · {selectedOrderForAssign.dropoffLocation}</div>
                     </div>
                     {(selectedOrderForAssign.dropoffRider || selectedOrderForAssign.assignedRider) && (
                       <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px' }}>

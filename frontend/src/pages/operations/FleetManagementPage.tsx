@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch, Printer, Pencil, Ban, RotateCcw, KeyRound, Trash2 } from 'lucide-react';
+import { Truck, Bike, Car, Settings2, UserPlus, ShieldCheck, ShieldAlert, PackageSearch, Printer, Pencil, Ban, RotateCcw, KeyRound, Trash2, MoreHorizontal } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import CustomSelect from '../../components/Form/CustomSelect';
 import { SkeletonTableRows } from '../../components/Skeleton';
@@ -46,6 +46,16 @@ export default function FleetManagementPage() {
   const [editingRider, setEditingRider] = useState<RiderProfile | null>(null);
   const [credentials, setCredentials] = useState<{ title: string; name: string; phone: string; password: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<RiderStatus | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Close the row ⋯ menu when clicking anywhere else.
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('.row-menu')) setOpenMenuId(null); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openMenuId]);
 
   useEffect(() => {
     const fetchRiders = async () => {
@@ -147,6 +157,7 @@ export default function FleetManagementPage() {
       if (activeTab === 'Maintenance') matchesTab = member.currentStatus === 'maintenance';
       if (activeTab === 'Unverified') matchesTab = !member.isVerified;
       if (activeTab === 'Suspended') matchesTab = !!member.user.suspendedAt;
+      if (statusFilter && member.currentStatus !== statusFilter) matchesTab = false;
 
       const query = searchQuery.toLowerCase();
       const matchesSearch =
@@ -155,7 +166,7 @@ export default function FleetManagementPage() {
 
       return matchesTab && matchesSearch;
     });
-  }, [riders, activeTab, searchQuery]);
+  }, [riders, activeTab, searchQuery, statusFilter]);
 
   const availableCount = useMemo(() => riders.filter(r => r.currentStatus === 'available').length, [riders]);
   const maintenanceCount = useMemo(() => riders.filter(r => r.currentStatus === 'maintenance').length, [riders]);
@@ -248,17 +259,38 @@ export default function FleetManagementPage() {
         }
 
         .fleet-main-grid {
-          display: grid;
-          grid-template-columns: 1fr 380px;
-          gap: 24px;
           padding: 0 24px;
-          align-items: start;
         }
 
         .responsive-table-container {
-          overflow-x: auto;
           width: 100%;
         }
+        .fleet-table th, .fleet-table td { padding: 14px 16px !important; }
+        @media (max-width: 1200px) {
+          .fleet-col-location { display: none; }
+        }
+        @media (max-width: 900px) {
+          .responsive-table-container { overflow-x: auto; }
+        }
+
+        .status-chip {
+          display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+          border: 1px solid #e2e8f0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer;
+        }
+        .status-chip.active { border-color: #0f172a; box-shadow: 0 0 0 1px #0f172a; }
+
+        .row-menu { position: relative; }
+        .row-menu-panel {
+          position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 220px; padding: 6px;
+          background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+        }
+        .row-menu-panel button {
+          display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: none; background: transparent;
+          border-radius: 8px; font-size: 14px; font-weight: 500; color: #0f172a; cursor: pointer; text-align: left;
+        }
+        .row-menu-panel button:hover { background: #f1f5f9; }
+        .row-menu-panel button.danger { color: #b91c1c; }
+        .row-menu-panel button.danger:hover { background: #fef2f2; }
 
         .avatar-circle {
           width: 40px;
@@ -273,9 +305,6 @@ export default function FleetManagementPage() {
         }
 
         @media (max-width: 1024px) {
-          .fleet-main-grid {
-            grid-template-columns: 1fr;
-          }
           .heatmap-container {
             height: 400px !important;
           }
@@ -348,11 +377,50 @@ export default function FleetManagementPage() {
           </div>
         </div>
 
+        {/* Fleet status strip — click a status to filter the table */}
+        <div className="fleet-main-grid" style={{ marginBottom: 24 }}>
+          <div className="glass-card" style={{ padding: '18px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Fleet status</h3>
+              {statusFilter && (
+                <button type="button" onClick={() => setStatusFilter(null)} style={{ border: 'none', background: 'transparent', color: '#078c35', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                  Show all statuses
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: '#f1f5f9', marginBottom: 14 }}>
+              {STATUS_OPTIONS.map(status => {
+                const count = riders.filter(r => r.currentStatus === status).length;
+                return count > 0 ? (
+                  <div key={status} title={`${formatStatusLabel(status)}: ${count}`} style={{ flex: count, background: getStatusColor(status).border }} />
+                ) : null;
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {STATUS_OPTIONS.map(status => {
+                const count = riders.filter(r => r.currentStatus === status).length;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    className={`status-chip${statusFilter === status ? ' active' : ''}`}
+                    onClick={() => setStatusFilter(statusFilter === status ? null : status)}
+                  >
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: getStatusColor(status).border }} />
+                    {formatStatusLabel(status)}
+                    <strong>{count}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Main Dashboard Grid */}
         <div className="fleet-main-grid">
           
           {/* Detailed Fleet List */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Detailed Fleet List</h3>
               <input 
@@ -371,12 +439,12 @@ export default function FleetManagementPage() {
             )}
 
             <div className="responsive-table-container">
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table className="fleet-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Driver</th>
                     <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Vehicle</th>
-                    <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Location</th>
+                    <th className="fleet-col-location" style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Location</th>
                     <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Status</th>
                     <th style={{ padding: '16px 24px', fontWeight: 600, color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Action</th>
                   </tr>
@@ -426,7 +494,7 @@ export default function FleetManagementPage() {
                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px' }}>Unassigned</span>
                             )}
                           </td>
-                          <td style={{ padding: '16px 24px', color: '#475569', fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap' }}>
+                          <td className="fleet-col-location" style={{ padding: '16px 24px', color: '#475569', fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap' }}>
                             {member.currentLocation ?? 'Unknown'}
                           </td>
                           <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
@@ -439,12 +507,12 @@ export default function FleetManagementPage() {
                           </td>
                           <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
-                              <div style={{ width: '160px', flexShrink: 0 }}>
+                              <div style={{ width: '150px', flexShrink: 0 }}>
                                 {updatingId === member.id ? (
                                   <div style={{
-                                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '44px',
+                                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minHeight: '40px',
                                     border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f1f5f9',
-                                    padding: '0.65rem 0.9rem', color: '#94a3b8', fontSize: '0.95rem', cursor: 'not-allowed'
+                                    padding: '0.55rem 0.8rem', color: '#94a3b8', fontSize: '0.9rem', cursor: 'not-allowed'
                                   }}>
                                     <Truck size={16} />
                                     Updating…
@@ -458,37 +526,6 @@ export default function FleetManagementPage() {
                                   />
                                 )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setAssigningRider(member)}
-                                title="Assign vehicle"
-                                aria-label="Assign vehicle"
-                                style={{
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  width: '44px', height: '44px', flexShrink: 0,
-                                  border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
-                                  color: '#475569', cursor: 'pointer',
-                                }}
-                              >
-                                <Settings2 size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedManifestRiderId(member.id);
-                                  setIsManifestOpen(true);
-                                }}
-                                title="Print Rider Run Sheet"
-                                aria-label="Print Rider Run Sheet"
-                                style={{
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  width: '44px', height: '44px', flexShrink: 0,
-                                  border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
-                                  color: '#078c35', cursor: 'pointer',
-                                }}
-                              >
-                                <Printer size={16} />
-                              </button>
                               {!member.isVerified && (
                                 <button
                                   type="button"
@@ -497,7 +534,7 @@ export default function FleetManagementPage() {
                                   title="Verify rider"
                                   style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '0 14px', height: '44px', flexShrink: 0,
+                                    padding: '0 12px', height: '40px', flexShrink: 0,
                                     border: '1px solid #bbf7d0', borderRadius: '10px', background: '#f0fdf4',
                                     color: '#078c35', cursor: verifyingId === member.id ? 'not-allowed' : 'pointer',
                                     fontWeight: 700, fontSize: '13px', opacity: verifyingId === member.id ? 0.6 : 1,
@@ -511,8 +548,6 @@ export default function FleetManagementPage() {
                                 member.user.suspendedAt
                                   ? { key: 'activate', title: 'Reactivate rider', icon: <RotateCcw size={16} />, color: '#078c35', onClick: () => handleSuspend(member) }
                                   : { key: 'suspend', title: 'Suspend rider', icon: <Ban size={16} />, color: '#c2410c', onClick: () => handleSuspend(member) },
-                                { key: 'resend', title: 'Resend login details by SMS', icon: <KeyRound size={16} />, color: '#1d4ed8', onClick: () => handleResendDetails(member) },
-                                { key: 'delete', title: 'Delete rider', icon: <Trash2 size={16} />, color: '#b91c1c', onClick: () => handleDelete(member) },
                               ].map(action => (
                                 <button
                                   key={action.key}
@@ -523,7 +558,7 @@ export default function FleetManagementPage() {
                                   aria-label={action.title}
                                   style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    width: '44px', height: '44px', flexShrink: 0,
+                                    width: '40px', height: '40px', flexShrink: 0,
                                     border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff',
                                     color: action.color, cursor: busyId === member.id ? 'not-allowed' : 'pointer',
                                     opacity: busyId === member.id ? 0.5 : 1,
@@ -532,6 +567,40 @@ export default function FleetManagementPage() {
                                   {action.icon}
                                 </button>
                               ))}
+                              <div className="row-menu">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
+                                  title="More actions"
+                                  aria-label="More actions"
+                                  aria-haspopup="menu"
+                                  aria-expanded={openMenuId === member.id}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '40px', height: '40px', flexShrink: 0,
+                                    border: '1px solid #e2e8f0', borderRadius: '10px', background: openMenuId === member.id ? '#f1f5f9' : '#fff',
+                                    color: '#475569', cursor: 'pointer',
+                                  }}
+                                >
+                                  <MoreHorizontal size={18} />
+                                </button>
+                                {openMenuId === member.id && (
+                                  <div className="row-menu-panel" role="menu">
+                                    <button type="button" role="menuitem" onClick={() => { setOpenMenuId(null); setAssigningRider(member); }}>
+                                      <Settings2 size={16} /> Assign vehicle
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { setOpenMenuId(null); setSelectedManifestRiderId(member.id); setIsManifestOpen(true); }}>
+                                      <Printer size={16} /> Print run sheet
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { setOpenMenuId(null); handleResendDetails(member); }}>
+                                      <KeyRound size={16} /> Resend login details
+                                    </button>
+                                    <button type="button" role="menuitem" className="danger" onClick={() => { setOpenMenuId(null); handleDelete(member); }}>
+                                      <Trash2 size={16} /> Delete rider
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -545,7 +614,7 @@ export default function FleetManagementPage() {
                           title="No Fleet Found"
                           message="There are no riders or vehicles matching your current filters."
                           actionLabel="Clear Filters"
-                          onAction={() => { setSearchQuery(''); setActiveTab('All Vehicles'); }}
+                          onAction={() => { setSearchQuery(''); setActiveTab('All Vehicles'); setStatusFilter(null); }}
                         />
                       </td>
                     </tr>
@@ -555,32 +624,6 @@ export default function FleetManagementPage() {
             </div>
           </div>
 
-          {/* Fleet Status Breakdown */}
-          <div className="glass-card" style={{ height: '100%', minHeight: '600px', padding: '24px' }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Fleet Status Breakdown</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {STATUS_OPTIONS.map(status => {
-                const count = riders.filter(r => r.currentStatus === status).length;
-                const pct = riders.length > 0 ? Math.round((count / riders.length) * 100) : 0;
-                const colors = getStatusColor(status);
-                return (
-                  <div key={status}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-                      <span>{formatStatusLabel(status)}</span>
-                      <span>{count}</span>
-                    </div>
-                    <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: colors.border, borderRadius: '4px' }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {riders.length === 0 && (
-              <p style={{ marginTop: '16px', fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>No riders registered yet.</p>
-            )}
-          </div>
-          
         </div>
       </main>
 

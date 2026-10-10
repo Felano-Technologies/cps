@@ -171,3 +171,27 @@ describe('ops manage businesses', () => {
     expect((await as(app, customer).get('/api/admin/businesses')).status).toBe(403);
   });
 });
+
+describe('ops edit an order', () => {
+  it('updates contacts, addresses, package and photo', async () => {
+    const shipment = await createShipment({ status: 'pending' });
+    const res = await as(app, ops).patch(`/api/shipments/${shipment.id}`, {
+      receiverName: 'Ama Mensah', receiverNumber: '0244000111', dropoffLocation: 'East Legon',
+      packageSize: 'big', additionalInstructions: 'Call on arrival', packageImageUrl: 'https://img.example/p.jpg',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ receiverName: 'Ama Mensah', dropoffLocation: 'East Legon', packageSize: 'big', packageImageUrl: 'https://img.example/p.jpg' });
+  });
+
+  it('refuses finished orders, prepaid region changes and non-staff', async () => {
+    const delivered = await createShipment({ status: 'delivered' });
+    expect((await as(app, ops).patch(`/api/shipments/${delivered.id}`, { receiverName: 'X' })).status).toBe(409);
+
+    const prepaid = await createShipment({ status: 'pending' });
+    await prisma.shipment.update({ where: { id: prepaid.id }, data: { prepaid: true } });
+    expect((await as(app, ops).patch(`/api/shipments/${prepaid.id}`, { dropoffRegion: 'Tamale' })).status).toBe(409);
+    expect((await as(app, ops).patch(`/api/shipments/${prepaid.id}`, { receiverName: 'Fixed name' })).status).toBe(200);
+
+    expect((await as(app, customer).patch(`/api/shipments/${prepaid.id}`, { receiverName: 'Y' })).status).toBe(403);
+  });
+});
