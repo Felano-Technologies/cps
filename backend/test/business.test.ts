@@ -135,8 +135,10 @@ describe('admin approval', () => {
     expect((await withKey(app, biz.apiKey).get('/api/partner/v1/coverage')).status).toBe(403);
   });
 
-  it('is admin only', async () => {
+  it('is staff only (operations and admin)', async () => {
     const ops = await createUser('operations');
-    expect((await as(app, ops).get('/api/admin/businesses')).status).toBe(403);
+    expect((await as(app, ops).get('/api/admin/businesses')).status).toBe(200);
+    const rider = await createUser('rider');
+    expect((await as(app, rider).get('/api/admin/businesses')).status).toBe(403);
   });
 });

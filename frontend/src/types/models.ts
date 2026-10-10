@@ -27,7 +27,13 @@ export interface RiderProfile {
   isVerified: boolean;
   createdAt: string;
   updatedAt: string;
-  user: { id?: string; name: string; email?: string; phone?: string | null };
+  user: { id?: string; name: string; email?: string; phone?: string | null; suspendedAt?: string | null };
+}
+
+/** Returned once when operations create an account or resend login details. */
+export interface IssuedCredentials {
+  tempPassword: string;
+  sentTo?: string;
 }
 
 export interface ShipmentCustomer {

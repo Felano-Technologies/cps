@@ -97,6 +97,8 @@ model User {
   phone        String? @unique
   phoneVerified Boolean @default(false)
   avatarUrl    String?
+  /// Set by operations to block sign-in and API access (riders, businesses).
+  suspendedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

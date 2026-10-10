@@ -5,7 +5,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { clearSessionCookie, setSessionCookie, signToken } from '../lib/auth';
-import { requireAuth } from '../middleware/auth';
+import { SUSPENDED_ERROR, requireAuth } from '../middleware/auth';
 import { sendSms } from '../lib/sms';
 import { uploadImageBuffer } from '../lib/cloudinary';
 import { generateWebhookSecret } from '../lib/apiKeys';
@@ -125,6 +125,9 @@ router.post('/login', async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     return res.status(401).json({ error: 'Invalid phone/email or password' });
+  }
+  if (user.suspendedAt) {
+    return res.status(403).json(SUSPENDED_ERROR);
   }
 
   const token = signToken({ userId: user.id, role: user.role });
@@ -271,6 +274,9 @@ router.post('/phone/verify-otp', async (req, res) => {
   if (!user) {
     // Leave the OTP unconsumed — /phone/signup consumes it once the profile is completed.
     return res.json({ exists: false });
+  }
+  if (user.suspendedAt) {
+    return res.status(403).json(SUSPENDED_ERROR);
   }
 
   await prisma.phoneOtp.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });

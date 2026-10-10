@@ -82,6 +82,17 @@ async function riderProfileIdFor(userId: string): Promise<string | null> {
   return profile?.id ?? null;
 }
 
+/** Why a rider can't be assigned (missing or suspended), or null if they can. */
+async function riderAssignmentProblem(riderProfileId: string, label: string) {
+  const rider = await prisma.riderProfile.findUnique({
+    where: { id: riderProfileId },
+    select: { user: { select: { name: true, suspendedAt: true } } },
+  });
+  if (!rider) return { status: 404, error: `${label} rider not found` };
+  if (rider.user.suspendedAt) return { status: 400, error: `${rider.user.name} is suspended and can't be assigned` };
+  return null;
+}
+
 function riderScope(riderProfileId: string): Prisma.ShipmentWhereInput {
   return {
     OR: [
@@ -868,12 +879,12 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
 
   // Validate rider existence if specified
   if (nextPickupRiderId) {
-    const pRider = await prisma.riderProfile.findUnique({ where: { id: nextPickupRiderId } });
-    if (!pRider) return res.status(404).json({ error: 'Pickup rider not found' });
+    const problem = await riderAssignmentProblem(nextPickupRiderId, 'Pickup');
+    if (problem) return res.status(problem.status).json({ error: problem.error });
   }
   if (nextDropoffRiderId) {
-    const dRider = await prisma.riderProfile.findUnique({ where: { id: nextDropoffRiderId } });
-    if (!dRider) return res.status(404).json({ error: 'Dropoff rider not found' });
+    const problem = await riderAssignmentProblem(nextDropoffRiderId, 'Dropoff');
+    if (problem) return res.status(problem.status).json({ error: problem.error });
   }
 
   const nextAssignedRiderId = nextDropoffRiderId || nextPickupRiderId || null;
@@ -1005,9 +1016,8 @@ router.patch('/:id/process', requireRole('operations', 'admin'), async (req, res
   const dRiderId = dropoffInput === undefined ? shipment.dropoffRiderId : dropoffInput || null;
 
   for (const [label, riderId] of [['Pickup', pRiderId], ['Dropoff', dRiderId]] as const) {
-    if (riderId && !(await prisma.riderProfile.findUnique({ where: { id: riderId }, select: { id: true } }))) {
-      return res.status(404).json({ error: `${label} rider not found` });
-    }
+    const problem = riderId ? await riderAssignmentProblem(riderId, label) : null;
+    if (problem) return res.status(problem.status).json({ error: problem.error });
   }
 
   const updated = await prisma.shipment.update({

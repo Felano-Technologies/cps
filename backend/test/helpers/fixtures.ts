@@ -6,6 +6,8 @@ import { signToken } from '../../server/lib/auth';
 import shipmentsRoutes from '../../server/routes/shipments';
 import bonusesRoutes from '../../server/routes/bonuses';
 import businessRoutes from '../../server/routes/business';
+import ridersRoutes from '../../server/routes/riders';
+import authRoutes from '../../server/routes/auth';
 import businessAdminRoutes from '../../server/routes/businessAdmin';
 import partnerV1Routes, { partnerErrorHandler } from '../../server/routes/partner/v1';
 import { generateApiKey, generateWebhookSecret } from '../../server/lib/apiKeys';
@@ -13,6 +15,8 @@ import { generateApiKey, generateWebhookSecret } from '../../server/lib/apiKeys'
 export function createApp() {
   const app = express();
   app.use(express.json());
+  app.use('/api/auth', authRoutes);
+  app.use('/api/riders', ridersRoutes);
   app.use('/api/shipments', shipmentsRoutes);
   app.use('/api/bonuses', bonusesRoutes);
   app.use('/api/business', businessRoutes);
