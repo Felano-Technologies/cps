@@ -10,6 +10,8 @@ export const WEBHOOK_EVENT_TYPES = [
   'shipment.status_changed',
   'shipment.delivered',
   'shipment.cancelled',
+  /** Ops found the parcel was a different size at pickup; fee.amount is the new price. */
+  'shipment.size_corrected',
   'ping',
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Building2, Pencil, Ban, RotateCcw, KeyRound, Trash2, Plus, Search, ShieldCheck } from 'lucide-react';
+import { Building2, Pencil, Ban, RotateCcw, KeyRound, Trash2, Plus, Search, ShieldCheck, Tags } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/Modal';
 import CredentialsModal from '../../components/CredentialsModal';
+import RateCardModal from './RateCardModal';
 import type { BusinessStatus, IssuedCredentials } from '../../types/models';
 
 interface StaffBusiness {
@@ -15,6 +16,7 @@ interface StaffBusiness {
   contactPhone: string | null;
   webhookUrl: string | null;
   cpsSharePercent: number;
+  hasRateCard: boolean;
   owner: { id: string; name: string; phone: string | null; email: string };
   shipmentCount: number;
   activeKeyCount: number;
@@ -130,6 +132,7 @@ export default function BusinessesPage() {
   const [form, setForm] = useState<{ business: StaffBusiness | null } | null>(null);
   const [credentials, setCredentials] = useState<{ title: string; name: string; phone: string; password: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<StaffBusiness | null>(null);
 
   useEffect(() => {
     api.get<StaffBusiness[]>('/admin/businesses')
@@ -235,7 +238,10 @@ export default function BusinessesPage() {
                     </td>
                     <td style={{ padding: '14px 16px' }}>{b.owner.name}<div style={{ fontSize: 12, color: '#078c35' }}>{b.owner.phone ?? '—'}</div></td>
                     <td style={{ padding: '14px 16px' }}>{b.shipmentCount}</td>
-                    <td style={{ padding: '14px 16px' }}><strong>{b.cpsSharePercent}%</strong><div style={{ fontSize: 12, color: '#64748b' }}>keeps {Math.round((100 - b.cpsSharePercent) * 100) / 100}%</div></td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <strong>{b.cpsSharePercent}%</strong><div style={{ fontSize: 12, color: '#64748b' }}>keeps {Math.round((100 - b.cpsSharePercent) * 100) / 100}%</div>
+                      {b.hasRateCard && <div style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}>Custom pricing</div>}
+                    </td>
                     <td style={{ padding: '14px 16px' }}>{b.activeKeyCount}</td>
                     <td style={{ padding: '14px 16px' }}>
                       <span style={{ background: st.bg, color: st.fg, borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{st.label}</span>
@@ -243,6 +249,7 @@ export default function BusinessesPage() {
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button title="Edit" aria-label="Edit" disabled={busy} style={iconBtn('#475569', busy)} onClick={() => setForm({ business: b })}><Pencil size={16} /></button>
+                        <button title="Pricing (sizes, outer areas, express)" aria-label="Pricing" disabled={busy} style={iconBtn('#1d4ed8', busy)} onClick={() => setPricing(b)}><Tags size={16} /></button>
                         {b.status === 'approved' ? (
                           <button title="Suspend" aria-label="Suspend" disabled={busy} style={iconBtn('#c2410c', busy)} onClick={() => setStatus(b, 'suspended')}><Ban size={16} /></button>
                         ) : (
@@ -278,6 +285,16 @@ export default function BusinessesPage() {
         />
       )}
       {credentials && <CredentialsModal {...credentials} onClose={() => setCredentials(null)} />}
+      {pricing && (
+        <RateCardModal
+          business={pricing}
+          onClose={() => setPricing(null)}
+          onSaved={enabled => {
+            replace({ ...pricing, hasRateCard: enabled });
+            toast.success(`Pricing for ${pricing.name} saved.`);
+          }}
+        />
+      )}
     </div>
   );
 }

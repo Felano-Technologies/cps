@@ -40,7 +40,20 @@ export function toPartnerShipment(s: ShipmentWithRelations) {
       kumasiSubArea: s.dropoffKumasiSubArea,
       location: s.dropoffLocation,
     },
-    package: { type: s.packageType, size: s.packageSize },
+    package: { type: s.packageType, size: s.packageSize, sizeCategory: s.sizeCategory },
+    /** Rate-card deliveries: how fee.amount was worked out. Null otherwise. */
+    priceBreakdown: s.sizeCategory
+      ? {
+          routeFee: s.baseFee === null ? null : Number(s.baseFee),
+          sizeCategory: s.sizeCategory,
+          outskirtsFee: s.outskirtsFee === null ? 0 : Number(s.outskirtsFee),
+          express: s.speed === 'express',
+        }
+      : null,
+    /** Set when CPS found the parcel was a different size at pickup and repriced it. */
+    sizeCorrection: s.sizeCorrectedAt && s.originalFee !== null
+      ? { originalFee: Number(s.originalFee), fee: Number(s.deliveryFee), sizeCategory: s.sizeCategory, at: s.sizeCorrectedAt }
+      : null,
     /** The rider currently responsible: the pickup rider until pickup, then the dropoff rider. */
     rider: BEFORE_PICKUP.has(s.status) ? pickupRider : dropoffRider,
     riders: { pickup: pickupRider, dropoff: dropoffRider },

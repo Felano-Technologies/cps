@@ -33,8 +33,8 @@ import CustomSelect from '../../components/Form/CustomSelect';
 import api from '../../services/api';
 import PartnerBadge from '../../components/PartnerBadge';
 import { useToast } from '../../contexts/ToastContext';
-import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, ShipmentSpeed, PackageType } from '../../types/models';
-import { needsDeliveryCode } from '../../types/models';
+import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, ShipmentSpeed, PackageType, SizeCategory } from '../../types/models';
+import { SIZE_CATEGORY_LABELS, needsDeliveryCode } from '../../types/models';
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
   awaiting_price: 'Awaiting Price',
@@ -218,6 +218,22 @@ export default function OpsTrackingPage() {
       toast.success('Status updated successfully.');
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Failed to update status.'));
+    }
+  };
+
+  const handleSizeCorrection = async (sizeCategory: SizeCategory) => {
+    if (!shipment?.sizeCategory || sizeCategory === shipment.sizeCategory) return;
+    const note = window.prompt(
+      `Change the parcel from ${SIZE_CATEGORY_LABELS[shipment.sizeCategory]} to ${SIZE_CATEGORY_LABELS[sizeCategory]}? `
+      + `The fee is recalculated and ${shipment.business?.name ?? 'the business'} is told. Add a note (e.g. "Weighed 11 kg"):`,
+    );
+    if (note === null) return;
+    try {
+      const { data } = await api.patch<Shipment>(`/shipments/${shipment.id}/size`, { sizeCategory, note: note.trim() || undefined });
+      setShipment(data);
+      toast.success(`Size corrected. New fee GHS ${Number(data.deliveryFee).toFixed(2)}.`);
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Failed to correct the size.'));
     }
   };
 
@@ -936,6 +952,33 @@ export default function OpsTrackingPage() {
                     </div>
                   )}
                 </div>
+
+                {shipment.sizeCategory && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ color: '#64748b', fontSize: '14px', fontWeight: 500 }}>Parcel size (priced by size)</span>
+                      <select
+                        aria-label="Parcel size"
+                        value={shipment.sizeCategory}
+                        disabled={shipment.status === 'cancelled'}
+                        onChange={(e) => handleSizeCorrection(e.target.value as SizeCategory)}
+                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 600 }}
+                      >
+                        {(Object.keys(SIZE_CATEGORY_LABELS) as SizeCategory[]).map(s => <option key={s} value={s}>{SIZE_CATEGORY_LABELS[s]}</option>)}
+                      </select>
+                    </div>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>
+                      Wrong size at pickup? Pick the real size: the fee is recalculated and the business is told.
+                      {shipment.speed === 'express' && ' Express.'}
+                      {shipment.outskirtsFee != null && Number(shipment.outskirtsFee) > 0 && ` Includes outer-area fee GHS ${Number(shipment.outskirtsFee).toFixed(2)}.`}
+                    </span>
+                    {shipment.sizeCorrectedAt && shipment.originalFee != null && (
+                      <span style={{ color: '#92400e', fontSize: '12px', fontWeight: 600 }}>
+                        Size corrected {new Date(shipment.sizeCorrectedAt).toLocaleString()} · booked at GHS {Number(shipment.originalFee).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {shipment.productFee != null && Number(shipment.productFee) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

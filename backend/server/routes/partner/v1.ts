@@ -13,6 +13,7 @@ import { prisma } from '../../lib/prisma';
 import { generateTrackingCode } from '../../lib/trackingCode';
 import { notifyRoles } from '../../lib/notifications';
 import { coverage, quote } from '../../lib/coverage';
+import { SIZE_CATEGORIES, packageSizeFor, rateCardFor, type Point } from '../../lib/rateCard';
 import { DELIVERY_CODE_PATTERN, hashDeliveryCode } from '../../lib/deliveryCode';
 import { notifyReceiverOfStatus, shipmentInclude } from '../../lib/shipmentService';
 import { toPartnerShipment } from '../../lib/partnerSerializer';
@@ -49,23 +50,46 @@ function invalid(res: Parameters<typeof partnerError>[0], error: z.ZodError) {
 }
 
 const kumasiSubArea = z.enum(['CampusAndEnvirons', 'Other']);
+const sizeCategory = z.enum(SIZE_CATEGORIES);
+const latitude = z.number().min(-90).max(90);
+const longitude = z.number().min(-180).max(180);
+
+function pointOf(p: { latitude?: number; longitude?: number }): Point | null {
+  return p.latitude !== undefined && p.longitude !== undefined ? { latitude: p.latitude, longitude: p.longitude } : null;
+}
 
 // ── Coverage & quotes ────────────────────────────────────────────────────────
 
-router.get('/coverage', (_req, res) => {
-  res.json(coverage());
+router.get('/coverage', async (req, res) => {
+  res.json(coverage(await rateCardFor(req.business!.id)));
 });
 
 const quoteSchema = z.object({
   pickupRegion: z.string().trim().min(1),
   dropoffRegion: z.string().trim().min(1),
   dropoffKumasiSubArea: kumasiSubArea.optional(),
+  // Only change the price for a business with a rate card.
+  sizeCategory: sizeCategory.optional(),
+  speed: z.enum(['same_day', 'next_day', 'express']).optional(),
+  pickupLatitude: latitude.optional(),
+  pickupLongitude: longitude.optional(),
+  dropoffLatitude: latitude.optional(),
+  dropoffLongitude: longitude.optional(),
 });
 
-router.post('/quotes', (req, res) => {
+router.post('/quotes', async (req, res) => {
   const parsed = quoteSchema.safeParse(req.body);
   if (!parsed.success) return invalid(res, parsed.error);
-  res.json(quote(parsed.data));
+  const q = parsed.data;
+  res.json(quote({
+    pickupRegion: q.pickupRegion,
+    dropoffRegion: q.dropoffRegion,
+    dropoffKumasiSubArea: q.dropoffKumasiSubArea,
+    sizeCategory: q.sizeCategory,
+    express: q.speed === 'express',
+    pickup: pointOf({ latitude: q.pickupLatitude, longitude: q.pickupLongitude }),
+    dropoff: pointOf({ latitude: q.dropoffLatitude, longitude: q.dropoffLongitude }),
+  }, await rateCardFor(req.business!.id)));
 });
 
 // ── Shipments ────────────────────────────────────────────────────────────────
@@ -79,15 +103,20 @@ const contactSchema = z.object({
 
 const createShipmentSchema = z.object({
   externalReference: z.string().trim().min(1).max(100),
-  pickup: contactSchema,
+  pickup: contactSchema.extend({
+    latitude: latitude.optional(),
+    longitude: longitude.optional(),
+  }),
   dropoff: contactSchema.extend({
     kumasiSubArea: kumasiSubArea.optional(),
-    latitude: z.number().min(-90).max(90).optional(),
-    longitude: z.number().min(-180).max(180).optional(),
+    latitude: latitude.optional(),
+    longitude: longitude.optional(),
   }),
   package: z.object({
     type: z.enum(['document', 'parcel', 'electronics', 'fragile', 'food', 'other']).default('parcel'),
     size: z.enum(['small', 'medium', 'big']).default('medium'),
+    /** Rate-card businesses: the parcel size the price is worked out from. */
+    sizeCategory: sizeCategory.optional(),
     weightKg: z.number().positive().optional(),
     description: z.string().max(300).optional(),
   }).default({}),
@@ -127,11 +156,16 @@ router.post('/shipments', async (req, res) => {
     return res.status(200).json(toPartnerShipment(existing));
   }
 
+  const terms = await rateCardFor(business.id);
   const price = quote({
     pickupRegion: data.pickup.region,
     dropoffRegion: data.dropoff.region,
     dropoffKumasiSubArea: data.dropoff.kumasiSubArea,
-  });
+    sizeCategory: data.package.sizeCategory,
+    express: data.speed === 'express',
+    pickup: pointOf(data.pickup),
+    dropoff: pointOf(data.dropoff),
+  }, terms);
   if (!price.serviceable) {
     return partnerError(res, 422, 'not_serviceable', price.message, { reason: price.reason });
   }
@@ -142,6 +176,7 @@ router.post('/shipments', async (req, res) => {
   }
 
   const trackingCode = generateTrackingCode();
+  const breakdown = price.breakdown;
   let shipment;
   try {
     shipment = await prisma.shipment.create({
@@ -156,7 +191,8 @@ router.post('/shipments', async (req, res) => {
         priority: data.priority,
         speed: data.speed,
         packageType: data.package.type,
-        packageSize: data.package.size,
+        // A rate-card size decides what riders see; otherwise the partner's own size.
+        packageSize: breakdown && data.package.sizeCategory ? packageSizeFor(data.package.sizeCategory) : data.package.size,
         deliveryType: 'doorstep',
         weightKg: data.package.weightKg,
         senderName: data.pickup.name,
@@ -173,6 +209,12 @@ router.post('/shipments', async (req, res) => {
         // delivery at its own share, so changing the business's share later
         // only affects deliveries booked after the change.
         cpsSharePercent: business.cpsSharePercent,
+        ...(breakdown && terms ? {
+          sizeCategory: breakdown.sizeCategory,
+          baseFee: breakdown.routeFee,
+          outskirtsFee: breakdown.outskirtsFee,
+          rateCardTerms: terms as unknown as Prisma.InputJsonValue,
+        } : {}),
         additionalInstructions: buildInstructions(data),
         deliveryCodeHash: data.deliveryCode ? hashDeliveryCode(trackingCode, data.deliveryCode) : undefined,
         statusEvents: { create: { status: 'pending', note: `Created via Partner API by ${business.name}` } },

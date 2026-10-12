@@ -107,6 +107,26 @@ info:
       cached copy (refresh at least hourly). `POST /quotes` gives the same answer.
     - Partner orders are **prepaid**: CPS never asks the receiver for money.
 
+    ## Custom pricing (rate cards)
+
+    CPS can agree custom pricing with a business. If yours has a rate card,
+    `GET /coverage` includes a `rateCard` section and a `sizeFees` price per
+    parcel size on every route, and the price also depends on:
+
+    - **Parcel size** — send `package.sizeCategory` (`standard` 1–5 kg,
+      `medium` 6–10 kg, `big` 10–12 kg, `big_plus` 13–15 kg). Sizes scale the
+      route price by the rate card's Kumasi prices, rounded up to `roundTo`.
+    - **Outer areas** — `outskirtsFee` is added once when the pickup or drop-off
+      pin (`latitude`/`longitude`) is inside one of `outskirtsAreas`.
+    - **Express** — `speed: express` multiplies the price by `expressMultiplier`.
+
+    `fee = (sizeFees[size] + outskirtsFee if in an outer area) × expressMultiplier if express`
+
+    If CPS finds the parcel is a different size at pickup, it corrects the size
+    and price and sends `shipment.size_corrected`; `sizeCorrection` holds the
+    original and new fee. Without a rate card these fields are ignored and you
+    pay the route price.
+
     # Shipment lifecycle
 
     | Status | Meaning |
@@ -167,6 +187,7 @@ info:
     | `shipment.status_changed` | Any status change not covered below. |
     | `shipment.delivered` | The shipment reached `delivered`. |
     | `shipment.cancelled` | The shipment was cancelled. |
+    | `shipment.size_corrected` | Rate cards: CPS found the parcel was a different size and repriced it (see `sizeCorrection`). |
     | `ping` | You pressed "Send test event" in the portal. |
 
     **Responding.** Return any `2xx` within **10 seconds**. Do slow work
@@ -566,10 +587,42 @@ components:
                 allOf: [{ $ref: "#/components/schemas/KumasiSubArea" }]
                 nullable: true
               fee: { type: number, example: 45 }
+              sizeFees:
+                type: object
+                description: Rate-card businesses only — the fee for each parcel size, before outer-area fee and express.
+                properties:
+                  standard: { type: number, example: 45 }
+                  medium: { type: number, example: 90 }
+                  big: { type: number, example: 130 }
+                  big_plus: { type: number, example: 195 }
           example:
             - { pickupRegion: Kumasi, dropoffRegion: Accra, kumasiSubArea: null, fee: 45 }
             - { pickupRegion: Accra, dropoffRegion: Accra, kumasiSubArea: null, fee: 35 }
             - { pickupRegion: Kumasi, dropoffRegion: Kumasi, kumasiSubArea: CampusAndEnvirons, fee: 20 }
+        rateCard:
+          type: object
+          description: Rate-card businesses only. See "Custom pricing".
+          properties:
+            sizes:
+              type: array
+              items:
+                type: object
+                properties:
+                  size: { $ref: "#/components/schemas/SizeCategory" }
+                  label: { type: string, example: "Big (10–12 kg)" }
+                  kumasiPrice: { type: number, example: 100 }
+            roundTo: { type: number, example: 5 }
+            outskirtsFee: { type: number, example: 10 }
+            outskirtsAreas:
+              type: array
+              items:
+                type: object
+                properties:
+                  name: { type: string, example: Mamponteng }
+                  latitude: { type: number }
+                  longitude: { type: number }
+                  radiusKm: { type: number, example: 2 }
+            expressMultiplier: { type: number, example: 2 }
         operatingHours:
           type: object
           properties:
@@ -593,6 +646,16 @@ components:
         pickupRegion: { $ref: "#/components/schemas/Region" }
         dropoffRegion: { $ref: "#/components/schemas/Region" }
         dropoffKumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
+        sizeCategory: { $ref: "#/components/schemas/SizeCategory" }
+        speed: { type: string, enum: [same_day, next_day, express] }
+        pickupLatitude: { type: number }
+        pickupLongitude: { type: number }
+        dropoffLatitude: { type: number }
+        dropoffLongitude: { type: number }
+    SizeCategory:
+      type: string
+      enum: [standard, medium, big, big_plus]
+      description: Rate-card parcel size — standard 1–5 kg, medium 6–10 kg, big 10–12 kg, big_plus 13–15 kg.
     Quote:
       oneOf:
         - type: object
@@ -604,6 +667,17 @@ components:
             currency: { type: string, example: GHS }
             pickupRegion: { $ref: "#/components/schemas/Region" }
             dropoffRegion: { $ref: "#/components/schemas/Region" }
+            breakdown:
+              type: object
+              description: Rate-card businesses only — how `fee` was worked out.
+              properties:
+                routeFee: { type: number, example: 35 }
+                sizeCategory: { $ref: "#/components/schemas/SizeCategory" }
+                sizeFee: { type: number, example: 100 }
+                outskirtsFee: { type: number, example: 10 }
+                outskirtsArea: { type: string, nullable: true, example: Mamponteng }
+                express: { type: boolean }
+                fee: { type: number, example: 220 }
         - type: object
           title: Not serviceable
           required: [serviceable, reason, message]
@@ -632,20 +706,29 @@ components:
           maxLength: 100
           description: Your id for this delivery (e.g. your order id). Unique per business; makes creates idempotent.
           example: order_10293
-        pickup: { $ref: "#/components/schemas/Contact" }
+        pickup:
+          allOf:
+            - $ref: "#/components/schemas/Contact"
+            - type: object
+              properties:
+                latitude: { type: number, minimum: -90, maximum: 90, description: Optional; rate cards use it for the outer-area fee. }
+                longitude: { type: number, minimum: -180, maximum: 180 }
         dropoff:
           allOf:
             - $ref: "#/components/schemas/Contact"
             - type: object
               properties:
                 kumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
-                latitude: { type: number, minimum: -90, maximum: 90, description: Optional; gives the rider a map link. }
+                latitude: { type: number, minimum: -90, maximum: 90, description: Optional; gives the rider a map link (and, with a rate card, decides the outer-area fee). }
                 longitude: { type: number, minimum: -180, maximum: 180 }
         package:
           type: object
           properties:
             type: { type: string, enum: [document, parcel, electronics, fragile, food, other], default: parcel }
             size: { type: string, enum: [small, medium, big], default: medium }
+            sizeCategory:
+              allOf: [{ $ref: "#/components/schemas/SizeCategory" }]
+              description: Rate-card businesses — the size the price is worked out from (sets `size` too). Ignored otherwise.
             weightKg: { type: number, exclusiveMinimum: true, minimum: 0 }
             description: { type: string, maxLength: 300, example: "2 pairs of shoes" }
         speed: { type: string, enum: [same_day, next_day, express], default: next_day }
@@ -693,6 +776,27 @@ components:
           properties:
             type: { type: string }
             size: { type: string }
+            sizeCategory:
+              allOf: [{ $ref: "#/components/schemas/SizeCategory" }]
+              nullable: true
+        priceBreakdown:
+          type: object
+          nullable: true
+          description: Rate-card deliveries — how `fee.amount` was worked out.
+          properties:
+            routeFee: { type: number, nullable: true, example: 35 }
+            sizeCategory: { $ref: "#/components/schemas/SizeCategory" }
+            outskirtsFee: { type: number, example: 10 }
+            express: { type: boolean }
+        sizeCorrection:
+          type: object
+          nullable: true
+          description: Set when CPS found the parcel was a different size at pickup and repriced it.
+          properties:
+            originalFee: { type: number, example: 70 }
+            fee: { type: number, example: 100 }
+            sizeCategory: { $ref: "#/components/schemas/SizeCategory" }
+            at: { type: string, format: date-time }
         rider:
           allOf: [{ $ref: "#/components/schemas/RiderContact" }]
           description: The rider currently responsible — pickup rider until pickup, then the delivery rider. `null` until assigned.
@@ -729,7 +833,7 @@ components:
       required: [id, type, createdAt, sequence, data]
       properties:
         id: { type: string, description: Unique event id — use it to de-duplicate. }
-        type: { type: string, enum: [shipment.created, shipment.rider_assigned, shipment.status_changed, shipment.delivered, shipment.cancelled, ping] }
+        type: { type: string, enum: [shipment.created, shipment.rider_assigned, shipment.status_changed, shipment.delivered, shipment.cancelled, shipment.size_corrected, ping] }
         createdAt: { type: string, format: date-time }
         sequence: { type: integer, description: Increases with every event; ignore events older than the last one you applied for a shipment. }
         data:

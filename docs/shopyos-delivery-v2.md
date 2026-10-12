@@ -425,6 +425,33 @@ Orders priced before Shopyos migration 082 have no `cps_quoted_fee` and keep the
 
 ---
 
+## 8a. Parcel sizes, outer areas and express (Shopyos rate card)
+
+Shopyos has a **rate card** in CPS (`business_rate_cards`, CPS migration `20261013000000`). It applies to Shopyos deliveries only; other businesses and walk-in customers keep standard prices. CPS ops edit it under **Businesses → Pricing**.
+
+| Size (`package.sizeCategory`) | Weight | Kumasi | KNUST area | Kumasi → Accra |
+|---|---|---|---|---|
+| `standard` | 1–5 kg | 35 | 20 | 45 |
+| `medium` | 6–10 kg | 70 | 40 | 90 |
+| `big` | 10–12 kg | 100 | 60 | 130 |
+| `big_plus` | 13–15 kg | 150 | 90 | 195 |
+| — | over 15 kg | not offered yet (pickup only on Shopyos) | | |
+
+```
+cps_fee = (route price × size, rounded up to ₵5   -- coverage routes[].sizeFees[size]
+           + ₵10 if pickup or drop-off pin is in an outer area)
+          × 2 if speed = express
+```
+
+- **Shopyos sends** `package.sizeCategory` (the largest item in the order), `speed: express` when the buyer chose Express, and the pickup and drop-off `latitude`/`longitude`. `expectedFee` is `cps_fee` — never the buyer price.
+- **Shopyos's markup is never sent to CPS.** The buyer pays `cps_fee + markup`; standard markup is 15% (₵3–₵10), express 15% (₵3–₵20). CPS bills and is paid `cps_fee` only.
+- **Pricing locally.** `GET /coverage` returns `routes[].sizeFees` and `rateCard` (`outskirtsFee`, `outskirtsAreas` as centre + radius, `expressMultiplier`), so checkout can price without a call per cart.
+- **Outer areas** start empty: CPS ops add each one (Mamponteng, Aboaso, Antoa, Sokoban, Atwima Boko, Kromoase, Afrancho, Asuofia/Ohwim, Kotwi, Abuakwa market) once its edges are confirmed. Until then no one pays the fee.
+- **Wrong size.** At pickup, ops pick the real size on the shipment; CPS reprices it from the terms saved at booking (`shipments.rateCardTerms`), keeps `originalFee`, and sends `shipment.size_corrected`. Shopyos records a strike and takes the difference from the seller's payout. CPS invoices the corrected fee.
+- **Backwards compatible.** Without `sizeCategory` or `speed: express`, a Shopyos booking costs exactly the route price, as before.
+
+---
+
 ## 9. Cancellations and reconciliation
 
 There are two cancel paths, and both must call CPS first for CPS orders:

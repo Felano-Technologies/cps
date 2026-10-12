@@ -1,4 +1,8 @@
 import { CPS_CITIES, KUMASI_RATES, calculateRouteCost } from './pricing';
+import {
+  SIZE_CATEGORIES, priceWithRateCard, rateCardView, sizedFee,
+  type Point, type RateCardPrice, type RateCardTerms, type SizeCategory,
+} from './rateCard';
 
 /**
  * Cities CPS riders collect from. CPS has people in every city it delivers
@@ -28,24 +32,39 @@ function canonicalRegion(region: string, known: string[]): string | null {
   return known.find(k => k.toLowerCase() === wanted) ?? null;
 }
 
+type RouteRow = {
+  pickupRegion: string;
+  dropoffRegion: string;
+  kumasiSubArea: string | null;
+  fee: number;
+  /** Rate-card businesses only: the fee for each parcel size (before outskirts and express). */
+  sizeFees?: Record<SizeCategory, number>;
+};
+
 /** Every priced route, so partners can price locally from a cached copy. */
-function routes() {
-  const rows: { pickupRegion: string; dropoffRegion: string; kumasiSubArea: string | null; fee: number }[] = [];
+function routes(terms: RateCardTerms | null) {
+  const rows: RouteRow[] = [];
+  const row = (pickupRegion: string, dropoffRegion: string, kumasiSubArea: keyof typeof KUMASI_RATES | null) => {
+    const fee = calculateRouteCost({ pickupRegion, dropoffRegion, kumasiSubArea: kumasiSubArea ?? undefined })!;
+    rows.push({
+      pickupRegion, dropoffRegion, kumasiSubArea, fee,
+      ...(terms ? { sizeFees: Object.fromEntries(SIZE_CATEGORIES.map(s => [s, sizedFee(terms, fee, s)])) as Record<SizeCategory, number> } : {}),
+    });
+  };
   for (const from of pickupZones()) {
     for (const to of CPS_CITIES) {
       if (from === 'Kumasi' && to === 'Kumasi') {
-        for (const subArea of Object.keys(KUMASI_RATES) as (keyof typeof KUMASI_RATES)[]) {
-          rows.push({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: subArea, fee: calculateRouteCost({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: subArea })! });
-        }
+        for (const subArea of Object.keys(KUMASI_RATES) as (keyof typeof KUMASI_RATES)[]) row(from, to, subArea);
       } else {
-        rows.push({ pickupRegion: from, dropoffRegion: to, kumasiSubArea: null, fee: calculateRouteCost({ pickupRegion: from, dropoffRegion: to })! });
+        row(from, to, null);
       }
     }
   }
   return rows;
 }
 
-export function coverage() {
+/** The price list. A business with a rate card also gets its sizes, outer areas and express terms. */
+export function coverage(terms: RateCardTerms | null = null) {
   return {
     currency: 'GHS',
     pickupRegions: pickupZones(),
@@ -54,21 +73,34 @@ export function coverage() {
       kumasiSubArea: subArea,
       description: KUMASI_SUB_AREA_LABELS[subArea],
     })),
-    routes: routes(),
+    routes: routes(terms),
+    ...(terms ? { rateCard: rateCardView(terms) } : {}),
     operatingHours: OPERATING_HOURS,
   };
 }
 
 export type QuoteResult =
-  | { serviceable: true; fee: number; currency: 'GHS'; pickupRegion: string; dropoffRegion: string }
+  | {
+      serviceable: true; fee: number; currency: 'GHS'; pickupRegion: string; dropoffRegion: string;
+      /** Rate-card businesses only: how the fee was worked out. */
+      breakdown?: RateCardPrice;
+    }
   | { serviceable: false; reason: 'pickup_region_not_served' | 'dropoff_region_not_served'; message: string };
 
-/** Binding price for a partner delivery. Region names are matched case-insensitively. */
+/**
+ * Binding price for a partner delivery. Region names are matched
+ * case-insensitively. Size, express and map pins only change the price for
+ * a business with a rate card; everyone else pays the route price.
+ */
 export function quote(input: {
   pickupRegion: string;
   dropoffRegion: string;
   dropoffKumasiSubArea?: 'CampusAndEnvirons' | 'Other';
-}): QuoteResult {
+  sizeCategory?: SizeCategory;
+  express?: boolean;
+  pickup?: Point | null;
+  dropoff?: Point | null;
+}, terms: RateCardTerms | null = null): QuoteResult {
   const pickupRegion = canonicalRegion(input.pickupRegion, pickupZones());
   if (!pickupRegion) {
     return {
@@ -90,5 +122,10 @@ export function quote(input: {
     };
   }
 
-  return { serviceable: true, fee, currency: 'GHS', pickupRegion, dropoffRegion };
+  if (!terms) return { serviceable: true, fee, currency: 'GHS', pickupRegion, dropoffRegion };
+
+  const breakdown = priceWithRateCard(terms, {
+    routeFee: fee, sizeCategory: input.sizeCategory, express: input.express, pickup: input.pickup, dropoff: input.dropoff,
+  });
+  return { serviceable: true, fee: breakdown.fee, currency: 'GHS', pickupRegion, dropoffRegion, breakdown };
 }

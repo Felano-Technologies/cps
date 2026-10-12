@@ -11,6 +11,9 @@ import { sendSms } from '../lib/sms';
 import { FINAL_STATUSES, notifyReceiverOfStatus, shipmentInclude } from '../lib/shipmentService';
 import { eventTypeForStatus, recordShipmentEvent } from '../lib/webhooks';
 import { MAX_DELIVERY_CODE_ATTEMPTS, deliveryCodeMatches } from '../lib/deliveryCode';
+import {
+  SIZE_CATEGORIES, SIZE_LABELS, packageSizeFor, repriceForSize, type RateCardTerms, type SizeCategory,
+} from '../lib/rateCard';
 
 const router = Router();
 router.use(requireAuth);
@@ -1032,6 +1035,60 @@ router.patch('/:id/price', requireRole('operations', 'admin'), async (req, res) 
     ).catch(() => {});
   }
 
+  res.json(updated);
+});
+
+const sizeCorrectionSchema = z.object({
+  sizeCategory: z.enum(SIZE_CATEGORIES),
+  note: z.string().trim().max(300).optional(),
+});
+
+/**
+ * Ops found a rate-card parcel is a different size than booked (usually at
+ * pickup): reprice it from the terms saved at booking and tell the business,
+ * which settles the difference with its seller. Billed at the new price.
+ */
+router.patch('/:id/size', requireRole('operations', 'admin'), async (req, res) => {
+  const parsed = sizeCorrectionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+  const { sizeCategory, note } = parsed.data;
+
+  const shipment = await prisma.shipment.findUnique({ where: { id: req.params.id as string } });
+  if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
+  if (!shipment.sizeCategory || !shipment.rateCardTerms || shipment.baseFee === null) {
+    return res.status(409).json({ error: "This delivery wasn't priced by parcel size, so its size can't be corrected." });
+  }
+  if (shipment.status === 'cancelled') return res.status(409).json({ error: 'This delivery was cancelled.' });
+  if (shipment.invoiceId) return res.status(409).json({ error: 'This delivery is already invoiced. Void the invoice first.' });
+  if (shipment.sizeCategory === sizeCategory) return res.status(409).json({ error: `It's already booked as ${SIZE_LABELS[sizeCategory]}.` });
+
+  const fee = repriceForSize(shipment.rateCardTerms as unknown as RateCardTerms, {
+    routeFee: Number(shipment.baseFee),
+    outskirtsFee: Number(shipment.outskirtsFee ?? 0),
+    express: shipment.speed === 'express',
+  }, sizeCategory);
+  const from = SIZE_LABELS[shipment.sizeCategory as SizeCategory] ?? shipment.sizeCategory;
+  const eventNote = `Parcel size corrected: ${from} → ${SIZE_LABELS[sizeCategory]}. `
+    + `Fee GHS ${Number(shipment.deliveryFee).toFixed(2)} → GHS ${fee.toFixed(2)}.${note ? ` ${note}` : ''}`;
+
+  const updated = await prisma.$transaction(async tx => {
+    const row = await tx.shipment.update({
+      where: { id: shipment.id },
+      data: {
+        sizeCategory,
+        packageSize: packageSizeFor(sizeCategory),
+        deliveryFee: fee,
+        // The first booked fee, even after several corrections.
+        originalFee: shipment.originalFee ?? shipment.deliveryFee,
+        sizeCorrectedAt: new Date(),
+      },
+      include: shipmentInclude,
+    });
+    await tx.shipmentStatusEvent.create({ data: { shipmentId: shipment.id, status: shipment.status, note: eventNote } });
+    return row;
+  });
+
+  await recordShipmentEvent(updated.id, 'shipment.size_corrected');
   res.json(updated);
 });
 

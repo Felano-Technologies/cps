@@ -52,6 +52,15 @@ export interface ShipmentStatusEvent {
   createdAt: string;
 }
 
+export type SizeCategory = 'standard' | 'medium' | 'big' | 'big_plus';
+
+export const SIZE_CATEGORY_LABELS: Record<SizeCategory, string> = {
+  standard: 'Standard (1–5 kg)',
+  medium: 'Medium (6–10 kg)',
+  big: 'Big (10–12 kg)',
+  big_plus: 'Big+ (13–15 kg)',
+};
+
 export interface Shipment {
   id: string;
   trackingCode: string;
@@ -89,6 +98,13 @@ export interface Shipment {
   stationReceiptUrl: string | null;
   stationHandoverAt: string | null;
   deliveryFee: string;
+  /** Rate-card deliveries only (e.g. Shopyos): standard | medium | big | big_plus */
+  sizeCategory?: SizeCategory | null;
+  baseFee?: string | null;
+  outskirtsFee?: string | null;
+  /** Fee at booking, kept when ops corrected the size. */
+  originalFee?: string | null;
+  sizeCorrectedAt?: string | null;
   productFee: string | null;
   weightKg: string | null;
   podMethod: PodMethod | null;

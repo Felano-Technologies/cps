@@ -137,8 +137,34 @@ model Business {
   shipments     Shipment[]
   webhookEvents WebhookEvent[]
   invoices      Invoice[]
+  rateCard      BusinessRateCard?
 
   @@map("businesses")
+}
+
+/// Custom pricing for one business (e.g. Shopyos): parcel sizes, an outer-area
+/// surcharge and express. Businesses without one pay standard CPS prices.
+/// See server/lib/rateCard.ts for the formula.
+model BusinessRateCard {
+  id                 String   @id @default(cuid())
+  businessId         String   @unique
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  enabled            Boolean  @default(true)
+  /// Price of each size on a standard Kumasi delivery (35); other routes scale the same way.
+  mediumKumasiPrice  Decimal  @default(70) @db.Decimal(10, 2)
+  bigKumasiPrice     Decimal  @default(100) @db.Decimal(10, 2)
+  bigPlusKumasiPrice Decimal  @default(150) @db.Decimal(10, 2)
+  /// Sized prices are rounded up to a multiple of this.
+  roundTo            Decimal  @default(5) @db.Decimal(10, 2)
+  /// Added once when the pickup or drop-off is in one of outskirtsAreas.
+  outskirtsFee       Decimal  @default(10) @db.Decimal(10, 2)
+  /// [{ name, latitude, longitude, radiusKm }]
+  outskirtsAreas     Json     @default("[]")
+  expressMultiplier  Decimal  @default(2) @db.Decimal(6, 3)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("business_rate_cards")
 }
 
 model ApiKey {
@@ -251,6 +277,17 @@ model Shipment {
   /// Business deliveries: CPS's share of deliveryFee agreed when booked
   /// (the business's cpsSharePercent at that time). Null for walk-in shipments.
   cpsSharePercent Decimal? @db.Decimal(5, 2)
+  // Rate-card deliveries only (see BusinessRateCard): how deliveryFee was worked out.
+  /// standard | medium | big | big_plus
+  sizeCategory    String?
+  /// Standard route price before size, outskirts and express.
+  baseFee         Decimal? @db.Decimal(10, 2)
+  outskirtsFee    Decimal? @db.Decimal(10, 2)
+  /// The rate card terms in force when booked, so later edits never reprice it.
+  rateCardTerms   Json?
+  /// Fee at booking, kept when ops correct the size at pickup.
+  originalFee     Decimal? @db.Decimal(10, 2)
+  sizeCorrectedAt DateTime?
   productFee  Decimal? @db.Decimal(10, 2)
   weightKg    Decimal? @db.Decimal(10, 2)
 
