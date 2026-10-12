@@ -169,6 +169,10 @@ router.post('/shipments', async (req, res) => {
         dropoffKumasiSubArea: price.dropoffRegion === 'Kumasi' ? (data.dropoff.kumasiSubArea ?? 'Other') : undefined,
         dropoffLocation: data.dropoff.location,
         deliveryFee: price.fee,
+        // The share agreed when this delivery was booked. Invoices bill each
+        // delivery at its own share, so changing the business's share later
+        // only affects deliveries booked after the change.
+        cpsSharePercent: business.cpsSharePercent,
         additionalInstructions: buildInstructions(data),
         deliveryCodeHash: data.deliveryCode ? hashDeliveryCode(trackingCode, data.deliveryCode) : undefined,
         statusEvents: { create: { status: 'pending', note: `Created via Partner API by ${business.name}` } },

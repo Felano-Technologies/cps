@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { as, createApp, createBusiness, createUser, prisma, type TestBusiness, type TestUser } from './helpers/fixtures';
+import { as, createApp, createBusiness, createUser, prisma, withKey, type TestBusiness, type TestUser } from './helpers/fixtures';
 
 const app = createApp();
 let ops: TestUser;
@@ -9,9 +9,10 @@ beforeAll(async () => {
   ops = await createUser('operations');
 });
 
-async function delivered(biz: TestBusiness, fee: number, deliveredAt: Date | null) {
+async function delivered(biz: TestBusiness, fee: number, deliveredAt: Date | null, cpsSharePercent?: number) {
   const s = await prisma.shipment.create({
     data: {
+      cpsSharePercent,
       trackingCode: `CPS-INV${++seq}${Date.now()}`,
       businessId: biz.businessId,
       externalReference: `ref-${seq}`,
@@ -102,6 +103,43 @@ describe('ops invoices', () => {
     const second = await as(app, ops).post('/api/admin/invoices', period);
     expect(second.status).toBe(201);
     expect(second.body.amountDue).toBe(42.5);
+  });
+
+  it('bills each delivery at the share agreed when it was booked', async () => {
+    const biz = await createBusiness();
+    // Booked under the old 85% share, then the business moves to 100%.
+    await delivered(biz, 40, new Date('2026-07-01T10:00:00Z'), 85);
+    await as(app, ops).patch(`/api/admin/businesses/${biz.businessId}`, { cpsSharePercent: 100 });
+    await delivered(biz, 20, new Date('2026-07-02T10:00:00Z'), 100);
+
+    const period = { businessId: biz.businessId, from: '2026-07-01', to: '2026-07-03' };
+    const preview = await as(app, ops).get(`/api/admin/invoices/preview?businessId=${biz.businessId}&from=2026-07-01&to=2026-07-03`);
+    // 85% of 40 + 100% of 20 = 54 of 60 → 90% effective.
+    expect(preview.body).toMatchObject({ count: 2, totalFees: 60, cpsShare: 54, businessShare: 6, cpsSharePercent: 90 });
+    expect(preview.body.lines.map((l: { sharePercent: number }) => l.sharePercent)).toEqual([85, 100]);
+
+    const created = await as(app, ops).post('/api/admin/invoices', period);
+    expect(created.body).toMatchObject({ amountDue: 54, businessShare: 6, cpsSharePercent: 90 });
+
+    // Changing the share again doesn't touch billed or stamped deliveries.
+    await as(app, ops).patch(`/api/admin/businesses/${biz.businessId}`, { cpsSharePercent: 70 });
+    const mine = await as(app, biz).get(`/api/business/invoices/${created.body.id}`);
+    expect(mine.body).toMatchObject({ amountDue: 54 });
+    expect(mine.body.lines.map((l: { cpsShare: number }) => l.cpsShare)).toEqual([34, 20]);
+  });
+
+  it('stamps the business share on deliveries booked through the Partner API', async () => {
+    const biz = await createBusiness();
+    await as(app, ops).patch(`/api/admin/businesses/${biz.businessId}`, { cpsSharePercent: 100 });
+    const res = await withKey(app, biz.apiKey).post('/api/partner/v1/shipments', {
+      externalReference: `share-${Date.now()}`,
+      pickup: { name: 'Ama Store', phone: '+233200001000', region: 'Kumasi', location: 'Adum' },
+      dropoff: { name: 'Kofi', phone: '+233200001001', region: 'Accra', location: 'Osu' },
+      expectedFee: 45,
+    });
+    expect(res.status).toBe(201);
+    const shipment = await prisma.shipment.findUniqueOrThrow({ where: { trackingCode: res.body.trackingCode } });
+    expect(Number(shipment.cpsSharePercent)).toBe(100);
   });
 
   it('lists outstanding amounts per business and refuses non-staff', async () => {

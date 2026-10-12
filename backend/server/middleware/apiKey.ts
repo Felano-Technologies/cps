@@ -5,7 +5,7 @@ import { hashApiKey, looksLikeApiKey } from '../lib/apiKeys';
 declare global {
   namespace Express {
     interface Request {
-      business?: { id: string; name: string; apiKeyId: string };
+      business?: { id: string; name: string; apiKeyId: string; cpsSharePercent: number };
     }
   }
 }
@@ -33,7 +33,7 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
 
   const apiKey = await prisma.apiKey.findUnique({
     where: { keyHash: hashApiKey(key) },
-    include: { business: { select: { id: true, name: true, status: true } } },
+    include: { business: { select: { id: true, name: true, status: true, cpsSharePercent: true } } },
   });
 
   if (!apiKey || apiKey.revokedAt) {
@@ -48,6 +48,11 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
     prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   }
 
-  req.business = { id: apiKey.business.id, name: apiKey.business.name, apiKeyId: apiKey.id };
+  req.business = {
+    id: apiKey.business.id,
+    name: apiKey.business.name,
+    apiKeyId: apiKey.id,
+    cpsSharePercent: Number(apiKey.business.cpsSharePercent),
+  };
   next();
 }

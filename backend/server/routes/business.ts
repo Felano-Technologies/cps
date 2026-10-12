@@ -12,7 +12,9 @@ import { generateApiKey, generateWebhookSecret } from '../lib/apiKeys';
 import { shipmentInclude } from '../lib/shipmentService';
 import { toPartnerShipment } from '../lib/partnerSerializer';
 import { deliverWebhookEvent, webhookEnvelope } from '../lib/webhooks';
-import { businessBalance, deliveredLines, invoiceInclude, invoiceView, invoiceWithLines, summarize } from '../lib/invoicing';
+import {
+  businessBalance, deliveredLines, effectiveSharePercent, invoiceInclude, invoiceView, invoiceWithLines, summarize,
+} from '../lib/invoicing';
 
 const router = Router();
 router.use(requireAuth, requireRole('business'));
@@ -263,7 +265,7 @@ router.get('/statement', async (req, res) => {
     from,
     to,
     currency: 'GHS',
-    cpsSharePercent: percent,
+    cpsSharePercent: effectiveSharePercent(lines, percent),
     count: totals.count,
     totalFees: totals.totalFees,
     cpsShare: totals.cpsShare,

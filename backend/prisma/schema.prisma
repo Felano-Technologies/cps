@@ -248,6 +248,9 @@ model Shipment {
   stationHandoverAt   DateTime?
 
   deliveryFee Decimal @db.Decimal(10, 2)
+  /// Business deliveries: CPS's share of deliveryFee agreed when booked
+  /// (the business's cpsSharePercent at that time). Null for walk-in shipments.
+  cpsSharePercent Decimal? @db.Decimal(5, 2)
   productFee  Decimal? @db.Decimal(10, 2)
   weightKg    Decimal? @db.Decimal(10, 2)
 

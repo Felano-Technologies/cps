@@ -22,7 +22,7 @@ The CPS API itself is documented on the CPS `/developers` page (source: `cps/bac
 | Status updates | Driver app → `PUT /deliveries/:id/status` | CPS webhook → Shopyos sets the **same** statuses v1 uses |
 | Delivery PIN | Generated at pickup; driver enters it | Generated at dispatch and sent to CPS as `deliveryCode`; CPS rider enters it. The buyer still sees it only once the order is in transit. |
 | Escrow release | `verify_delivery_pin` → `confirm_delivery_atomic` | CPS `shipment.delivered` webhook (code verified) → `confirm_delivery_atomic` |
-| Payout | Driver gets `driver_earnings_percentage` (85%) of the fee | CPS gets the same `driver_earnings_percentage` (**85%**); Shopyos keeps **15%** |
+| Payout | Driver gets `driver_earnings_percentage` (85%) of the fee | Buyer pays **CPS price + Shopyos markup**; CPS gets **100% of its price**, Shopyos keeps the markup (see section 8). CPS never sees the markup. |
 | Live GPS map | Driver location updates | None. The map shows store and destination only. |
 | Driver chat / in-app call | Agora call and chat with the driver (Shopyos user) | Not available. CPS riders aren't Shopyos users. The rider's name and phone are shown instead (section 10). |
 | Store or buyer outside the 5 CPS cities (e.g. Cape Coast, Ho) | In-house drivers / hubs | **Delivery not available; Pickup · Free only.** No driver or hub flow runs. |
@@ -69,7 +69,7 @@ Use **coordinates**, not region names (section 5.1). Get store coordinates with 
    CPS_API_KEY=cps_live_...
    CPS_WEBHOOK_SECRET=whsec_...
    ```
-3. **Fee config:** nothing new. CPS is paid with the existing `driver_earnings_percentage` (85) in `platform_fee_config`, so CPS and in-house drivers always get the same share.
+3. **Fee config:** `cps_markup_percentage` (15), `cps_markup_min_fee` (3) and `cps_markup_max_fee` (10) in `platform_fee_config` (Shopyos migration 082) set the markup added on top of CPS's price. In CPS, the Shopyos business's **CPS share is 100%** (CPS migration `20261012000000_shipment_cps_share`), since CPS is paid its full price.
 4. **Hours.** CPS runs on the same Railway schedule as Shopyos (about 05:00–20:00 UTC daily). CPS riders work Mon–Sat, 08:00–19:30.
 
 ---
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS cps_webhook_events (
 
 - **`deliveries.driver_id`** is already nullable; CPS rows keep it **`NULL`**. Never put a fake value there. `POST /reviews/driver` and foreign keys depend on it being a real user.
 - **`confirm_delivery_atomic` (`038_instant_payout.sql`)** already skips the driver wallet credit when `driver_id` is NULL. It doesn't need changing, but note two things about how it behaves:
-  - Its `v_platform_fee` books the **whole** delivery fee as platform revenue. The webhook must move the CPS 85% out of platform revenue (section 8).
+  - Its `v_platform_fee` books the **whole** delivery fee as platform revenue. The webhook must move CPS's price out of platform revenue (section 8).
   - It only sets `deliveries.status = 'delivered'` inside the driver branch. The webhook must set it itself (section 7).
 
 ---
@@ -320,7 +320,7 @@ Touch point: `controllers/orderController.js` `updateOrderStatus` (around line 3
                   latitude: Number(order.delivery_latitude) || undefined,
                   longitude: Number(order.delivery_longitude) || undefined },
        package: { type: 'parcel', size: 'medium', description: `${itemCount} item(s) from ${store.store_name}` },
-       expectedFee: Number(order.delivery_fee),
+       expectedFee: Number(order.cps_quoted_fee),   // CPS's own price — never the buyer's marked-up delivery_fee
        deliveryCode: order.verification_pin,
        instructions: order.buyer_notes || undefined,
      });
@@ -399,11 +399,23 @@ exports.handle = async (req, res) => {
 
 On `delivered`, in the same transaction as `confirm_delivery_atomic`:
 
+Pricing at checkout (Shopyos `cpsDelivery.withMarkup`):
+
 ```
-pct        = feeConfig.driver_earnings_percentage                      -- 85, same share as in-house drivers
-cps_amount = round(order.delivery_fee × pct/100, 2)                     -- 45 × 85% → 38.25
-platform_revenue -= cps_amount                                          -- confirm_delivery_atomic booked the whole fee; keep only 6.75
+cps_fee      = CPS route price                                          -- 45
+markup       = clamp(cps_fee × cps_markup_percentage%, min_fee, max_fee) -- 15% of 45 = 6.75 (min 3, max 10)
+delivery_fee = cps_fee + markup                                         -- 51.75, what the buyer pays
+orders.cps_quoted_fee = cps_fee, orders.delivery_markup = markup
 ```
+
+On delivery:
+
+```
+cps_amount = orders.cps_quoted_fee                                      -- 45: CPS gets its full price
+platform_revenue -= cps_amount                                          -- confirm_delivery_atomic booked the whole fee; keep the 6.75 markup
+```
+
+Orders priced before Shopyos migration 082 have no `cps_quoted_fee` and keep the old rule (`driver_earnings_percentage`, 85% of `delivery_fee`). In CPS, each delivery carries the share agreed when it was booked (`shipments.cpsSharePercent`), so those older deliveries are invoiced at 85% and newer ones at 100%.
 
 - **Payout record.** Write a payout with a new payee type `logistics_partner` (recipient: CPS's Paystack transfer recipient, created once and stored in config).
 - **Transfer.** Then use the existing flow: `attemptInstantPayout` (`payoutController.js` around line 501) for an immediate transfer, with the nightly sweep in `workers/payoutScheduler.js` retrying failures. This mirrors driver payouts.
@@ -534,13 +546,13 @@ It needs **real coordinates on the delivery row** (section 6). With none, it sho
 1. Deploy the migration and code with the switch unset. Nothing changes yet.
 2. In staging (CPS staging key), set `v2`.
 3. **Kumasi store → Accra buyer** (pin in Osu):
-   1. Checkout shows GHS 45, with **no** "Cross-Region Shipment" card and no hub picker.
+   1. Checkout shows GHS 51.75 (CPS GHS 45 + markup 6.75), with **no** "Cross-Region Shipment" card and no hub picker.
    2. Pay, then the seller marks Ready. The seller sees "Waiting for driver"; CPS Ops shows the order with a "Shopyos · prepaid" badge.
    3. CPS assigns a rider. The buyer's order stays "Ready" and the rider card shows name · phone. The order screen timeline is not grey.
    4. Pickup: the order goes `in_transit`, and the buyer gets the PIN and sees the PIN card. The seller's payload has **no** PIN.
-   5. Wrong PIN, then the right PIN: `completed`, seller escrow released, CPS payout of **GHS 38.25** recorded, platform keeps 6.75.
+   5. Wrong PIN, then the right PIN: `completed`, seller escrow released, CPS payout of **GHS 45** recorded, platform keeps the 6.75 markup.
    6. The review screen shows no driver card.
-4. **Kumasi store → buyer near KNUST**: GHS 20. Same store → elsewhere in Kumasi: GHS 35. Same store → Cape Coast: "Not available" with the CPS note. Move the pin between areas and the fee updates.
+4. **Kumasi store → buyer near KNUST**: GHS 23 (CPS 20 + 3 minimum markup). Same store → elsewhere in Kumasi: GHS 40.25 (CPS 35 + 5.25). Same store → Cape Coast: "Not available" with the CPS note. Move the pin between areas and the fee updates.
    - Same store with **Pickup · Free**: no fee, and nothing appears in CPS when it's marked Ready.
    - Clear the coverage cache and block the CPS API: checkout shows "Couldn't calculate delivery fee. Retry", **not** "Not available".
 5. **Kumasi store → Takoradi, Sunyani, Tamale**: 55 / 55 / 60, all door to door, no hubs.

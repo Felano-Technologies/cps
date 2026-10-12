@@ -1,7 +1,9 @@
 /**
- * Money a business owes CPS: each delivered partner order earns CPS the
- * business's share (cpsSharePercent) of its delivery fee. Amounts are worked
- * out in pesewas per delivery so totals always equal the sum of their lines.
+ * Money a business owes CPS: each delivered partner order earns CPS its
+ * share of its delivery fee — the share stamped on the delivery when it was
+ * booked (shipments.cpsSharePercent), or, for deliveries without one, the
+ * share passed in (the business's or the invoice's). Amounts are worked out
+ * in pesewas per delivery so totals always equal the sum of their lines.
  */
 import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
@@ -14,6 +16,8 @@ export interface DeliveryLine {
   dropoffRegion: string;
   deliveredAt: Date;
   fee: number;
+  /** CPS's share of this delivery's fee, in percent. */
+  sharePercent: number;
   cpsShare: number;
   invoiceId: string | null;
 }
@@ -54,7 +58,7 @@ export async function deliveredLines(
     orderBy: { createdAt: 'asc' },
     include: {
       shipment: {
-        select: { id: true, trackingCode: true, externalReference: true, dropoffRegion: true, receiverName: true, deliveryFee: true, invoiceId: true },
+        select: { id: true, trackingCode: true, externalReference: true, dropoffRegion: true, receiverName: true, deliveryFee: true, cpsSharePercent: true, invoiceId: true },
       },
     },
   });
@@ -65,6 +69,7 @@ export async function deliveredLines(
     .filter(e => !seen.has(e.shipmentId) && seen.add(e.shipmentId))
     .map(e => {
       const fee = Number(e.shipment.deliveryFee);
+      const sharePercent = e.shipment.cpsSharePercent === null ? percent : Number(e.shipment.cpsSharePercent);
       return {
         shipmentId: e.shipment.id,
         trackingCode: e.shipment.trackingCode,
@@ -73,7 +78,8 @@ export async function deliveredLines(
         dropoffRegion: e.shipment.dropoffRegion,
         deliveredAt: e.createdAt,
         fee,
-        cpsShare: cpsShareOf(fee, percent),
+        sharePercent,
+        cpsShare: cpsShareOf(fee, sharePercent),
         invoiceId: e.shipment.invoiceId,
       };
     });
@@ -84,6 +90,36 @@ export function summarize(lines: DeliveryLine[]) {
   const totalFees = fromPesewas(lines.reduce((sum, l) => sum + toPesewas(l.fee), 0));
   const cpsShare = fromPesewas(lines.reduce((sum, l) => sum + toPesewas(l.cpsShare), 0));
   return { count: lines.length, totalFees, cpsShare, businessShare: fromPesewas(toPesewas(totalFees) - toPesewas(cpsShare)) };
+}
+
+/**
+ * The single share these lines were billed at, or null when they mix shares
+ * (e.g. an invoice spanning a share change). `fallback` is used for no lines.
+ */
+export function uniformSharePercent(lines: DeliveryLine[], fallback: number): number | null {
+  const shares = new Set(lines.map(l => l.sharePercent));
+  if (shares.size === 0) return fallback;
+  return shares.size === 1 ? [...shares][0] : null;
+}
+
+/**
+ * One percentage that describes these lines: their shared percent, or — when
+ * shares are mixed — the overall effective one (amount due ÷ total fees), so
+ * "Due to CPS (x%)" and "Business keeps (100-x%)" still match the amounts.
+ */
+export function effectiveSharePercent(lines: DeliveryLine[], fallback: number): number {
+  const uniform = uniformSharePercent(lines, fallback);
+  if (uniform !== null) return uniform;
+  const { totalFees, cpsShare } = summarize(lines);
+  return totalFees > 0 ? Math.round((cpsShare / totalFees) * 10000) / 100 : fallback;
+}
+
+/** "85% of GHS 65.00" or, for mixed shares, "each delivery's agreed share of GHS 65.00". */
+export function shareDescription(lines: DeliveryLine[], fallback: number, totalFees: number) {
+  const uniform = uniformSharePercent(lines, fallback);
+  return uniform === null
+    ? `each delivery's agreed share of GHS ${totalFees.toFixed(2)}`
+    : `${uniform}% of GHS ${totalFees.toFixed(2)}`;
 }
 
 /** Start and (exclusive) end of the current day. Ghana runs on UTC all year. */

@@ -9,7 +9,8 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { notify } from '../lib/notifications';
 import {
-  businessBalance, deliveredLines, invoiceInclude, invoiceNumber, invoiceView, invoiceWithLines, summarize,
+  businessBalance, deliveredLines, effectiveSharePercent, invoiceInclude, invoiceNumber, invoiceView, invoiceWithLines,
+  shareDescription, summarize,
 } from '../lib/invoicing';
 
 const router = Router();
@@ -66,7 +67,7 @@ router.get('/preview', async (req, res) => {
   const period = await loadPeriod(req.query);
   if ('error' in period && period.error) return res.status(period.error.status).json({ error: period.error.message });
   const { business, from, to, percent, lines } = period;
-  res.json({ business: { id: business.id, name: business.name }, from, to, cpsSharePercent: percent, ...summarize(lines), lines });
+  res.json({ business: { id: business.id, name: business.name }, from, to, cpsSharePercent: effectiveSharePercent(lines, percent), ...summarize(lines), lines });
 });
 
 router.post('/', async (req, res) => {
@@ -86,7 +87,9 @@ router.post('/', async (req, res) => {
         periodEnd: to,
         deliveryCount: totals.count,
         totalFees: totals.totalFees,
-        cpsSharePercent: percent,
+        // Each delivery is billed at the share agreed when it was booked; this
+        // is the one percentage that describes the invoice as a whole.
+        cpsSharePercent: effectiveSharePercent(lines, percent),
         amountDue: totals.cpsShare,
         notes,
         createdById: req.auth!.userId,
@@ -107,7 +110,7 @@ router.post('/', async (req, res) => {
     business.ownerUserId,
     'business_invoice',
     `New CPS invoice ${invoiceNumber(invoice.seq)}`,
-    `CPS invoiced ${totals.count} deliver${totals.count === 1 ? 'y' : 'ies'}: GHS ${totals.cpsShare.toFixed(2)} due (${percent}% of GHS ${totals.totalFees.toFixed(2)} in delivery fees).`,
+    `CPS invoiced ${totals.count} deliver${totals.count === 1 ? 'y' : 'ies'}: GHS ${totals.cpsShare.toFixed(2)} due (${shareDescription(lines, percent, totals.totalFees)} in delivery fees).`,
   ).catch(() => {});
 
   res.status(201).json(await invoiceWithLines(invoice));
