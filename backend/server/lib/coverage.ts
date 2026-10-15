@@ -1,6 +1,6 @@
 import { CPS_CITIES, KUMASI_RATES, calculateRouteCost } from './pricing';
 import {
-  SIZE_CATEGORIES, priceWithRateCard, rateCardView, sizedFee,
+  SIZE_CATEGORIES, pickupsTooFar, priceWithRateCard, rateCardView, sizedFee,
   type Point, type RateCardPrice, type RateCardTerms, type SizeCategory,
 } from './rateCard';
 
@@ -85,7 +85,13 @@ export type QuoteResult =
       /** Rate-card businesses only: how the fee was worked out. */
       breakdown?: RateCardPrice;
     }
-  | { serviceable: false; reason: 'pickup_region_not_served' | 'dropoff_region_not_served'; message: string };
+  | {
+      serviceable: false;
+      reason: 'pickup_region_not_served' | 'dropoff_region_not_served' | 'multi_pickup_not_available' | 'pickups_too_far';
+      message: string;
+      /** pickups_too_far: positions (in the extra pickups list) of the shops that can't share the trip. */
+      tooFar?: number[];
+    };
 
 /**
  * Binding price for a partner delivery. Region names are matched
@@ -100,7 +106,33 @@ export function quote(input: {
   express?: boolean;
   pickup?: Point | null;
   dropoff?: Point | null;
+  /**
+   * Extra shops collected on the same trip (multi-pickup), in the same city as
+   * the first pickup and within the rate card's extraPickupRadiusKm of it.
+   * Rate-card businesses only.
+   */
+  extraPickups?: (Point | null)[];
 }, terms: RateCardTerms | null = null): QuoteResult {
+  const extras = input.extraPickups ?? [];
+  if (extras.length && !terms) {
+    return {
+      serviceable: false,
+      reason: 'multi_pickup_not_available',
+      message: 'Collecting from several shops in one delivery needs a rate card. Book each shop separately.',
+    };
+  }
+  if (extras.length && terms) {
+    const tooFar = pickupsTooFar(terms, input.pickup, extras);
+    if (tooFar.length) {
+      return {
+        serviceable: false,
+        reason: 'pickups_too_far',
+        message: `Every shop must have a map pin and be within ${terms.extraPickupRadiusKm} km of the first pickup to share one trip. Book the others separately.`,
+        tooFar,
+      };
+    }
+  }
+
   const pickupRegion = canonicalRegion(input.pickupRegion, pickupZones());
   if (!pickupRegion) {
     return {
@@ -126,6 +158,7 @@ export function quote(input: {
 
   const breakdown = priceWithRateCard(terms, {
     routeFee: fee, sizeCategory: input.sizeCategory, express: input.express, pickup: input.pickup, dropoff: input.dropoff,
+    extraPickups: extras,
   });
   return { serviceable: true, fee: breakdown.fee, currency: 'GHS', pickupRegion, dropoffRegion, breakdown };
 }

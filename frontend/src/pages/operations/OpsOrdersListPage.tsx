@@ -27,6 +27,7 @@ import {
 import axios from 'axios';
 import api from '../../services/api';
 import PartnerBadge from '../../components/PartnerBadge';
+import ExtraPickups from '../../components/ExtraPickups';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import Modal from '../../components/Modal';
@@ -684,6 +685,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                           </div>
                           <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', marginLeft: '70px', fontWeight: 600 }}>
                             {order.pickupLocation}
+                            <ExtraPickups shipment={order} compact />
                           </div>
                           {/* Divider */}
                           <div style={{ borderTop: '1px dashed #e2e8f0', margin: '6px 0' }} />
@@ -1135,6 +1137,7 @@ export default function OpsOrdersListPage({ filterType }: OpsOrdersListPageProps
                   <span style={{ color: '#64748b' }}>Pickup:</span>
                   <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.pickupRegion} · {selectedOrderForAssign.pickupLocation}</strong>
                 </div>
+                <ExtraPickups shipment={selectedOrderForAssign} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b' }}>Dropoff:</span>
                   <strong style={{ color: '#0f172a' }}>{selectedOrderForAssign.dropoffRegion} · {selectedOrderForAssign.dropoffLocation}</strong>

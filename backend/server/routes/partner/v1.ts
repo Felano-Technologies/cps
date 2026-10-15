@@ -54,6 +54,9 @@ const sizeCategory = z.enum(SIZE_CATEGORIES);
 const latitude = z.number().min(-90).max(90);
 const longitude = z.number().min(-180).max(180);
 
+/** Most extra shops one rider collects on a multi-pickup trip. */
+const MAX_EXTRA_PICKUPS = 5;
+
 function pointOf(p: { latitude?: number; longitude?: number }): Point | null {
   return p.latitude !== undefined && p.longitude !== undefined ? { latitude: p.latitude, longitude: p.longitude } : null;
 }
@@ -75,6 +78,8 @@ const quoteSchema = z.object({
   pickupLongitude: longitude.optional(),
   dropoffLatitude: latitude.optional(),
   dropoffLongitude: longitude.optional(),
+  /** Multi-pickup (rate-card businesses): the other shops' map pins, collected on the same trip. */
+  extraPickups: z.array(z.object({ latitude, longitude })).max(MAX_EXTRA_PICKUPS).optional(),
 });
 
 router.post('/quotes', async (req, res) => {
@@ -89,6 +94,7 @@ router.post('/quotes', async (req, res) => {
     express: q.speed === 'express',
     pickup: pointOf({ latitude: q.pickupLatitude, longitude: q.pickupLongitude }),
     dropoff: pointOf({ latitude: q.dropoffLatitude, longitude: q.dropoffLongitude }),
+    extraPickups: q.extraPickups?.map(pointOf),
   }, await rateCardFor(req.business!.id)));
 });
 
@@ -112,6 +118,17 @@ const createShipmentSchema = z.object({
     latitude: latitude.optional(),
     longitude: longitude.optional(),
   }),
+  /**
+   * Multi-pickup (rate-card businesses): other shops the same rider collects
+   * from before the one drop-off, in collection order. Each needs a map pin
+   * within the rate card's radius of `pickup` (which then needs one too).
+   */
+  extraPickups: z.array(contactSchema.extend({
+    latitude,
+    longitude,
+    /** Your own reference for this shop's parcel (e.g. your order id). */
+    reference: z.string().trim().max(100).optional(),
+  })).max(MAX_EXTRA_PICKUPS).optional(),
   package: z.object({
     type: z.enum(['document', 'parcel', 'electronics', 'fragile', 'food', 'other']).default('parcel'),
     size: z.enum(['small', 'medium', 'big']).default('medium'),
@@ -138,6 +155,9 @@ async function findOwnShipment(businessId: string, ref: string) {
 
 function buildInstructions(data: z.infer<typeof createShipmentSchema>) {
   const parts = [data.instructions, data.package.description && `Package: ${data.package.description}`];
+  if (data.extraPickups?.length) {
+    parts.push(`Collect from ${data.extraPickups.length + 1} shops: ${data.pickup.name}, ${data.extraPickups.map(p => p.name).join(', ')}`);
+  }
   if (data.dropoff.latitude !== undefined && data.dropoff.longitude !== undefined) {
     parts.push(`Map: https://maps.google.com/?q=${data.dropoff.latitude},${data.dropoff.longitude}`);
   }
@@ -165,9 +185,17 @@ router.post('/shipments', async (req, res) => {
     express: data.speed === 'express',
     pickup: pointOf(data.pickup),
     dropoff: pointOf(data.dropoff),
+    extraPickups: data.extraPickups?.map(pointOf),
   }, terms);
   if (!price.serviceable) {
-    return partnerError(res, 422, 'not_serviceable', price.message, { reason: price.reason });
+    return partnerError(res, 422, 'not_serviceable', price.message,
+      { reason: price.reason, ...(price.tooFar ? { tooFar: price.tooFar } : {}) });
+  }
+  // Every shop on a multi-pickup trip must be in the city the trip starts from.
+  if (data.extraPickups?.some(p => p.region.trim().toLowerCase() !== price.pickupRegion.toLowerCase())) {
+    return partnerError(res, 422, 'not_serviceable',
+      `Every shop on one trip must be in ${price.pickupRegion}. Book the others separately.`,
+      { reason: 'pickups_too_far' });
   }
   if (Math.round(price.fee * 100) !== Math.round(data.expectedFee * 100)) {
     return partnerError(res, 409, 'fee_mismatch',
@@ -215,6 +243,23 @@ router.post('/shipments', async (req, res) => {
           outskirtsFee: breakdown.outskirtsFee,
           rateCardTerms: terms as unknown as Prisma.InputJsonValue,
         } : {}),
+        ...(data.extraPickups?.length ? {
+          extraPickupsFee: breakdown?.extraPickupsFee ?? 0,
+          pickupLatitude: data.pickup.latitude,
+          pickupLongitude: data.pickup.longitude,
+          extraPickups: {
+            create: data.extraPickups.map((p, i) => ({
+              sequence: i + 1,
+              name: p.name,
+              phone: p.phone,
+              region: price.pickupRegion,
+              location: p.location,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              reference: p.reference,
+            })),
+          },
+        } : {}),
         additionalInstructions: buildInstructions(data),
         deliveryCodeHash: data.deliveryCode ? hashDeliveryCode(trackingCode, data.deliveryCode) : undefined,
         statusEvents: { create: { status: 'pending', note: `Created via Partner API by ${business.name}` } },
@@ -230,8 +275,9 @@ router.post('/shipments', async (req, res) => {
     throw err;
   }
 
+  const extraShops = shipment.extraPickups?.length ?? 0;
   notifyRoles(['operations', 'admin'], 'new_order', `New ${business.name} order`,
-    `${business.name} order ${shipment.trackingCode} (${shipment.pickupLocation} -> ${shipment.dropoffLocation}) needs a rider.`,
+    `${business.name} order ${shipment.trackingCode} (${shipment.pickupLocation}${extraShops ? ` + ${extraShops} more shop${extraShops > 1 ? 's' : ''}` : ''} -> ${shipment.dropoffLocation}) needs a rider.`,
     shipment.id).catch(() => {});
   void notifyReceiverOfStatus(shipment, 'pending');
   await recordShipmentEvent(shipment.id, 'shipment.created');

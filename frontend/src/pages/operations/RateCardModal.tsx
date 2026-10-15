@@ -15,7 +15,9 @@ interface RateCard {
   outskirtsFee: number;
   outskirtsAreas: OutskirtsArea[];
   expressMultiplier: number;
-  examples: { route: string; standard: number; medium: number; big: number; big_plus: number }[];
+  extraPickupFee?: number;
+  extraPickupRadiusKm?: number;
+  examples:{ route: string; standard: number; medium: number; big: number; big_plus: number }[];
 }
 
 type AreaDraft = { name: string; latitude: string; longitude: string; radiusKm: string };
@@ -27,7 +29,7 @@ const hint = { fontSize: 12, color: '#64748b', marginTop: 4 } as const;
 const apiError = (err: unknown, fallback: string) =>
   axios.isAxiosError(err) && typeof err.response?.data?.error === 'string' ? err.response.data.error : fallback;
 
-const DEFAULTS = { enabled: true, medium: '70', big: '100', bigPlus: '150', roundTo: '5', outskirtsFee: '10', express: '2' };
+const DEFAULTS = { enabled: true, medium: '70', big: '100', bigPlus: '150', roundTo: '5', outskirtsFee: '10', express: '2', extraPickupFee: '15', extraPickupRadius: '3' };
 
 /**
  * Custom pricing for one business: parcel sizes, outer-area surcharge and
@@ -48,6 +50,8 @@ export default function RateCardModal({ business, onClose, onSaved }: {
   const [roundTo, setRoundTo] = useState(DEFAULTS.roundTo);
   const [outskirtsFee, setOutskirtsFee] = useState(DEFAULTS.outskirtsFee);
   const [express, setExpress] = useState(DEFAULTS.express);
+  const [extraPickupFee, setExtraPickupFee] = useState(DEFAULTS.extraPickupFee);
+  const [extraPickupRadius, setExtraPickupRadius] = useState(DEFAULTS.extraPickupRadius);
   const [areas, setAreas] = useState<AreaDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +65,8 @@ export default function RateCardModal({ business, onClose, onSaved }: {
     setRoundTo(String(c.roundTo));
     setOutskirtsFee(String(c.outskirtsFee));
     setExpress(String(c.expressMultiplier));
+    setExtraPickupFee(String(c.extraPickupFee ?? DEFAULTS.extraPickupFee));
+    setExtraPickupRadius(String(c.extraPickupRadiusKm ?? DEFAULTS.extraPickupRadius));
     setAreas(c.outskirtsAreas.map(a => ({ name: a.name, latitude: String(a.latitude), longitude: String(a.longitude), radiusKm: String(a.radiusKm) })));
   };
 
@@ -86,6 +92,8 @@ export default function RateCardModal({ business, onClose, onSaved }: {
         roundTo: Number(roundTo),
         outskirtsFee: Number(outskirtsFee),
         expressMultiplier: Number(express),
+        extraPickupFee: Number(extraPickupFee),
+        extraPickupRadiusKm: Number(extraPickupRadius),
         outskirtsAreas: areas.map(a => ({
           name: a.name.trim(), latitude: Number(a.latitude), longitude: Number(a.longitude), radiusKm: Number(a.radiusKm),
         })),
@@ -167,6 +175,24 @@ export default function RateCardModal({ business, onClose, onSaved }: {
               <input style={inputStyle} type="number" min={1} max={10} step="0.01" required value={express} onChange={e => setExpress(e.target.value)} />
             </div>
             <div style={hint}>Applied after the size and outer-area fee.</div>
+          </fieldset>
+
+          <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, margin: 0 }}>
+            <legend style={{ fontWeight: 700, color: '#0f172a', padding: '0 6px' }}>Several shops on one trip</legend>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Extra fee per extra shop (GHS)</label>
+                <input style={inputStyle} type="number" min={0} step="0.01" required value={extraPickupFee} onChange={e => setExtraPickupFee(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Shops must be within (km)</label>
+                <input style={inputStyle} type="number" min={0.1} max={50} step="0.1" required value={extraPickupRadius} onChange={e => setExtraPickupRadius(e.target.value)} />
+              </div>
+            </div>
+            <div style={hint}>
+              One rider collects from nearby shops, then makes one drop-off. Price = the first shop's normal price + this fee for each extra shop
+              within the distance of the first one (e.g. GHS 35 + {extraPickupFee || 0} = GHS {35 + Number(extraPickupFee || 0)} for two shops). Shops further apart are separate deliveries.
+            </div>
           </fieldset>
 
           {card && (

@@ -123,9 +123,27 @@ export interface Shipment {
   deliveryCodeAttempts?: number;
   deliveryCodeVerifiedAt?: string | null;
   deliveryCodeOverrideNote?: string | null;
+  /** Multi-pickup: added for the extra shops. */
+  extraPickupsFee?: string | null;
+  /** Multi-pickup: other shops to collect from after the first pickup, in order. */
+  extraPickups?: ShipmentPickup[];
   createdAt: string;
   updatedAt: string;
   statusEvents?: ShipmentStatusEvent[];
+}
+
+/** An extra shop on a multi-pickup delivery (the first one is senderName / pickupLocation). */
+export interface ShipmentPickup {
+  id: string;
+  sequence: number;
+  name: string;
+  phone: string;
+  region: string;
+  location: string;
+  latitude: string | null;
+  longitude: string | null;
+  reference: string | null;
+  pickedUpAt: string | null;
 }
 
 /** True when the rider must collect the partner's delivery code before POD. */

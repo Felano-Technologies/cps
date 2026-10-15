@@ -6,8 +6,11 @@
  *
  * Price = route price
  *         × size      (Kumasi price for that size ÷ 35, rounded to cents, then UP to `roundTo`)
- *         + outskirts (flat fee if the pickup or the drop-off is in an outer area)
+ *         + outskirts (flat fee if a pickup or the drop-off is in an outer area)
  *         × express   (expressMultiplier, when the delivery is express)
+ *         + extra pickups (flat fee for each additional shop collected on the
+ *           same trip — every one must be within `extraPickupRadiusKm` of the
+ *           first pickup; not multiplied by express)
  */
 import type { BusinessRateCard, PackageSize } from '@prisma/client';
 import { prisma } from './prisma';
@@ -43,6 +46,10 @@ export interface RateCardTerms {
   outskirtsFee: number;
   outskirtsAreas: OutskirtsArea[];
   expressMultiplier: number;
+  /** Added for each extra shop collected on the same trip (multi-pickup). */
+  extraPickupFee: number;
+  /** Extra pickups must be at most this far from the first pickup. */
+  extraPickupRadiusKm: number;
 }
 
 export function termsOf(card: BusinessRateCard): RateCardTerms {
@@ -57,6 +64,8 @@ export function termsOf(card: BusinessRateCard): RateCardTerms {
     outskirtsFee: Number(card.outskirtsFee),
     outskirtsAreas: Array.isArray(card.outskirtsAreas) ? (card.outskirtsAreas as unknown as OutskirtsArea[]) : [],
     expressMultiplier: Number(card.expressMultiplier),
+    extraPickupFee: Number(card.extraPickupFee ?? 15),
+    extraPickupRadiusKm: Number(card.extraPickupRadiusKm ?? 3),
   };
 }
 
@@ -77,7 +86,7 @@ export function sizedFee(terms: RateCardTerms, routeFee: number, size: SizeCateg
   return cents(Math.ceil(cents(raw / step)) * step);
 }
 
-function distanceKm(a: Point, b: Point): number {
+export function distanceKm(a: Point, b: Point): number {
   const rad = (d: number) => (d * Math.PI) / 180;
   const dLat = rad(b.latitude - a.latitude);
   const dLng = rad(b.longitude - a.longitude);
@@ -99,6 +108,20 @@ export interface RateCardPrice {
   outskirtsFee: number;
   outskirtsArea: string | null;
   express: boolean;
+  /** Number of extra shops collected on this trip (0 for a single pickup). */
+  extraPickups: number;
+  /** Total added for them: extraPickups × terms.extraPickupFee. */
+  extraPickupsFee: number;
+}
+
+/**
+ * Extra pickups that are too far from the first pickup to share the trip
+ * (or have no map pin to check). Empty means they can all be collected together.
+ */
+export function pickupsTooFar(terms: RateCardTerms, first: Point | null | undefined, extras: (Point | null | undefined)[]): number[] {
+  return extras
+    .map((p, i) => (!first || !p || distanceKm(first, p) > terms.extraPickupRadiusKm ? i : -1))
+    .filter(i => i >= 0);
 }
 
 export function priceWithRateCard(terms: RateCardTerms, input: {
@@ -107,26 +130,37 @@ export function priceWithRateCard(terms: RateCardTerms, input: {
   express?: boolean;
   pickup?: Point | null;
   dropoff?: Point | null;
+  /** Additional nearby shops collected on the same trip (validate with pickupsTooFar first). */
+  extraPickups?: (Point | null)[];
 }): RateCardPrice {
   const sizeCategory = input.sizeCategory ?? 'standard';
   const sizeFee = sizedFee(terms, input.routeFee, sizeCategory);
-  // Charged once, whether the pickup, the drop-off or both are in an outer area.
-  const area = outskirtsAreaAt(terms, input.dropoff) ?? outskirtsAreaAt(terms, input.pickup);
+  const extras = input.extraPickups ?? [];
+  // Charged once, whether a pickup, the drop-off or several of them are in an outer area.
+  const area = outskirtsAreaAt(terms, input.dropoff)
+    ?? outskirtsAreaAt(terms, input.pickup)
+    ?? extras.map(p => outskirtsAreaAt(terms, p)).find(Boolean)
+    ?? null;
   const outskirtsFee = area ? terms.outskirtsFee : 0;
   const express = !!input.express;
-  const fee = cents((sizeFee + outskirtsFee) * (express ? terms.expressMultiplier : 1));
-  return { fee, routeFee: input.routeFee, sizeCategory, sizeFee, outskirtsFee, outskirtsArea: area?.name ?? null, express };
+  const extraPickupsFee = cents(extras.length * terms.extraPickupFee);
+  const fee = cents((sizeFee + outskirtsFee) * (express ? terms.expressMultiplier : 1) + extraPickupsFee);
+  return {
+    fee, routeFee: input.routeFee, sizeCategory, sizeFee, outskirtsFee, outskirtsArea: area?.name ?? null, express,
+    extraPickups: extras.length, extraPickupsFee,
+  };
 }
 
 /**
  * New fee for a booked rate-card delivery whose parcel turned out to be a
- * different size, from the terms saved on it. Outskirts and express stay as booked.
+ * different size, from the terms saved on it. Outskirts, express and extra
+ * pickups stay as booked.
  */
 export function repriceForSize(terms: RateCardTerms, booked: {
-  routeFee: number; outskirtsFee: number; express: boolean;
+  routeFee: number; outskirtsFee: number; express: boolean; extraPickupsFee?: number;
 }, size: SizeCategory): number {
   const sizeFee = sizedFee(terms, booked.routeFee, size);
-  return cents((sizeFee + booked.outskirtsFee) * (booked.express ? terms.expressMultiplier : 1));
+  return cents((sizeFee + booked.outskirtsFee) * (booked.express ? terms.expressMultiplier : 1) + (booked.extraPickupsFee ?? 0));
 }
 
 /** CPS's own package size for a rate-card size (what riders and ops see). */
@@ -144,6 +178,8 @@ export function rateCardView(terms: RateCardTerms) {
     outskirtsFee: terms.outskirtsFee,
     outskirtsAreas: terms.outskirtsAreas,
     expressMultiplier: terms.expressMultiplier,
-    formula: 'route fee × size (rounded up to roundTo) + outskirtsFee if pickup or drop-off is in an outskirts area, then × expressMultiplier for express',
+    extraPickupFee: terms.extraPickupFee,
+    extraPickupRadiusKm: terms.extraPickupRadiusKm,
+    formula: 'route fee × size (rounded up to roundTo) + outskirtsFee if a pickup or the drop-off is in an outskirts area, then × expressMultiplier for express, + extraPickupFee for each extra shop within extraPickupRadiusKm of the first pickup',
   };
 }

@@ -172,6 +172,8 @@ function rateCardAdminView(card: BusinessRateCard) {
     outskirtsFee: terms.outskirtsFee,
     outskirtsAreas: terms.outskirtsAreas,
     expressMultiplier: terms.expressMultiplier,
+    extraPickupFee: terms.extraPickupFee,
+    extraPickupRadiusKm: terms.extraPickupRadiusKm,
     updatedAt: card.updatedAt,
     /** What a few common deliveries cost under these terms, to sanity-check edits. */
     examples: ['Kumasi', 'Accra'].map(to => {
@@ -204,6 +206,10 @@ const rateCardSchema = z.object({
     radiusKm: z.number().positive().max(50),
   })).max(100).optional(),
   expressMultiplier: z.number().min(1).max(10).optional(),
+  /** Multi-pickup: added for each extra nearby shop on the same trip. */
+  extraPickupFee: z.number().min(0).max(1_000).optional(),
+  /** Multi-pickup: how far (km) extra shops may be from the first pickup. */
+  extraPickupRadiusKm: z.number().positive().max(50).optional(),
 });
 
 /**

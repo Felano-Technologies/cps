@@ -33,6 +33,17 @@ export function toPartnerShipment(s: ShipmentWithRelations) {
       region: s.pickupRegion,
       location: s.pickupLocation,
     },
+    /**
+     * Multi-pickup deliveries: every shop the rider collects from, first one
+     * included (it's also `pickup`). A single-pickup delivery lists just one.
+     */
+    pickups: [
+      { sequence: 0, name: s.senderName, phone: s.senderNumber, region: s.pickupRegion, location: s.pickupLocation, reference: s.externalReference, pickedUpAt: null as Date | null },
+      ...(s.extraPickups ?? []).map(p => ({
+        sequence: p.sequence, name: p.name, phone: p.phone, region: p.region, location: p.location,
+        reference: p.reference, pickedUpAt: p.pickedUpAt,
+      })),
+    ],
     dropoff: {
       name: s.receiverName,
       phone: s.receiverNumber,
@@ -48,6 +59,8 @@ export function toPartnerShipment(s: ShipmentWithRelations) {
           sizeCategory: s.sizeCategory,
           outskirtsFee: s.outskirtsFee === null ? 0 : Number(s.outskirtsFee),
           express: s.speed === 'express',
+          extraPickups: s.extraPickups?.length ?? 0,
+          extraPickupsFee: s.extraPickupsFee === null ? 0 : Number(s.extraPickupsFee),
         }
       : null,
     /** Set when CPS found the parcel was a different size at pickup and repriced it. */

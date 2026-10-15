@@ -32,6 +32,7 @@ import OrderPrintModal from '../../components/OrderPrintModal';
 import CustomSelect from '../../components/Form/CustomSelect';
 import api from '../../services/api';
 import PartnerBadge from '../../components/PartnerBadge';
+import ExtraPickups from '../../components/ExtraPickups';
 import { useToast } from '../../contexts/ToastContext';
 import type { Shipment, ShipmentStatus, RiderProfile, VehicleType, ShipmentSpeed, PackageType, SizeCategory } from '../../types/models';
 import { SIZE_CATEGORY_LABELS, needsDeliveryCode } from '../../types/models';
@@ -740,6 +741,7 @@ export default function OpsTrackingPage() {
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
                   {shipment.pickupLocation}
                 </div>
+                <ExtraPickups shipment={shipment} />
                 <div style={{ fontSize: '14px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span>Region: <strong style={{ color: '#334155' }}>{shipment.pickupRegion}</strong></span>
                   {shipment.pickupDate && (

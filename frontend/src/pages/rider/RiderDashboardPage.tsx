@@ -8,6 +8,7 @@ import StationHandoverModal from '../../components/StationHandoverModal';
 import ReportIssueModal from '../../components/ReportIssueModal';
 import Modal from '../../components/Modal';
 import EmptyState from '../../components/EmptyState';
+import ExtraPickups from '../../components/ExtraPickups';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -404,6 +405,8 @@ export default function RiderDashboardPage() {
                       </a>
                     </div>
 
+                    <ExtraPickups shipment={activeStop} />
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>
                       <div>
@@ -545,6 +548,8 @@ export default function RiderDashboardPage() {
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{detailsStop.pickupLocation}, {detailsStop.pickupRegion}</div>
               </div>
             </div>
+
+            <ExtraPickups shipment={detailsStop} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e2e8f0', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></span>

@@ -652,6 +652,19 @@ components:
         pickupLongitude: { type: number }
         dropoffLatitude: { type: number }
         dropoffLongitude: { type: number }
+        extraPickups:
+          type: array
+          maxItems: 5
+          description: >-
+            Rate-card businesses — other shops one rider collects from on the same trip (multi-pickup).
+            Each must be within the rate card's `extraPickupRadiusKm` of the first pickup, which then needs
+            `pickupLatitude`/`pickupLongitude`. Adds `extraPickupFee` per shop.
+          items:
+            type: object
+            required: [latitude, longitude]
+            properties:
+              latitude: { type: number }
+              longitude: { type: number }
     SizeCategory:
       type: string
       enum: [standard, medium, big, big_plus]
@@ -677,14 +690,22 @@ components:
                 outskirtsFee: { type: number, example: 10 }
                 outskirtsArea: { type: string, nullable: true, example: Mamponteng }
                 express: { type: boolean }
+                extraPickups: { type: integer, example: 1, description: "Extra shops on the trip." }
+                extraPickupsFee: { type: number, example: 15, description: "Total added for them (not multiplied by express)." }
                 fee: { type: number, example: 220 }
         - type: object
           title: Not serviceable
           required: [serviceable, reason, message]
           properties:
             serviceable: { type: boolean, enum: [false] }
-            reason: { type: string, enum: [pickup_region_not_served, dropoff_region_not_served] }
+            reason:
+              type: string
+              enum: [pickup_region_not_served, dropoff_region_not_served, multi_pickup_not_available, pickups_too_far]
             message: { type: string }
+            tooFar:
+              type: array
+              items: { type: integer }
+              description: pickups_too_far — positions (in extraPickups) of the shops that can't share the trip.
     Contact:
       type: object
       required: [name, phone, region, location]
@@ -721,6 +742,23 @@ components:
                 kumasiSubArea: { $ref: "#/components/schemas/KumasiSubArea" }
                 latitude: { type: number, minimum: -90, maximum: 90, description: Optional; gives the rider a map link (and, with a rate card, decides the outer-area fee). }
                 longitude: { type: number, minimum: -180, maximum: 180 }
+        extraPickups:
+          type: array
+          maxItems: 5
+          description: >-
+            Rate-card businesses — other shops the same rider collects from before the one drop-off, in
+            collection order. Same city as `pickup`, each within `extraPickupRadiusKm` of it (`pickup` then
+            needs latitude/longitude). Price = the trip's normal price + `extraPickupFee` per shop.
+            Refused with `not_serviceable` (reason `pickups_too_far` or `multi_pickup_not_available`) otherwise.
+          items:
+            allOf:
+              - $ref: "#/components/schemas/Contact"
+              - type: object
+                required: [latitude, longitude]
+                properties:
+                  latitude: { type: number, minimum: -90, maximum: 90 }
+                  longitude: { type: number, minimum: -180, maximum: 180 }
+                  reference: { type: string, maxLength: 100, description: "Your reference for this shop's parcel (e.g. your order id). Returned in `pickups`." }
         package:
           type: object
           properties:
@@ -763,6 +801,17 @@ components:
             amount: { type: number, example: 45 }
             currency: { type: string, example: GHS }
         pickup: { $ref: "#/components/schemas/Contact" }
+        pickups:
+          type: array
+          description: Every shop the rider collects from, `pickup` first (sequence 0). One entry for a single-pickup delivery.
+          items:
+            allOf:
+              - $ref: "#/components/schemas/Contact"
+              - type: object
+                properties:
+                  sequence: { type: integer, example: 1 }
+                  reference: { type: string, nullable: true, description: "Your reference (externalReference for the first shop)." }
+                  pickedUpAt: { type: string, format: date-time, nullable: true }
         dropoff:
           allOf:
             - $ref: "#/components/schemas/Contact"

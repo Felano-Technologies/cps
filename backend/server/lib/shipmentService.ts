@@ -9,6 +9,8 @@ export const shipmentInclude = {
   bonuses: true,
   customer: { select: { id: true, name: true, email: true, phone: true, role: true } },
   business: { select: { id: true, name: true } },
+  // Multi-pickup: the other shops to collect from, in order.
+  extraPickups: { orderBy: { sequence: 'asc' as const } },
 };
 
 export const FINAL_STATUSES = ['delivered', 'cancelled', 'failed'] as const;

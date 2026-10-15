@@ -11,6 +11,8 @@ const TERMS: RateCardTerms = {
   outskirtsFee: 10,
   outskirtsAreas: [{ name: 'Test outskirts', latitude: 6.8, longitude: -1.55, radiusKm: 3 }],
   expressMultiplier: 2,
+  extraPickupFee: 15,
+  extraPickupRadiusKm: 3,
 };
 const IN_OUTSKIRTS = { latitude: 6.801, longitude: -1.551 };
 const ADUM = { latitude: 6.693, longitude: -1.623 };

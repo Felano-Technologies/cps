@@ -161,6 +161,10 @@ model BusinessRateCard {
   /// [{ name, latitude, longitude, radiusKm }]
   outskirtsAreas     Json     @default("[]")
   expressMultiplier  Decimal  @default(2) @db.Decimal(6, 3)
+  /// Multi-pickup: added for each extra shop collected on the same trip.
+  extraPickupFee      Decimal  @default(15) @db.Decimal(10, 2)
+  /// Multi-pickup: extra shops must be within this many km of the first pickup.
+  extraPickupRadiusKm Decimal  @default(3) @db.Decimal(6, 2)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -288,6 +292,11 @@ model Shipment {
   /// Fee at booking, kept when ops correct the size at pickup.
   originalFee     Decimal? @db.Decimal(10, 2)
   sizeCorrectedAt DateTime?
+  /// Multi-pickup: total added for the extra shops (kept when the size is corrected).
+  extraPickupsFee Decimal? @db.Decimal(10, 2)
+  /// Map pin of the first pickup (multi-pickup deliveries), so the extra shops' distance is on record.
+  pickupLatitude  Decimal? @db.Decimal(10, 7)
+  pickupLongitude Decimal? @db.Decimal(10, 7)
   productFee  Decimal? @db.Decimal(10, 2)
   weightKg    Decimal? @db.Decimal(10, 2)
 
@@ -324,6 +333,9 @@ model Shipment {
   notifications Notification[]
   bonuses       RiderBonus[]
   webhookEvents WebhookEvent[]
+  /// Multi-pickup: the other shops collected on this trip. The first pickup
+  /// stays in senderName / pickupLocation above.
+  extraPickups  ShipmentPickup[]
 
   @@unique([businessId, externalReference])
   @@index([businessId, updatedAt])
@@ -357,6 +369,29 @@ model Invoice {
 
   @@index([businessId, createdAt])
   @@map("invoices")
+}
+
+/// An extra shop the rider collects from on a multi-pickup delivery, in
+/// collection order. One parcel per pickup, all going to the same receiver.
+model ShipmentPickup {
+  id         String    @id @default(cuid())
+  shipmentId String
+  shipment   Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  /// 1, 2, … — collected after the first pickup.
+  sequence   Int
+  name       String
+  phone      String
+  region     String
+  location   String
+  latitude   Decimal?  @db.Decimal(10, 7)
+  longitude  Decimal?  @db.Decimal(10, 7)
+  /// The partner's own reference for this parcel (e.g. the Shopyos order id).
+  reference  String?
+  pickedUpAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([shipmentId, sequence])
+  @@map("shipment_pickups")
 }
 
 model ShipmentStatusEvent {

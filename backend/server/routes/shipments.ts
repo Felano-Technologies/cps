@@ -1066,6 +1066,8 @@ router.patch('/:id/size', requireRole('operations', 'admin'), async (req, res) =
     routeFee: Number(shipment.baseFee),
     outskirtsFee: Number(shipment.outskirtsFee ?? 0),
     express: shipment.speed === 'express',
+    // Multi-pickup: the extra shops' fee stays as booked.
+    extraPickupsFee: Number(shipment.extraPickupsFee ?? 0),
   }, sizeCategory);
   const from = SIZE_LABELS[shipment.sizeCategory as SizeCategory] ?? shipment.sizeCategory;
   const eventNote = `Parcel size corrected: ${from} → ${SIZE_LABELS[sizeCategory]}. `
