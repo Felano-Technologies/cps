@@ -18,6 +18,46 @@ export const FINAL_STATUSES = ['delivered', 'cancelled', 'failed'] as const;
 /** Public web app, used for links in SMS messages. */
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://www.cpsdeliverygh.com').replace(/\/+$/, '');
 
+/** Office line customers are told to call about returned orders. */
+const OFFICE_PHONE = process.env.OFFICE_PHONE || '0534583364';
+
+type CustomerSmsShipment = {
+  trackingCode: string;
+  senderName: string;
+  customer?: { name: string } | null;
+};
+
+function customerGreeting(shipment: CustomerSmsShipment) {
+  const name = (shipment.customer?.name || shipment.senderName || '').trim();
+  return name ? `Hello ${name}, ` : 'Hello, ';
+}
+
+/** SMS wording for the customer who placed the order. */
+export const customerSms = {
+  received: (s: CustomerSmsShipment) =>
+    `${customerGreeting(s)}your pickup has been received and is being processed. Tracking ID: ${s.trackingCode}`,
+  bulkReceived: (s: CustomerSmsShipment, count: number) =>
+    `${customerGreeting(s)}your bulk pickup of ${count} package(s) has been received and is being processed. Tracking ID: ${s.trackingCode}`,
+  riderAssigned: (s: CustomerSmsShipment) =>
+    `${customerGreeting(s)}your order with tracking number ${s.trackingCode} has been assigned to a rider.`,
+  inTransit: (s: CustomerSmsShipment) =>
+    `${customerGreeting(s)}your order with tracking number ${s.trackingCode} is now in transit.`,
+  delivered: (s: CustomerSmsShipment) =>
+    `${customerGreeting(s)}your order with tracking number ${s.trackingCode} has been delivered successfully.`,
+  returned: (s: CustomerSmsShipment) =>
+    `${customerGreeting(s)}your order with tracking number ${s.trackingCode} has been returned to our office please contact the office line on ${OFFICE_PHONE}.`,
+};
+
+/** The customer SMS for a status change, or undefined to keep the default wording. */
+export function customerStatusSms(shipment: CustomerSmsShipment, status: string): string | undefined {
+  switch (status) {
+    case 'in_transit': return customerSms.inTransit(shipment);
+    case 'delivered': return customerSms.delivered(shipment);
+    case 'failed': return customerSms.returned(shipment);
+    default: return undefined;
+  }
+}
+
 /** SMS the receiver about a status change. Never throws. */
 export async function notifyReceiverOfStatus(
   shipment: {

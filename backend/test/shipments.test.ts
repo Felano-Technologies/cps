@@ -300,6 +300,33 @@ describe('bulk orders', () => {
     expect(await prisma.notification.count({ where: { userId: riderA.id, type: 'shipment_assigned', title: 'Bulk pickup assigned' } })).toBeGreaterThan(0);
   });
 
+  it('creates placeholder orders from photos for ops to fill in', async () => {
+    const res = await as(app, customer).post('/api/shipments/bulk', {
+      pickup: {
+        vehicleType: 'van',
+        packageType: 'parcel',
+        packageSize: 'medium',
+        speed: 'next_day',
+        priority: 'standard',
+        senderName: 'Shop',
+        senderNumber: '+233200000300',
+        pickupRegion: 'Kumasi',
+        pickupLocation: 'Adum',
+      },
+      numberOfPackages: 2,
+      imageUrls: ['https://img.example/a.jpg', 'https://img.example/b.jpg'],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].batchId).toBe(res.body[1].batchId);
+    expect(res.body.map((s: { packageImageUrl: string }) => s.packageImageUrl))
+      .toEqual(['https://img.example/a.jpg', 'https://img.example/b.jpg']);
+    for (const s of res.body) {
+      expect(s).toMatchObject({ status: 'awaiting_price', receiverName: 'To be confirmed (see photo)' });
+      expect(Number(s.deliveryFee)).toBe(0);
+    }
+  });
+
   it('changes nothing when the pickup rider does not exist', async () => {
     const batchId = await createBatch(2);
     const res = await as(app, ops).patch(`/api/shipments/batch/${batchId}/accept`, { pickupRiderId: 'missing' });

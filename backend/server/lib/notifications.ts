@@ -9,6 +9,8 @@ export interface NotifyChannels {
   email?: boolean;
   /** Also send an SMS (default true). */
   sms?: boolean;
+  /** SMS wording, when it should differ from the default "title: message". */
+  smsText?: string;
 }
 
 export async function notify(
@@ -19,7 +21,7 @@ export async function notify(
   shipmentId?: string,
   channels: NotifyChannels = {}
 ) {
-  const { email = true, sms = true } = channels;
+  const { email = true, sms = true, smsText } = channels;
 
   const notification = await prisma.notification.create({
     data: { userId, type, title, message, shipmentId },
@@ -36,7 +38,7 @@ export async function notify(
       // Tagged sms_type: "otp" — mNotify only delivers non-tagged "quick"
       // SMS at low priority (observed ~10min delay); OTP-tagged sends go
       // out near-instantly. Billed from the OTP wallet like verification codes.
-      sendSms(user.phone, `${title}: ${message}`, { isOtp: true }).catch(() => {});
+      sendSms(user.phone, smsText ?? `${title}: ${message}`, { isOtp: true }).catch(() => {});
     }
   }
 

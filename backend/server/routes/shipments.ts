@@ -8,7 +8,7 @@ import { generateTrackingCode } from '../lib/trackingCode';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { notify, notifyRoles } from '../lib/notifications';
 import { sendSms } from '../lib/sms';
-import { FINAL_STATUSES, notifyReceiverOfStatus, shipmentInclude } from '../lib/shipmentService';
+import { FINAL_STATUSES, customerSms, customerStatusSms, notifyReceiverOfStatus, shipmentInclude } from '../lib/shipmentService';
 import { eventTypeForStatus, recordShipmentEvent } from '../lib/webhooks';
 import { MAX_DELIVERY_CODE_ATTEMPTS, deliveryCodeMatches } from '../lib/deliveryCode';
 import {
@@ -215,7 +215,8 @@ router.post('/', requireRole('customer', 'operations', 'admin'), async (req, res
         'shipment_created',
         'Pickup request received',
         `Your pickup request ${shipment.trackingCode} has been received and is being processed.`,
-        shipment.id
+        shipment.id,
+        { smsText: customerSms.received(shipment) }
       ).catch(() => {});
     }
     // Notify operations & admin team of new incoming order
@@ -244,8 +245,7 @@ const bulkReceiverSchema = shipmentInputBaseSchema.pick({
   priority: true,
 }).refine(hasStationLocationIfNeeded, stationLocationError);
 
-const bulkCreateSchema = z.object({
-  pickup: shipmentInputBaseSchema.pick({
+const bulkPickupSchema = shipmentInputBaseSchema.pick({
     vehicleType: true,
     packageType: true,
     packageSize: true,
@@ -258,14 +258,72 @@ const bulkCreateSchema = z.object({
     productFee: true,
     additionalInstructions: true,
     packageImageUrl: true,
-  }),
+  });
+
+const bulkCreateSchema = z.object({
+  pickup: bulkPickupSchema,
   receivers: z
     .array(bulkReceiverSchema)
     .min(1),
 });
 
+/** Bulk order whose receiver details are in photos; ops fills them in when processing. */
+const bulkPhotoCreateSchema = z.object({
+  pickup: bulkPickupSchema.extend({
+    speed: z.enum(SPEEDS),
+    priority: z.enum(PRIORITIES),
+  }),
+  numberOfPackages: z.number().int().min(1).max(200),
+  imageUrls: z.array(z.string().min(1)).min(1).max(50),
+});
+
+const PENDING_FROM_PHOTO = 'To be confirmed (see photo)';
+
+function buildPhotoShipmentsData(
+  input: z.infer<typeof bulkPhotoCreateSchema>,
+  customerId: string | null,
+  batchId: string
+) {
+  const { pickup, numberOfPackages, imageUrls } = input;
+  // One photo per package when the counts match; otherwise every package carries all the photos.
+  const perPackage = imageUrls.length === numberOfPackages;
+  const photoNote = perPackage
+    ? 'Receiver details are in the attached photo.'
+    : `Receiver details are in the ${imageUrls.length} photo(s) uploaded with this batch: ${imageUrls.join(' ')}`;
+  const instructions = [pickup.additionalInstructions?.trim(), photoNote].filter(Boolean).join(' ');
+
+  return Array.from({ length: numberOfPackages }, (_, i) => ({
+    trackingCode: generateTrackingCode(),
+    batchId,
+    vehicleType: pickup.vehicleType,
+    priority: pickup.priority,
+    speed: pickup.speed,
+    packageType: pickup.packageType,
+    packageSize: pickup.packageSize,
+    deliveryType: 'doorstep' as const,
+    customerId,
+    senderName: pickup.senderName,
+    senderNumber: pickup.senderNumber,
+    senderContact: pickup.senderContact,
+    pickupRegion: pickup.pickupRegion,
+    pickupLocation: pickup.pickupLocation,
+    pickupDate: pickup.pickupDate,
+    receiverName: PENDING_FROM_PHOTO,
+    receiverNumber: PENDING_FROM_PHOTO,
+    dropoffRegion: PENDING_FROM_PHOTO,
+    dropoffLocation: PENDING_FROM_PHOTO,
+    // Priced by ops once the destination is known.
+    deliveryFee: 0,
+    productFee: pickup.productFee,
+    additionalInstructions: instructions,
+    packageImageUrl: perPackage ? imageUrls[i] : imageUrls[0],
+    statusEvents: { create: { status: 'awaiting_price' as const } },
+  }));
+}
+
 router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req, res) => {
-  const parsed = bulkCreateSchema.safeParse(req.body);
+  const isPhotoOrder = req.body && typeof req.body === 'object' && 'imageUrls' in req.body;
+  const parsed = isPhotoOrder ? bulkPhotoCreateSchema.safeParse(req.body) : bulkCreateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
   }
@@ -274,24 +332,26 @@ router.post('/bulk', requireRole('customer', 'operations', 'admin'), async (req,
   const batchId = randomUUID();
 
   try {
-    const created = await prisma.$transaction(
-      parsed.data.receivers.map((receiver) =>
-        prisma.shipment.create({
-          data: buildShipmentCreateData(
-            { ...parsed.data.pickup, ...receiver },
+    const rows = 'imageUrls' in parsed.data
+      ? buildPhotoShipmentsData(parsed.data, customerId, batchId)
+      : parsed.data.receivers.map((receiver) =>
+          buildShipmentCreateData(
+            { ...(parsed.data as z.infer<typeof bulkCreateSchema>).pickup, ...receiver },
             customerId,
             batchId
-          ),
-          include: shipmentInclude,
-        })
-      )
+          )
+        );
+    const created = await prisma.$transaction(
+      rows.map((data) => prisma.shipment.create({ data, include: shipmentInclude }))
     );
     if (customerId) {
       notify(
         customerId,
         'shipment_created',
         'Bulk pickup request received',
-        `Your bulk pickup request with ${created.length} package(s) has been received and is being processed.`
+        `Your bulk pickup request with ${created.length} package(s) has been received and is being processed.`,
+        created[0]?.id,
+        created[0] ? { smsText: customerSms.bulkReceived(created[0], created.length) } : undefined
       ).catch(() => {});
     }
     // Notify operations & admin team of new incoming bulk order
@@ -581,7 +641,8 @@ router.patch('/:id/status', requireRole('rider', 'operations', 'admin'), async (
       'shipment_status',
       `Shipment ${updated.trackingCode} update`,
       `Your shipment is now: ${parsed.data.status.replace('_', ' ')}.${parsed.data.note ? ` Note: ${parsed.data.note}` : ''}`,
-      updated.id
+      updated.id,
+      { smsText: customerStatusSms(updated, parsed.data.status) }
     ).catch(() => {});
   }
 
@@ -714,7 +775,8 @@ router.patch('/:id/pod', requireRole('rider'), async (req, res) => {
       'shipment_delivered',
       `Shipment ${updated.trackingCode} delivered`,
       `Your package was delivered to ${updated.podRecipientName ?? 'the recipient'}.`,
-      updated.id
+      updated.id,
+      { smsText: customerSms.delivered(updated) }
     ).catch(() => {});
   }
 
@@ -933,7 +995,8 @@ router.patch('/:id/assign', requireRole('operations', 'admin'), async (req, res)
       'shipment_assigned',
       `Shipment ${shipment.trackingCode} assigned`,
       `A rider has been assigned to your delivery.`,
-      shipment.id
+      shipment.id,
+      { smsText: customerSms.riderAssigned(shipment) }
     ).catch(() => {});
   }
 

@@ -1,25 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Package, Boxes, Calendar, Flag, Bike, Truck, User, UserCheck, Contact, Phone,
+  Package, Boxes, Calendar, Bike, Truck, User, UserCheck, Contact, Phone,
   MapPin, MapPinned, Zap, Banknote, ImagePlus, StickyNote, Hash, PenLine,
   AlertTriangle, AlertCircle, CheckCircle2, ClipboardList, Send, PackageSearch,
   Info, Train, Bell,
 } from 'lucide-react';
 import api from '../../services/api';
-import { calculateDeliveryCost } from '../../utils/pricing';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { CreateShipmentInput, DeliveryType, PackageSize, PackageType, ShipmentPriority, ShipmentSpeed, VehicleType } from '../../types/models';
 import CustomSelect from '../../components/Form/CustomSelect';
 import FileUpload from '../../components/Form/FileUpload';
 import DatePicker from '../../components/Form/DatePicker';
-
-const PRIORITY_OPTIONS = [
-  { value: 'Standard', label: 'Standard' },
-  { value: 'High', label: 'High' },
-];
 
 const PICKUP_REGION_OPTIONS = [
   { value: 'Kumasi', label: 'Kumasi' },
@@ -73,8 +67,9 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
-function mapPriority(value: string): ShipmentPriority {
-  return value.toLowerCase() === 'high' ? 'high' : 'standard';
+// Priority isn't asked separately: an express delivery is a high-priority one.
+function priorityForSpeed(speed: string): ShipmentPriority {
+  return speed === 'Express' ? 'high' : 'standard';
 }
 
 function mapSpeed(value: string): ShipmentSpeed {
@@ -103,7 +98,6 @@ export default function RequestPickupPage() {
   // Shared Sender State
   const [pickupDate, setPickupDate] = useState(getTodayIsoString);
   const [pickupMode, setPickupMode] = useState('motorbike');
-  const [deliveryPriority, setDeliveryPriority] = useState('Standard');
   const [senderContact, setSenderContact] = useState('');
   const [senderName, setSenderName] = useState(user?.name ?? '');
   const [senderNumber, setSenderNumber] = useState(user?.phone ?? '');
@@ -140,67 +134,12 @@ export default function RequestPickupPage() {
   const [numberOfPackages, setNumberOfPackages] = useState<number | ''>('');
   const [bulkReceiverMode, setBulkReceiverMode] = useState<'upload' | 'manual' | null>(null);
   const [bulkImagePreviews, setBulkImagePreviews] = useState<string[]>([]);
-  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, priority: string, deliveryType: DeliveryType, stationLocation: string }>>([]);
-
-  // Form Completion Checks
-  const isSingleComplete = Boolean(
-    senderName.trim() &&
-    senderNumber.trim() &&
-    pickupRegion.trim() &&
-    pickupLocation.trim() &&
-    receiverName.trim() &&
-    receiverNumber.trim() &&
-    dropoffRegion.trim() &&
-    dropoffLocation.trim() &&
-    deliverySpeed.trim() &&
-    packageType.trim() &&
-    packageSize.trim() &&
-    (deliveryType !== 'station' || stationLocation.trim())
-  );
-
-  const isBulkComplete = Boolean(
-    senderName.trim() &&
-    senderNumber.trim() &&
-    pickupRegion.trim() &&
-    pickupLocation.trim() &&
-    deliverySpeed.trim() &&
-    packageType.trim() &&
-    packageSize.trim() &&
-    typeof numberOfPackages === 'number' &&
-    numberOfPackages > 0 &&
-    (
-      (bulkReceiverMode === 'manual' && bulkReceivers.length === numberOfPackages && bulkReceivers.every(r => r.name.trim() && r.number.trim() && r.dropoffLocation.trim() && r.region.trim() && (r.deliveryType !== 'station' || r.stationLocation.trim()))) ||
-      (bulkReceiverMode === 'upload' && bulkImagePreviews.length > 0)
-    )
-  );
-
-  const isFormComplete = activeTab === 'single' ? isSingleComplete : isBulkComplete;
+  const [bulkImageFiles, setBulkImageFiles] = useState<File[]>([]);
+  const [bulkReceivers, setBulkReceivers] = useState<Array<{ name: string, number: string, dropoffLocation: string, region: string, speed: string, deliveryType: DeliveryType, stationLocation: string }>>([]);
 
   const isStationDelivery = activeTab === 'single'
     ? (deliveryType === 'station' || dropoffRegion === 'Station Delivery')
     : (bulkReceiverMode === 'manual' && bulkReceivers.some(r => r.deliveryType === 'station' || r.region === 'Station Delivery'));
-
-  // Calculated Cost (Starts at 0.00 until all required fields are filled, not applicable for station deliveries)
-  const estimatedCost = useMemo(() => {
-    if (!isFormComplete || isStationDelivery) return 0;
-
-    if (activeTab === 'single') {
-      const cost = calculateDeliveryCost({
-        region: dropoffRegion,
-      });
-      return cost ?? 0;
-    } else {
-      if (bulkReceiverMode === 'manual') {
-        return bulkReceivers.reduce((total, rec) => {
-          const cost = calculateDeliveryCost({ region: rec.region });
-          return total + (cost ?? 35);
-        }, 0);
-      } else {
-        const count = typeof numberOfPackages === 'number' ? numberOfPackages : 0;
-        return count * 35;
-      }
-    }
-  }, [isFormComplete, isStationDelivery, activeTab, dropoffRegion, bulkReceiverMode, bulkReceivers, numberOfPackages]);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -233,7 +172,7 @@ export default function RequestPickupPage() {
     // Adjust array size
     if (val > bulkReceivers.length) {
       const added = Array.from({ length: val - bulkReceivers.length }, () => ({
-        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Standard', priority: 'Standard', deliveryType: 'doorstep' as DeliveryType, stationLocation: ''
+        name: '', number: '', dropoffLocation: '', region: 'Kumasi', speed: 'Standard', deliveryType: 'doorstep' as DeliveryType, stationLocation: ''
       }));
       setBulkReceivers([...bulkReceivers, ...added]);
     } else if (val < bulkReceivers.length) {
@@ -264,7 +203,7 @@ export default function RequestPickupPage() {
 
       const payload: CreateShipmentInput = {
         vehicleType: pickupMode as VehicleType,
-        priority: mapPriority(deliveryPriority),
+        priority: priorityForSpeed(deliverySpeed),
         speed: mapSpeed(deliverySpeed),
         packageType: packageType as PackageType,
         packageSize: packageSize as PackageSize,
@@ -318,14 +257,68 @@ export default function RequestPickupPage() {
     }
   };
 
+  const uploadImage = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const { data } = await api.post<{ url: string }>('/uploads', formData);
+      return data.url;
+    } catch {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  // Receiver details come from the photos; ops fills them in when processing the order.
+  const handleSubmitBulkPhotos = async () => {
+    if (bulkImageFiles.length === 0 || typeof numberOfPackages !== 'number' || numberOfPackages < 1) {
+      const message = 'Please enter the number of packages and upload at least one image.';
+      setSubmitError(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const imageUrls = await Promise.all(bulkImageFiles.map(uploadImage));
+      const pickup: Record<string, unknown> = {
+        vehicleType: pickupMode as VehicleType,
+        packageType: packageType as PackageType,
+        packageSize: packageSize as PackageSize,
+        speed: mapSpeed(deliverySpeed),
+        priority: priorityForSpeed(deliverySpeed),
+        senderName,
+        senderNumber,
+        pickupRegion,
+        pickupLocation,
+      };
+      if (senderContact.trim()) pickup.senderContact = senderContact;
+      if (pickupDate.trim()) pickup.pickupDate = pickupDate;
+      if (productFee.trim() !== '') pickup.productFee = Number(productFee);
+      if (additionalInstructions.trim()) pickup.additionalInstructions = additionalInstructions;
+
+      await api.post('/shipments/bulk', { pickup, numberOfPackages, imageUrls });
+      setSubmitSuccess(true);
+      toast.success('Bulk pickup request submitted. Ops will confirm receiver details from your photos.');
+      setTimeout(() => navigate('/shipments'), 600);
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Failed to create bulk shipment. Please try again.');
+      setSubmitError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmitBulk = async () => {
     setSubmitError(null);
     setSubmitSuccess(false);
 
-    if (bulkReceiverMode !== 'manual') {
-      const message = 'Photo-based bulk entry isn\'t supported yet. Please switch to "Enter Manually" to submit this order.';
-      setSubmitError(message);
-      toast.error(message);
+    if (bulkReceiverMode === 'upload') {
+      await handleSubmitBulkPhotos();
       return;
     }
     if (bulkReceivers.length === 0) {
@@ -371,7 +364,7 @@ export default function RequestPickupPage() {
         deliveryType: rec.deliveryType,
         stationLocation: rec.deliveryType === 'station' ? rec.stationLocation : undefined,
         speed: mapSpeed(rec.speed),
-        priority: mapPriority(rec.priority),
+        priority: priorityForSpeed(rec.speed),
       }));
 
       try {
@@ -598,6 +591,26 @@ export default function RequestPickupPage() {
           cursor: pointer;
           transition: all 0.2s ease;
         }
+        .rp-page label > span:first-child { font-weight: 600; color: #334155; }
+        .rp-page label input,
+        .rp-page label select,
+        .rp-page label textarea,
+        .rp-page .custom-select-trigger {
+          border: 1.5px solid #b6c2b9;
+          font-weight: 500;
+          color: #0f172a;
+        }
+        .rp-section {
+          border: 1.5px solid #cfd8d1;
+          border-radius: 14px;
+          padding: 20px 22px 8px;
+          background: #fff;
+        }
+        .rp-section + .rp-section { margin-top: 24px; }
+        .rp-section > .form-section-title { margin-top: 0; }
+        @media (max-width: 480px) {
+          .rp-section { padding: 16px 14px 4px; }
+        }
         .rp-input-wrap { position: relative; display: flex; align-items: center; }
         .rp-input-wrap > svg { position: absolute; left: 14px; color: #94a3b8; pointer-events: none; }
         .rp-input-wrap input, .rp-input-wrap select { padding-left: 42px !important; }
@@ -616,6 +629,7 @@ export default function RequestPickupPage() {
         }
         @media (max-width: 768px) {
           .rp-summary-card { position: static !important; top: auto !important; }
+          .rp-page .form-card { border: none; padding: 0; background: transparent; }
           .step-layout { gap: 24px; }
           .rp-tab-btn { padding: 10px 18px; font-size: 0.95rem; }
           .rp-header-icon { width: 44px; height: 44px; }
@@ -627,7 +641,7 @@ export default function RequestPickupPage() {
           .rp-mode-btn { padding: 10px; font-size: 0.88rem; gap: 6px; }
         }
       `}</style>
-      <main className="create-shell container">
+      <main className="create-shell container rp-page">
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
           <span className="rp-header-icon"><Package size={24} /></span>
           <h1 style={{ margin: 0 }}>Request a Pickup</h1>
@@ -664,408 +678,419 @@ export default function RequestPickupPage() {
           <div className="form-card large-card">
 
             {/* SHARED FIELDS */}
-            <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Truck size={22} /> Pickup Details</h2>
-            <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-              <label>
-                <span>Preferred Pickup Date</span>
-                <DatePicker
-                  value={pickupDate}
-                  onChange={setPickupDate}
-                  placeholder="Select Preferred Date"
-                  min={getTodayIsoString()}
-                  icon={<Calendar size={17} />}
-                />
-              </label>
-              <label>
-                <span>Delivery Priority</span>
-                <CustomSelect value={deliveryPriority} onChange={v => setDeliveryPriority(v)} options={PRIORITY_OPTIONS} icon={<Flag size={17} />} />
-                {deliveryPriority === 'High' && (
-                  <div style={{ fontSize: '12px', color: '#854d0e', background: '#fef9c3', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
-                    Choosing high priority attracts a slight increase in delivery fee for faster arrival.
+            <section className="rp-section">
+              <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Truck size={22} /> Pickup Details</h2>
+              <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
+                <label>
+                  <span>Preferred Pickup Date</span>
+                  <DatePicker
+                    value={pickupDate}
+                    onChange={setPickupDate}
+                    placeholder="Select Preferred Date"
+                    min={getTodayIsoString()}
+                    icon={<Calendar size={17} />}
+                  />
+                </label>
+              </div>
+
+              <div className="field-grid" style={{ marginBottom: '16px' }}>
+                <label>
+                  <span>Pickup Mode</span>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                    <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('motorbike')} style={{ border: `2px solid ${pickupMode === 'motorbike' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'motorbike' ? 'var(--success-bg)' : '#fff' }}>
+                      <Bike size={18} /> Motorbike
+                    </button>
+                    <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('van')} style={{ border: `2px solid ${pickupMode === 'van' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'van' ? 'var(--success-bg)' : '#fff' }}>
+                      <Truck size={18} /> Van
+                    </button>
                   </div>
-                )}
-              </label>
-            </div>
+                </label>
+              </div>
+            </section>
 
-            <div className="field-grid" style={{ marginBottom: '16px' }}>
-              <label>
-                <span>Pickup Mode</span>
-                <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                  <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('motorbike')} style={{ border: `2px solid ${pickupMode === 'motorbike' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'motorbike' ? 'var(--success-bg)' : '#fff' }}>
-                    <Bike size={18} /> Motorbike
-                  </button>
-                  <button type="button" className="rp-mode-btn" onClick={() => setPickupMode('van')} style={{ border: `2px solid ${pickupMode === 'van' ? 'var(--green)' : 'var(--border)'}`, background: pickupMode === 'van' ? 'var(--success-bg)' : '#fff' }}>
-                    <Truck size={18} /> Van
-                  </button>
-                </div>
-              </label>
-            </div>
-
-            <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><User size={22} /> Sender Information</h2>
-            <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-              <label id="field-senderName">
-                <span>Sender's Name</span>
-                <div className="rp-input-wrap">
-                  <User size={17} />
-                  <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="John Doe" />
-                </div>
-              </label>
-              <label id="field-senderNumber">
-                <span>Sender's Number</span>
-                <div className="rp-input-wrap">
-                  <Phone size={17} />
-                  <input value={senderNumber} onChange={e => setSenderNumber(e.target.value)} placeholder="024XXXXXXX" />
-                </div>
-              </label>
-              <label>
-                <span>Pickup Contact (Optional)</span>
-                <div className="rp-input-wrap">
-                  <Contact size={17} />
-                  <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
-                </div>
-              </label>
-              <label>
-                <span>Region</span>
-                <CustomSelect value={pickupRegion} onChange={v => setPickupRegion(v)} options={PICKUP_REGION_OPTIONS} icon={<MapPin size={17} />} />
-              </label>
-              <label id="field-pickupLocation" style={{ gridColumn: '1 / -1' }}>
-                <span>Pickup Location</span>
-                <div className="rp-input-wrap">
-                  <MapPinned size={17} />
-                  <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Where exactly are you? (e.g. Ayeduase Gate, Adum, KNUST, etc.)" />
-                </div>
-              </label>
-            </div>
+            <section className="rp-section">
+              <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><User size={22} /> Sender Information</h2>
+              <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
+                <label id="field-senderName">
+                  <span>Sender's Name</span>
+                  <div className="rp-input-wrap">
+                    <User size={17} />
+                    <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="John Doe" />
+                  </div>
+                </label>
+                <label id="field-senderNumber">
+                  <span>Sender's Number</span>
+                  <div className="rp-input-wrap">
+                    <Phone size={17} />
+                    <input value={senderNumber} onChange={e => setSenderNumber(e.target.value)} placeholder="024XXXXXXX" />
+                  </div>
+                </label>
+                <label>
+                  <span>Pickup Contact (Optional)</span>
+                  <div className="rp-input-wrap">
+                    <Contact size={17} />
+                    <input value={senderContact} onChange={e => setSenderContact(e.target.value)} placeholder="Who should we call for pickup?" />
+                  </div>
+                </label>
+                <label>
+                  <span>Region</span>
+                  <CustomSelect value={pickupRegion} onChange={v => setPickupRegion(v)} options={PICKUP_REGION_OPTIONS} icon={<MapPin size={17} />} />
+                </label>
+                <label id="field-pickupLocation" style={{ gridColumn: '1 / -1' }}>
+                  <span>Pickup Location</span>
+                  <div className="rp-input-wrap">
+                    <MapPinned size={17} />
+                    <input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="Where exactly are you? (e.g. Ayeduase Gate, Adum, KNUST, etc.)" />
+                  </div>
+                </label>
+              </div>
+            </section>
 
             {/* TAB SPECIFIC FIELDS */}
             {activeTab === 'single' ? (
               <>
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
-                <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label id="field-receiverName">
-                    <span>Receiver's Name</span>
-                    <div className="rp-input-wrap">
-                      <User size={17} />
-                      <input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder="Jane Doe" />
-                    </div>
-                  </label>
-                  <label id="field-receiverNumber">
-                    <span>Receiver's Number</span>
-                    <div className="rp-input-wrap">
-                      <Phone size={17} />
-                      <input value={receiverNumber} onChange={e => setReceiverNumber(e.target.value)} placeholder="024XXXXXXX" />
-                    </div>
-                  </label>
-                  <label style={{ gridColumn: '1 / -1' }}>
-                    <span>Dropoff Region</span>
-                    <CustomSelect value={dropoffRegion} onChange={handleDropoffRegionChange} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
-                  </label>
-
-                  {/* Station Delivery disclaimer */}
-                  {dropoffRegion === 'Station Delivery' && (
-                    <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', border: '1.5px solid #93c5fd', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div>
-                        <div style={{ fontWeight: 800, color: '#1e40af', fontSize: '14px', marginBottom: '4px' }}>What is Station Delivery?</div>
-                        <div style={{ fontSize: '13px', color: '#1e3a8a', lineHeight: 1.55 }}>
-                          Station deliveries are <strong>destinations where we do not offer doorstep delivery</strong> — but you'd like us to send your package there anyway. We'll hand over your package to a transport vehicle or station heading to that location.
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: '#15803d', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                        <Bell size={15} color="#15803d" style={{ flexShrink: 0 }} />
-                        <span>Price will be set by the ops team; a notification will be sent to you via <strong>SMS</strong> and on the <strong>app</strong>.</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Regular dropoff location */}
-                  {dropoffRegion !== 'Station Delivery' && (
-                    <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
-                      <span>Dropoff Location</span>
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
+                  <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
+                    <label id="field-receiverName">
+                      <span>Receiver's Name</span>
                       <div className="rp-input-wrap">
-                        <MapPinned size={17} />
-                        <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
+                        <User size={17} />
+                        <input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder="Jane Doe" />
                       </div>
                     </label>
-                  )}
+                    <label id="field-receiverNumber">
+                      <span>Receiver's Number</span>
+                      <div className="rp-input-wrap">
+                        <Phone size={17} />
+                        <input value={receiverNumber} onChange={e => setReceiverNumber(e.target.value)} placeholder="024XXXXXXX" />
+                      </div>
+                    </label>
+                    <label style={{ gridColumn: '1 / -1' }}>
+                      <span>Dropoff Region</span>
+                      <CustomSelect value={dropoffRegion} onChange={handleDropoffRegionChange} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
+                    </label>
 
-                  {/* Station delivery fields */}
-                  {dropoffRegion === 'Station Delivery' && (
-                    <>
-                      <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
-                        <span>Receiver's Destination / Town</span>
-                        <div className="rp-input-wrap">
-                          <MapPinned size={17} />
-                          <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="e.g. Koforidua, Tema, Takoradi" />
+                    {/* Station Delivery disclaimer */}
+                    {dropoffRegion === 'Station Delivery' && (
+                      <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', border: '1.5px solid #93c5fd', borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, color: '#1e40af', fontSize: '14px', marginBottom: '4px' }}>What is Station Delivery?</div>
+                          <div style={{ fontSize: '13px', color: '#1e3a8a', lineHeight: 1.55 }}>
+                            Station deliveries are <strong>destinations where we do not offer doorstep delivery</strong> — but you'd like us to send your package there anyway. We'll hand over your package to a transport vehicle or station heading to that location.
+                          </div>
                         </div>
-                      </label>
-                      <label id="field-stationLocation" style={{ gridColumn: '1 / -1' }}>
-                        <span>Station / Handover Point</span>
-                        <div className="rp-input-wrap">
-                          <MapPinned size={17} />
-                          <input value={stationLocation} onChange={e => setStationLocation(e.target.value)} placeholder="e.g. Kejetia Station, STC Terminal, Neoplan Station" />
+                        <div style={{ fontSize: '12.5px', color: '#15803d', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <Bell size={15} color="#15803d" style={{ flexShrink: 0 }} />
+                          <span>Price will be set by the ops team; a notification will be sent to you via <strong>SMS</strong> and on the <strong>app</strong>.</span>
                         </div>
-                      </label>
-                    </>
-                  )}
-                </div>
-
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
-                <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label id="field-deliverySpeed">
-                    <span>Delivery Speed</span>
-                    <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
-                  </label>
-                  <label id="field-packageType">
-                    <span>Package Type</span>
-                    <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS} icon={<Package size={17} />} />
-                    {packageType !== 'fragile' && (
-                      <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
-                        Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
                       </div>
                     )}
-                  </label>
-                  <label id="field-packageSize">
-                    <span>Package Size</span>
-                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
-                  </label>
-                </div>
 
-                <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
-                  <label>
-                    <span>
-                      Product Fee
-                      <span style={{ display: 'block', color: '#6a7069', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'normal' }}>
-                        Do you want the rider to collect payment for the product from the buyer on your behalf? If yes, indicate the amount
+                    {/* Regular dropoff location */}
+                    {dropoffRegion !== 'Station Delivery' && (
+                      <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
+                        <span>Dropoff Location</span>
+                        <div className="rp-input-wrap">
+                          <MapPinned size={17} />
+                          <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="Where exactly should we deliver? (e.g. Specific area, landmark, street, hostel/house)" />
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Station delivery fields */}
+                    {dropoffRegion === 'Station Delivery' && (
+                      <>
+                        <label id="field-dropoffLocation" style={{ gridColumn: '1 / -1' }}>
+                          <span>Receiver's Destination / Town</span>
+                          <div className="rp-input-wrap">
+                            <MapPinned size={17} />
+                            <input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="e.g. Koforidua, Tema, Takoradi" />
+                          </div>
+                        </label>
+                        <label id="field-stationLocation" style={{ gridColumn: '1 / -1' }}>
+                          <span>Station / Handover Point</span>
+                          <div className="rp-input-wrap">
+                            <MapPinned size={17} />
+                            <input value={stationLocation} onChange={e => setStationLocation(e.target.value)} placeholder="e.g. Kejetia Station, STC Terminal, Neoplan Station" />
+                          </div>
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
+                  <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
+                    <label id="field-deliverySpeed">
+                      <span>Delivery Speed</span>
+                      <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
+                    </label>
+                    <label id="field-packageType">
+                      <span>Package Type</span>
+                      <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS} icon={<Package size={17} />} />
+                      {packageType !== 'fragile' && (
+                        <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                          Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                        </div>
+                      )}
+                    </label>
+                    <label id="field-packageSize">
+                      <span>Package Size</span>
+                      <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
+                    </label>
+                  </div>
+
+                  <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
+                    <label>
+                      <span>
+                        Product Fee
+                        <span style={{ display: 'block', color: '#6a7069', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'normal' }}>
+                          Do you want the rider to collect payment for the product from the buyer on your behalf? If yes, indicate the amount
+                        </span>
                       </span>
-                    </span>
-                    <div className="rp-input-wrap">
-                      <Banknote size={17} />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="e.g. 150.00 (Leave blank if none)"
-                        value={productFee}
-                        onChange={e => setProductFee(e.target.value)}
+                      <div className="rp-input-wrap">
+                        <Banknote size={17} />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="e.g. 150.00 (Leave blank if none)"
+                          value={productFee}
+                          onChange={e => setProductFee(e.target.value)}
+                        />
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
+                    <label>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ImagePlus size={15} /> Upload Package Image</span>
+                      <FileUpload
+                        label="Upload Package Image"
+                        previews={imagePreview ? [imagePreview] : []}
+                        onFilesSelected={(files) => {
+                          if (files[0]) {
+                            setImageFile(files[0]);
+                            setImagePreview(URL.createObjectURL(files[0]));
+                          }
+                        }}
+                        onRemove={() => {
+                          setImageFile(null);
+                          setImagePreview(null);
+                        }}
+                        icon={<ImagePlus size={18} />}
                       />
-                    </div>
-                  </label>
-                </div>
+                    </label>
+                  </div>
+                </section>
 
-                <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
-                  <label>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ImagePlus size={15} /> Upload Package Image</span>
-                    <FileUpload
-                      label="Upload Package Image"
-                      previews={imagePreview ? [imagePreview] : []}
-                      onFilesSelected={(files) => {
-                        if (files[0]) {
-                          setImageFile(files[0]);
-                          setImagePreview(URL.createObjectURL(files[0]));
-                        }
-                      }}
-                      onRemove={() => {
-                        setImageFile(null);
-                        setImagePreview(null);
-                      }}
-                      icon={<ImagePlus size={18} />}
-                    />
-                  </label>
-                </div>
-
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
-                <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
-                  <label>
-                    <textarea
-                      value={additionalInstructions}
-                      onChange={e => setAdditionalInstructions(e.target.value)}
-                      rows={3}
-                      placeholder="e.g. Call upon arrival"
-                      style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
-                    />
-                  </label>
-                </div>
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
+                  <div className="field-grid one-col" style={{ marginBottom: '16px' }}>
+                    <label>
+                      <textarea
+                        value={additionalInstructions}
+                        onChange={e => setAdditionalInstructions(e.target.value)}
+                        rows={3}
+                        placeholder="e.g. Call upon arrival"
+                        style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </label>
+                  </div>
+                </section>
               </>
             ) : (
               <>
                 {/* BULK DELIVERY DETAILS */}
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
-                <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
-                  <label id="field-bulkDeliverySpeed">
-                    <span>Delivery Speed</span>
-                    <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
-                  </label>
-                  <label id="field-bulkPackageType">
-                    <span>Package Type</span>
-                    <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS_BULK} icon={<Package size={17} />} />
-                    {packageType !== 'fragile' && (
-                      <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
-                        Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
-                      </div>
-                    )}
-                  </label>
-                  <label id="field-bulkPackageSize">
-                    <span>Package Size</span>
-                    <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
-                  </label>
-                  <label id="field-numberOfPackages">
-                    <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>
-                    <div className="rp-input-wrap">
-                      <Hash size={17} />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 5"
-                        value={numberOfPackages}
-                        onChange={handleNumPackagesChange}
-                      />
-                    </div>
-                  </label>
-                  <label>
-                    <span>
-                      Product Fee
-                      <span style={{ display: 'block', color: '#6a7069', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'normal' }}>
-                        Do you want the rider to collect payment for the product from the buyer? If yes, indicate the amount
-                      </span>
-                    </span>
-                    <div className="rp-input-wrap">
-                      <Banknote size={17} />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="e.g. 150.00 (Leave blank if none)"
-                        value={productFee}
-                        onChange={e => setProductFee(e.target.value)}
-                      />
-                    </div>
-                  </label>
-                </div>
-
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
-                {numberOfPackages === '' || numberOfPackages < 1 ? (
-                  <div style={{ padding: '16px', borderRadius: '8px', background: 'var(--danger-bg, #fef2f2)', border: '1px solid var(--danger, #ef4444)', color: 'var(--danger, #ef4444)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <AlertTriangle size={20} style={{ flexShrink: 0 }} />
-                    <span><strong>Action Required:</strong> Please enter the number of packages above to unlock receiver information.</span>
-                  </div>
-                ) : (
-                  <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                    <p style={{ color: '#586159', marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
-                      <strong>Choose between</strong> uploading images <strong>OR</strong> entering the details manually.
-                    </p>
-                    <div id="field-bulkReceiverMode" className="rp-tabs-row" style={{ marginBottom: '16px' }}>
-                      <button
-                        type="button"
-                        className="rp-tab-btn rp-tab-btn-sm"
-                        onClick={() => setBulkReceiverMode('upload')}
-                        style={{
-                          background: bulkReceiverMode === 'upload' ? 'var(--green)' : 'transparent',
-                          color: bulkReceiverMode === 'upload' ? '#fff' : 'var(--navy)',
-                          fontWeight: bulkReceiverMode === 'upload' ? 'bold' : '600',
-                        }}
-                      >
-                        <ImagePlus size={16} /> Upload Image(s)
-                      </button>
-                      <button
-                        type="button"
-                        className="rp-tab-btn rp-tab-btn-sm"
-                        onClick={() => setBulkReceiverMode('manual')}
-                        style={{
-                          background: bulkReceiverMode === 'manual' ? 'var(--green)' : 'transparent',
-                          color: bulkReceiverMode === 'manual' ? '#fff' : 'var(--navy)',
-                          fontWeight: bulkReceiverMode === 'manual' ? 'bold' : '600',
-                        }}
-                      >
-                        <PenLine size={16} /> Enter Manually
-                      </button>
-                    </div>
-
-
-                    {bulkReceiverMode === 'upload' && (
-                      <div id="field-bulkUpload" className="field-grid one-col" style={{ marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
-                        <p style={{ color: 'var(--green-dark)', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '12px' }}>
-                          Take clear pictures of packages with all relevant details visible.
-                        </p>
-                        <FileUpload
-                          label="Tap to Select Images"
-                          multiple
-                          previews={bulkImagePreviews}
-                          onFilesSelected={(files) => {
-                            const newUrls = files.map(file => URL.createObjectURL(file));
-                            setBulkImagePreviews(prev => [...prev, ...newUrls]);
-                          }}
-                          onRemove={(index) => setBulkImagePreviews(prev => prev.filter((_, i) => i !== index))}
-                          icon={<ImagePlus size={18} />}
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch size={22} /> Package Details</h2>
+                  <div className="field-grid two-col" style={{ marginBottom: '16px' }}>
+                    <label id="field-bulkDeliverySpeed">
+                      <span>Delivery Speed</span>
+                      <CustomSelect value={deliverySpeed} onChange={v => setDeliverySpeed(v)} options={SPEED_OPTIONS} icon={<Zap size={17} />} />
+                    </label>
+                    <label id="field-bulkPackageType">
+                      <span>Package Type</span>
+                      <CustomSelect value={packageType} onChange={v => setPackageType(v)} options={PACKAGE_TYPE_OPTIONS_BULK} icon={<Package size={17} />} />
+                      {packageType !== 'fragile' && (
+                        <div style={{ fontSize: '12px', color: '#991b1b', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontWeight: 500, lineHeight: 1.4 }}>
+                          Disclaimer: Please indicate if your package is fragile by selecting the "Fragile" option. Otherwise, you will not be eligible for a refund in case of damage.
+                        </div>
+                      )}
+                    </label>
+                    <label id="field-bulkPackageSize">
+                      <span>Package Size</span>
+                      <CustomSelect value={packageSize} onChange={setPackageSize} options={PACKAGE_SIZE_OPTIONS} icon={<Package size={17} />} />
+                    </label>
+                    <label id="field-numberOfPackages">
+                      <span>Number of Packages <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></span>
+                      <div className="rp-input-wrap">
+                        <Hash size={17} />
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 5"
+                          value={numberOfPackages}
+                          onChange={handleNumPackagesChange}
                         />
                       </div>
-                    )}
-                    
-                    {bulkReceiverMode === 'manual' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
-                        {bulkReceivers.map((rec, i) => (
-                          <div key={i} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: '#f8fafc' }}>
-                            <h4 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><UserCheck size={16} /> Receiver {i + 1}</h4>
-                            <div className="field-grid two-col">
-                              <label id={`field-bulk-${i}-name`}>
-                                <span>Name</span>
-                                <div className="rp-input-wrap">
-                                  <User size={17} />
-                                  <input value={rec.name} onChange={e => handleBulkReceiverChange(i, 'name', e.target.value)} placeholder="Jane Doe" />
-                                </div>
-                              </label>
-                              <label id={`field-bulk-${i}-number`}>
-                                <span>Number</span>
-                                <div className="rp-input-wrap">
-                                  <Phone size={17} />
-                                  <input value={rec.number} onChange={e => handleBulkReceiverChange(i, 'number', e.target.value)} placeholder="024XXXXXXX" />
-                                </div>
-                              </label>
-                              <label>
-                                <span>Region</span>
-                                <CustomSelect value={rec.region} onChange={v => handleBulkReceiverChange(i, 'region', v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
-                              </label>
-                              <label id={`field-bulk-${i}-location`}>
-                                <span>Dropoff Location</span>
-                                <div className="rp-input-wrap">
-                                  <MapPinned size={17} />
-                                  <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
-                                </div>
-                              </label>
-                              <label>
-                                <span>Delivery Location Type</span>
-                                <CustomSelect value={rec.deliveryType} onChange={v => handleBulkReceiverChange(i, 'deliveryType', v)} options={DELIVERY_TYPE_OPTIONS} icon={<MapPinned size={17} />} />
-                              </label>
-                              {rec.deliveryType === 'station' && (
-                                <>
-                                  <div style={{ gridColumn: '1 / -1', background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', padding: '10px 12px', borderRadius: '8px', fontSize: '12px' }}>
-                                    Station delivery is a handover to a station vehicle, not doorstep delivery.
-                                  </div>
-                                  <label id={`field-bulk-${i}-station`}>
-                                    <span>Station / handover point</span>
-                                    <div className="rp-input-wrap"><MapPinned size={17} /><input value={rec.stationLocation} onChange={e => handleBulkReceiverChange(i, 'stationLocation', e.target.value)} placeholder="Station name or terminal" /></div>
-                                  </label>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                    </label>
+                    <label>
+                      <span>
+                        Product Fee
+                        <span style={{ display: 'block', color: '#6a7069', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'normal' }}>
+                          Do you want the rider to collect payment for the product from the buyer? If yes, indicate the amount
+                        </span>
+                      </span>
+                      <div className="rp-input-wrap">
+                        <Banknote size={17} />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="e.g. 150.00 (Leave blank if none)"
+                          value={productFee}
+                          onChange={e => setProductFee(e.target.value)}
+                        />
                       </div>
-                    )}
+                    </label>
                   </div>
-                )}
+                </section>
 
-                <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
-                <div className="field-grid one-col" style={{ marginTop: '24px' }}>
-                  <label>
-                    <textarea
-                      value={additionalInstructions}
-                      onChange={e => setAdditionalInstructions(e.target.value)}
-                      rows={3}
-                      placeholder="e.g. Call upon arrival"
-                      style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
-                    />
-                  </label>
-                </div>
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><UserCheck size={22} /> Receiver Information</h2>
+                  {numberOfPackages === '' || numberOfPackages < 1 ? (
+                    <div style={{ padding: '16px', borderRadius: '8px', background: 'var(--danger-bg, #fef2f2)', border: '1px solid var(--danger, #ef4444)', color: 'var(--danger, #ef4444)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertTriangle size={20} style={{ flexShrink: 0 }} />
+                      <span><strong>Action Required:</strong> Please enter the number of packages above to unlock receiver information.</span>
+                    </div>
+                  ) : (
+                    <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                      <p style={{ color: '#586159', marginBottom: '16px', lineHeight: '1.5', fontSize: '0.95rem' }}>
+                        <strong>Choose between</strong> uploading images <strong>OR</strong> entering the details manually.
+                      </p>
+                      <div id="field-bulkReceiverMode" className="rp-tabs-row" style={{ marginBottom: '16px' }}>
+                        <button
+                          type="button"
+                          className="rp-tab-btn rp-tab-btn-sm"
+                          onClick={() => setBulkReceiverMode('upload')}
+                          style={{
+                            background: bulkReceiverMode === 'upload' ? 'var(--green)' : 'transparent',
+                            color: bulkReceiverMode === 'upload' ? '#fff' : 'var(--navy)',
+                            fontWeight: bulkReceiverMode === 'upload' ? 'bold' : '600',
+                          }}
+                        >
+                          <ImagePlus size={16} /> Upload Image(s)
+                        </button>
+                        <button
+                          type="button"
+                          className="rp-tab-btn rp-tab-btn-sm"
+                          onClick={() => setBulkReceiverMode('manual')}
+                          style={{
+                            background: bulkReceiverMode === 'manual' ? 'var(--green)' : 'transparent',
+                            color: bulkReceiverMode === 'manual' ? '#fff' : 'var(--navy)',
+                            fontWeight: bulkReceiverMode === 'manual' ? 'bold' : '600',
+                          }}
+                        >
+                          <PenLine size={16} /> Enter Manually
+                        </button>
+                      </div>
+
+
+                      {bulkReceiverMode === 'upload' && (
+                        <div id="field-bulkUpload" className="field-grid one-col" style={{ marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
+                          <p style={{ color: 'var(--green-dark)', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '12px' }}>
+                            Take clear pictures of packages with all relevant details visible.
+                          </p>
+                          <FileUpload
+                            label="Tap to Select Images"
+                            multiple
+                            previews={bulkImagePreviews}
+                            onFilesSelected={(files) => {
+                              const newUrls = files.map(file => URL.createObjectURL(file));
+                              setBulkImagePreviews(prev => [...prev, ...newUrls]);
+                              setBulkImageFiles(prev => [...prev, ...files]);
+                            }}
+                            onRemove={(index) => {
+                              setBulkImagePreviews(prev => prev.filter((_, i) => i !== index));
+                              setBulkImageFiles(prev => prev.filter((_, i) => i !== index));
+                            }}
+                            icon={<ImagePlus size={18} />}
+                          />
+                        </div>
+                      )}
+                    
+                      {bulkReceiverMode === 'manual' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px', animation: 'fadeIn 0.3s ease-out' }}>
+                          {bulkReceivers.map((rec, i) => (
+                            <div key={i} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: '#f8fafc' }}>
+                              <h4 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><UserCheck size={16} /> Receiver {i + 1}</h4>
+                              <div className="field-grid two-col">
+                                <label id={`field-bulk-${i}-name`}>
+                                  <span>Name</span>
+                                  <div className="rp-input-wrap">
+                                    <User size={17} />
+                                    <input value={rec.name} onChange={e => handleBulkReceiverChange(i, 'name', e.target.value)} placeholder="Jane Doe" />
+                                  </div>
+                                </label>
+                                <label id={`field-bulk-${i}-number`}>
+                                  <span>Number</span>
+                                  <div className="rp-input-wrap">
+                                    <Phone size={17} />
+                                    <input value={rec.number} onChange={e => handleBulkReceiverChange(i, 'number', e.target.value)} placeholder="024XXXXXXX" />
+                                  </div>
+                                </label>
+                                <label>
+                                  <span>Region</span>
+                                  <CustomSelect value={rec.region} onChange={v => handleBulkReceiverChange(i, 'region', v)} options={REGION_OPTIONS} icon={<MapPin size={17} />} />
+                                </label>
+                                <label id={`field-bulk-${i}-location`}>
+                                  <span>Dropoff Location</span>
+                                  <div className="rp-input-wrap">
+                                    <MapPinned size={17} />
+                                    <input value={rec.dropoffLocation} onChange={e => handleBulkReceiverChange(i, 'dropoffLocation', e.target.value)} placeholder="Specific landmark or street" />
+                                  </div>
+                                </label>
+                                <label>
+                                  <span>Delivery Location Type</span>
+                                  <CustomSelect value={rec.deliveryType} onChange={v => handleBulkReceiverChange(i, 'deliveryType', v)} options={DELIVERY_TYPE_OPTIONS} icon={<MapPinned size={17} />} />
+                                </label>
+                                {rec.deliveryType === 'station' && (
+                                  <>
+                                    <div style={{ gridColumn: '1 / -1', background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', padding: '10px 12px', borderRadius: '8px', fontSize: '12px' }}>
+                                      Station delivery is a handover to a station vehicle, not doorstep delivery.
+                                    </div>
+                                    <label id={`field-bulk-${i}-station`}>
+                                      <span>Station / handover point</span>
+                                      <div className="rp-input-wrap"><MapPinned size={17} /><input value={rec.stationLocation} onChange={e => handleBulkReceiverChange(i, 'stationLocation', e.target.value)} placeholder="Station name or terminal" /></div>
+                                    </label>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <section className="rp-section">
+                  <h2 className="form-section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><StickyNote size={22} /> Additional Instructions</h2>
+                  <div className="field-grid one-col" style={{ marginTop: '24px' }}>
+                    <label>
+                      <textarea
+                        value={additionalInstructions}
+                        onChange={e => setAdditionalInstructions(e.target.value)}
+                        rows={3}
+                        placeholder="e.g. Call upon arrival"
+                        style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </label>
+                  </div>
+                </section>
               </>
             )}
 
@@ -1077,7 +1102,6 @@ export default function RequestPickupPage() {
 
               <div className="summary-row"><span>Type</span><strong>{activeTab === 'single' ? 'Single Delivery' : 'Bulk Delivery'}</strong></div>
               <div className="summary-row"><span>Vehicle</span><strong>{pickupMode === 'motorbike' ? 'Motorbike' : 'Van'}</strong></div>
-              <div className="summary-row"><span>Priority</span><strong>{deliveryPriority}</strong></div>
               <div className="summary-row"><span>Speed</span><strong>{deliverySpeed}</strong></div>
 
               {isStationDelivery && (
@@ -1113,30 +1137,16 @@ export default function RequestPickupPage() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="summary-row" style={{ marginTop: '16px', borderTop: '1px dashed var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <span style={{ display: 'block', fontWeight: 600, color: 'var(--navy)' }}>Estimated Fee</span>
-                      <span style={{ fontSize: '11px', color: isFormComplete ? '#166534' : '#94a3b8', fontWeight: 600 }}>
-                        {isFormComplete ? 'Calculated Estimate' : 'Fill required details to estimate'}
-                      </span>
-                    </div>
-                    <strong style={{ fontSize: '1.3rem', color: isFormComplete ? 'var(--green-dark, #078c35)' : '#64748b' }}>
-                      GHS {estimatedCost.toFixed(2)}
+                /* Operations Review Notice */
+                <div style={{ marginTop: '18px', padding: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <Info size={18} color="#166534" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+                    <strong style={{ display: 'block', marginBottom: '2px', color: '#14532d', fontSize: '12.5px' }}>
+                      Pricing &amp; Operations Review
                     </strong>
+                    The delivery price is set by operations based on your order specifics. Please check your <span style={{ fontWeight: 700, textDecoration: 'underline' }}>notifications</span> for the confirmed price.
                   </div>
-
-                  {/* Operations Review Notice */}
-                  <div style={{ marginTop: '18px', padding: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                    <Info size={18} color="#166534" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
-                      <strong style={{ display: 'block', marginBottom: '2px', color: '#14532d', fontSize: '12.5px' }}>
-                        Estimate &amp; Operations Review
-                      </strong>
-                      The amount displayed is an initial estimate. The final price is subject to review and confirmation by operations based on order specifics. Please check your <span style={{ fontWeight: 700, textDecoration: 'underline' }}>notifications</span> for the accepted final price.
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
 
               <button className="primary-green wide-btn" onClick={handleCreateOrder} disabled={isSubmitting} style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
